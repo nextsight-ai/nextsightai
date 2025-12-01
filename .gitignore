@@ -64,3 +64,6 @@ secrets.yml
 # Local development
 .local/
 *.local
+
+# Claude
+.claude/

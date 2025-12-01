@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     # Kubernetes
     K8S_CONFIG_PATH: Optional[str] = None
     K8S_IN_CLUSTER: bool = False
+    K8S_HOST_OVERRIDE: Optional[str] = None  # Use 'host.docker.internal' for Docker Desktop
 
     # Jenkins
     JENKINS_URL: str = "http://localhost:8080"

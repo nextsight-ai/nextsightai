@@ -1,264 +1,231 @@
-# NexOps - DevOps Operations Center
+<div align="center">
 
-A comprehensive Kubernetes management dashboard built with FastAPI and React. Monitor, manage, and interact with your Kubernetes clusters through an intuitive web interface.
+# NexOps
+
+### DevOps Operations Center
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.109-009688.svg)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://reactjs.org/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-Ready-326CE5.svg)](https://kubernetes.io/)
+
+**A modern, comprehensive Kubernetes management dashboard for DevOps teams.**
+
+[Features](#features) • [Quick Start](#quick-start) • [Documentation](#documentation) • [Contributing](#contributing)
+
+---
+
+</div>
+
+## Overview
+
+NexOps is a powerful DevOps Operations Center that provides real-time visibility and control over your Kubernetes clusters. Built with FastAPI and React, it offers an intuitive web interface for monitoring, managing, and troubleshooting your containerized applications.
 
 ## Features
 
-### Kubernetes Management
-- **Dashboard**: Real-time cluster health overview with pod, node, and namespace statistics
-- **Workloads**: View and manage Pods, Deployments, StatefulSets, DaemonSets, Jobs, and CronJobs
-- **Resources**: Browse ConfigMaps, Secrets, PVCs, Services, Ingresses, and HPAs
-- **Nodes**: Detailed node information including conditions, capacity, and resource usage
-- **Metrics**: Cluster-wide CPU and memory metrics (requires metrics-server)
+### Dashboard & Monitoring
+- **Real-time Cluster Health** - Live overview of pods, nodes, and namespace statistics
+- **Resource Metrics** - CPU and memory utilization across nodes and pods
+- **Event Timeline** - Track cluster events and anomalies
 
-### Interactive Features
-- **Pod Logs**: Real-time log viewer with container selection and filtering
-- **Pod Exec**: Execute commands inside running containers
-- **YAML Deploy**: Apply Kubernetes manifests with dry-run validation
-- **Kubectl Terminal**: Execute kubectl commands directly from the browser
-- **Shell Terminal**: Full shell access for advanced operations
+### Workload Management
+- **Pods** - View status, logs, and execute commands
+- **Deployments** - Scale, restart, and rollback with one click
+- **StatefulSets & DaemonSets** - Manage stateful and node-level workloads
+- **Jobs & CronJobs** - Monitor batch processing
 
-## Prerequisites
+### Configuration & Storage
+- **ConfigMaps & Secrets** - Secure configuration management
+- **Persistent Volumes** - Storage provisioning and claims
+- **Services & Ingresses** - Network routing and load balancing
+- **HPAs** - Autoscaling policies
 
-- Python 3.10+
-- Node.js 18+
-- Access to a Kubernetes cluster (local or remote)
-- kubectl configured with cluster access
+### Interactive Terminals
+- **kubectl Terminal** - Execute kubectl commands directly in the browser
+- **Shell Terminal** - Full bash access with kubectl and helm pre-installed
+- **Pod Exec** - Run commands inside containers
+- **Log Viewer** - Real-time streaming with filters
+
+### DevOps Features
+- **YAML Deploy** - Apply manifests with dry-run validation
+- **AI Analysis** - Intelligent incident insights (Gemini/Claude)
+- **GitFlow Integration** - Branch and release management
 
 ## Quick Start
 
-### 1. Clone the Repository
+### Using Docker Compose (Recommended)
 
 ```bash
-git clone <repository-url>
+# Clone the repository
+git clone https://github.com/gauravtayade11/nexops.git
 cd NexOps
+
+# Start the application
+make dev
+# or
+docker-compose up -d
+
+# View logs
+make logs
 ```
 
-### 2. Backend Setup
+Access at **http://localhost:3000**
+
+### Using Makefile
 
 ```bash
-cd backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your settings
+make help          # Show all available commands
+make dev           # Start development environment
+make build         # Build Docker images
+make logs          # View container logs
+make down          # Stop containers
 ```
 
-### 3. Frontend Setup
+## Documentation
 
-```bash
-cd frontend
+### Prerequisites
 
-# Install dependencies
-npm install
-```
+| Requirement | Version |
+|-------------|---------|
+| Docker | 20.10+ |
+| Docker Compose | 2.0+ |
+| kubectl | 1.25+ |
+| Kubernetes Cluster | 1.24+ |
 
-### 4. Start the Application
+### Configuration
 
-**Terminal 1 - Backend:**
-```bash
-cd backend
-source venv/bin/activate
-uvicorn app.main:app --reload --port 8000
-```
-
-**Terminal 2 - Frontend:**
-```bash
-cd frontend
-npm run dev
-```
-
-Access the application at `http://localhost:3000`
-
-## Configuration
-
-### Environment Variables (backend/.env)
+Create a `.env` file in the backend directory:
 
 ```env
 # Application
 APP_NAME=NexOps Center
-APP_VERSION=1.0.0
 DEBUG=false
-API_PREFIX=/api/v1
 
-# Kubernetes
-K8S_CONFIG_PATH=~/.kube/config    # Path to kubeconfig file
-K8S_IN_CLUSTER=false              # Set to true when running inside K8s
+# Kubernetes (for local development)
+K8S_CONFIG_PATH=~/.kube/config
+K8S_IN_CLUSTER=false
 
-# AI Provider (optional - for incident analysis)
+# AI Provider (optional)
 AI_PROVIDER=gemini
 GEMINI_API_KEY=your-api-key
 ```
 
-### Kubernetes Access
-
-**Local Development:**
-- Ensure kubectl is installed and configured
-- Set `K8S_CONFIG_PATH` to your kubeconfig location
-
-**Running in Kubernetes:**
-- Set `K8S_IN_CLUSTER=true`
-- Configure appropriate RBAC permissions for the service account
-
-## Docker Compose (Recommended)
-
-The easiest way to run NexOps:
-
-```bash
-# Build and start
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop
-docker-compose down
-```
-
-Access at `http://localhost:3000`
-
-## Project Structure
+### Project Structure
 
 ```
 NexOps/
-├── backend/
+├── backend/                 # FastAPI Backend
 │   ├── app/
-│   │   ├── api/routes/      # API endpoints
-│   │   ├── core/            # Configuration
-│   │   ├── schemas/         # Pydantic models
-│   │   └── services/        # Business logic
+│   │   ├── api/routes/     # REST API endpoints
+│   │   ├── core/           # Configuration & settings
+│   │   ├── schemas/        # Pydantic models
+│   │   └── services/       # Business logic
 │   ├── Dockerfile
-│   ├── requirements.txt
-│   └── .env.example
-├── frontend/
+│   ├── entrypoint.sh
+│   └── requirements.txt
+├── frontend/               # React Frontend
 │   ├── src/
-│   │   ├── components/      # React components
-│   │   ├── services/        # API client
-│   │   └── types/           # TypeScript types
+│   │   ├── components/     # React components
+│   │   ├── services/       # API client
+│   │   └── types/          # TypeScript types
 │   ├── Dockerfile
-│   ├── nginx.conf
-│   ├── package.json
-│   └── vite.config.ts
-├── k8s/                     # Kubernetes manifests
+│   └── nginx.conf
+├── k8s/                    # Kubernetes Manifests
 │   ├── namespace.yaml
 │   ├── rbac.yaml
 │   ├── deployment.yaml
 │   ├── service.yaml
 │   └── ingress.yaml
 ├── docker-compose.yml
+├── Makefile
 └── README.md
 ```
 
-## API Endpoints
+### API Reference
 
-### Kubernetes Resources
+#### Cluster Resources
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/v1/kubernetes/health` | GET | Cluster health status |
-| `/api/v1/kubernetes/namespaces` | GET | List namespaces |
-| `/api/v1/kubernetes/pods` | GET | List pods |
+| `/api/v1/kubernetes/namespaces` | GET | List all namespaces |
+| `/api/v1/kubernetes/pods` | GET | List all pods |
 | `/api/v1/kubernetes/deployments` | GET | List deployments |
 | `/api/v1/kubernetes/services` | GET | List services |
-| `/api/v1/kubernetes/nodes` | GET | List nodes |
+| `/api/v1/kubernetes/nodes` | GET | List nodes with details |
 | `/api/v1/kubernetes/metrics` | GET | Cluster metrics |
 
-### Operations
+#### Operations
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/v1/kubernetes/scale` | POST | Scale deployment |
-| `/api/v1/kubernetes/restart` | POST | Restart deployment |
+| `/api/v1/kubernetes/scale` | POST | Scale deployment replicas |
+| `/api/v1/kubernetes/restart` | POST | Rolling restart deployment |
 | `/api/v1/kubernetes/apply` | POST | Apply YAML manifest |
 | `/api/v1/kubernetes/kubectl` | POST | Execute kubectl command |
 | `/api/v1/kubernetes/shell` | POST | Execute shell command |
 
-### Pod Operations
+#### Pod Operations
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/v1/kubernetes/pods/{ns}/{pod}/logs` | GET | Get pod logs |
-| `/api/v1/kubernetes/pods/{ns}/{pod}/exec` | POST | Execute command in pod |
+| `/api/v1/kubernetes/pods/{ns}/{pod}/logs` | GET | Stream pod logs |
+| `/api/v1/kubernetes/pods/{ns}/{pod}/exec` | POST | Execute in container |
 
-## Deployment to Kubernetes
-
-### 1. Build Docker Images
+### Kubernetes Deployment
 
 ```bash
-# Backend
-docker build -t nexops-backend:1.0.0 ./backend
+# Build images
+make build-prod
 
-# Frontend
-docker build -t nexops-frontend:1.0.0 ./frontend
+# Deploy to cluster
+make k8s-deploy
 
-# Push to your registry (optional)
-docker tag nexops-backend:1.0.0 your-registry/nexops-backend:1.0.0
-docker push your-registry/nexops-backend:1.0.0
-```
+# Check status
+make k8s-status
 
-### 2. Deploy to Kubernetes
-
-Apply the manifests in order:
-
-```bash
-# Create namespace
-kubectl apply -f k8s/namespace.yaml
-
-# Setup RBAC (required for cluster access)
-kubectl apply -f k8s/rbac.yaml
-
-# Deploy services
-kubectl apply -f k8s/service.yaml
-
-# Deploy applications
-kubectl apply -f k8s/deployment.yaml
-
-# Optional: Create ingress
-kubectl apply -f k8s/ingress.yaml
-```
-
-Or apply all at once:
-
-```bash
-kubectl apply -f k8s/
-```
-
-### 3. Access the Application
-
-**Port Forward (for testing):**
-```bash
+# Port forward for access
 kubectl port-forward -n nexops svc/nexops-frontend 3000:80
 ```
 
-**Via Ingress:**
-- Update `k8s/ingress.yaml` with your domain
-- Access via configured hostname
+## Security
 
-## Security Considerations
-
-- The shell terminal blocks dangerous commands (rm -rf /, sudo, etc.)
-- kubectl terminal blocks destructive operations (delete --all, drain, etc.)
-- Secrets are displayed as key names only, not values
-- Configure appropriate RBAC when deploying to Kubernetes
+- **Shell Protection** - Dangerous commands are blocked (rm -rf /, sudo, etc.)
+- **kubectl Guard** - Destructive operations require confirmation
+- **Secret Masking** - Only key names displayed, not values
+- **RBAC Ready** - Granular Kubernetes permissions
 
 ## Tech Stack
 
-- **Backend**: FastAPI, Python 3.10+, kubernetes-client
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS
-- **Icons**: Heroicons
-
-## License
-
-MIT License
+| Layer | Technology |
+|-------|------------|
+| Backend | FastAPI, Python 3.11, kubernetes-client |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
+| Container | Docker, nginx |
+| Orchestration | Kubernetes, Helm |
+| CLI Tools | kubectl, helm |
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+```bash
+# Development setup
+git clone https://github.com/gauravtayade11/nexops.git
+cd NexOps
+make dev
+```
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+<div align="center">
+
+**Built with passion for DevOps teams**
+
+[Report Bug](../../issues) • [Request Feature](../../issues)
+
+</div>

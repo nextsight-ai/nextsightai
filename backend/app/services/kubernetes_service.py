@@ -45,6 +45,19 @@ class KubernetesService:
             else:
                 config.load_kube_config()
 
+            # Override host for Docker Desktop compatibility
+            if settings.K8S_HOST_OVERRIDE:
+                configuration = client.Configuration.get_default_copy()
+                if configuration.host:
+                    # Replace localhost/127.0.0.1 with override host
+                    configuration.host = configuration.host.replace(
+                        '127.0.0.1', settings.K8S_HOST_OVERRIDE
+                    ).replace(
+                        'localhost', settings.K8S_HOST_OVERRIDE
+                    )
+                    client.Configuration.set_default(configuration)
+                    logger.info(f"K8s host overridden to: {configuration.host}")
+
             self._api_client = client.ApiClient()
             self._core_v1 = client.CoreV1Api(self._api_client)
             self._apps_v1 = client.AppsV1Api(self._api_client)

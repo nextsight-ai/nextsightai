@@ -34,8 +34,6 @@ type CategoryType = 'workloads' | 'networking' | 'config' | 'storage' | 'scaling
 type WorkloadTab = 'deployments' | 'pods' | 'statefulsets' | 'daemonsets' | 'jobs' | 'cronjobs';
 type NetworkTab = 'services' | 'ingresses';
 type ConfigTab = 'configmaps' | 'secrets';
-type StorageTab = 'pvcs';
-type ScalingTab = 'hpas';
 
 const categories: { id: CategoryType; label: string; icon: typeof CubeIcon }[] = [
   { id: 'workloads', label: 'Workloads', icon: CubeIcon },
