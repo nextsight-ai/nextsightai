@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2024-12-01
+
+### Added
+- **WebSocket Real-Time Log Streaming**
+  - Live pod log streaming via WebSocket connections
+  - New `useWebSocketLogs` React hook for frontend integration
+  - WebSocket connection manager for handling multiple concurrent streams
+  - Real-time mode toggle in Pod Logs Viewer
+  - Live connection status indicator (Connected/Connecting/Disconnected)
+  - Auto-scroll to latest logs in streaming mode
+  - Clear logs functionality during streaming
+  - Heartbeat/ping-pong support for connection health
+
+### Changed
+- Enhanced PodLogsViewer component with streaming mode
+- Updated Vite proxy configuration to support WebSocket connections
+
+### Technical
+- Backend: New `/api/v1/ws/pods/{namespace}/{pod_name}/logs` WebSocket endpoint
+- Backend: WebSocketManager class for connection lifecycle management
+- Backend: Async log streaming with Kubernetes client
+- Frontend: Custom React hook with auto-reconnect capability
+- Frontend: Proper WebSocket URL construction based on current host
+
 ## [1.0.0] - 2024-12-01
 
 ### Added
@@ -57,6 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.1.0 | 2024-12-01 | WebSocket Real-Time Log Streaming |
 | 1.0.0 | 2024-12-01 | Initial Release |
 
 ---
