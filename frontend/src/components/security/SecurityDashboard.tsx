@@ -403,7 +403,7 @@ export default function SecurityDashboard() {
       <ol className="my-3 space-y-2 text-slate-700 dark:text-slate-300 list-none counter-reset-item">{children}</ol>
     ),
     // List items with custom styling
-    li: ({ children, ordered }: any) => (
+    li: ({ children }: any) => (
       <li className="flex items-start gap-2 text-slate-700 dark:text-slate-300">
         <span className="flex-shrink-0 w-1.5 h-1.5 mt-2 rounded-full bg-gradient-to-r from-violet-500 to-cyan-500"></span>
         <span>{children}</span>

@@ -110,7 +110,7 @@ jobs:
           fail-on-severity: high
           deny-licenses: GPL-3.0, AGPL-3.0
 
-  # Secret Scanning Check
+  # Secret Scanning Check (using Gitleaks - MIT licensed)
   secrets-scan:
     name: Secret Detection
     runs-on: ubuntu-latest
@@ -121,10 +121,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: TruffleHog Secret Scan
-        uses: trufflesecurity/trufflehog@main
-        with:
-          extra_args: --only-verified
+      - name: Gitleaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
   # OSSF Scorecard
