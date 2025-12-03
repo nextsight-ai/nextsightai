@@ -198,7 +198,7 @@ class AuthService:
 
         self._users[user_id] = user_data
 
-        logger.info(f"Created user: {user_create.username} with role {user_create.role}")
+        logger.info("Created user: %s with role %s", user_create.username, user_create.role)
 
         return UserInfo(
             id=user_data["id"],

@@ -118,7 +118,7 @@ class ClusterService:
             return self._clients[cluster_id]
 
         except Exception as e:
-            logger.error(f"Failed to create client for cluster {cluster_id}: {e}")
+            logger.error("Failed to create client for cluster %s: %s", cluster_id, e)
             raise
 
     async def list_clusters(self) -> List[ClusterInfo]:
@@ -200,7 +200,7 @@ class ClusterService:
                 namespace_count=len(namespaces.items),
             )
         except Exception as e:
-            logger.error(f"Failed to get cluster {cluster_id}: {e}")
+            logger.error("Failed to get cluster %s: %s", cluster_id, e)
             return ClusterInfo(
                 id=cluster_id,
                 name=cluster_config.name,
