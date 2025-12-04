@@ -7,6 +7,174 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2025-12-04
+
+### Added
+- **Interactive Pod Exec Terminal** - Full PTY-based terminal sessions
+  - xterm.js integration with resize support
+  - WebSocket-based real-time communication
+  - Input validation for security (RFC 1123 names)
+- **Debug Containers** - Debug distroless/minimal containers
+  - Ephemeral container support via kubectl debug
+  - Multiple debug images (busybox, alpine, netshoot, ubuntu)
+  - Target container process namespace sharing
+- **Toast Notifications** - Visual feedback for user actions
+  - Success/error/warning/info toast types
+  - Auto-dismiss with configurable duration
+  - Integrated with Scale, Restart, and Delete actions
+- **Quick Status Filters** - Filter resources by status
+  - Deployments: All / Healthy / Degraded
+  - Pods: All / Running / Pending / Failed
+- **Column Sorting** - Click-to-sort table headers
+  - Sortable columns: Name, Namespace, Status, Age, Node, Restarts
+  - Visual sort direction indicators
+- **View YAML Modal** - Inspect resource YAML definitions
+  - Fetches live YAML from cluster via kubectl
+  - Copy-to-clipboard functionality
+  - Available for Deployments and Pods
+- **Security Posture Dashboard** - Comprehensive security monitoring and analysis
+  - **Security Score & Grade** - Overall cluster security assessment with letter grade (A-F)
+  - **Security Findings** - Real-time detection of misconfigurations and vulnerabilities
+    - Privileged containers detection
+    - Root user containers
+    - Host path mounts
+    - Missing security contexts
+    - Sensitive volume mounts
+  - **RBAC Analysis** - Role-based access control security assessment
+    - Service account risk analysis
+    - Role binding security checks
+    - Cluster-admin binding detection
+    - Wildcard permission identification
+  - **Network Policy Coverage** - Network security posture analysis
+    - Namespace protection status
+    - Pod coverage percentage
+    - Unprotected namespace identification
+  - **Image Vulnerability Scanning** - Container image security analysis
+    - CVE detection with severity levels
+    - CVSS scores and fix versions
+    - Vulnerability trends over time
+  - **AI-Powered Remediation** - Google Gemini integration for intelligent security advice
+    - Detailed risk assessments
+    - Step-by-step remediation commands
+    - YAML configuration examples
+    - Best practices and prevention tips
+    - Modern AI-themed UI with gradient styling
+
+### Improved
+- **Modern Glass-morphism UI** - Enhanced visual design
+  - Gradient backgrounds and blur effects
+  - Smooth animations with Framer Motion
+  - Consistent dark mode support
+- **Modal UX Enhancement** - AI responses now appear inline within detail modals
+  - Single modal experience instead of separate popup
+  - Seamless loading states with animated gradients
+  - Collapsible AI analysis section
+- **Modern AI Styling** - Beautiful gradient-based UI for AI features
+  - Violet/Cyan gradient theme
+  - Syntax-highlighted code blocks with copy functionality
+  - Responsive markdown rendering
+
+### Security
+- **CodeQL Fixes** - Resolved security scanning issues
+  - Input validation for Kubernetes resource names (RFC 1123)
+  - Allowlist validation for shells and debug images
+  - Log injection prevention with input sanitization
+  - Secure logging with parameterized format strings
+
+### CI/CD
+- Removed redundant Trivy filesystem scan (Docker scan is sufficient)
+- Updated documentation with CI/CD security scanning info
+
+## [1.2.0] - 2024-12-02
+
+### Added
+- **Dark Mode** - Complete dark theme support across all components
+  - System preference detection via `prefers-color-scheme`
+  - Manual toggle in header
+  - Persistent preference storage in localStorage
+  - ThemeContext for global theme state management
+- **Terminal State Persistence** - Terminal history preserved across navigation
+  - Command history maintained in React Context (TerminalContext)
+  - Mode (kubectl/shell) and working directory remembered
+  - Output history preserved when switching views
+  - No more losing terminal state when navigating away
+- **Pod Events in Log Viewer** - View Kubernetes events for non-running pods
+  - Helpful for debugging Pending/Failed pods
+  - Events displayed with timestamps and repeat counts
+  - New API endpoint: `GET /api/v1/kubernetes/pods/{namespace}/{pod}/events`
+- **Multi-Cluster Support** - Manage multiple Kubernetes clusters from a single dashboard
+  - Cluster switcher in the header for quick context switching
+  - Cluster-specific context management
+  - Unified view across clusters
+  - **Cluster Management UI** - Full CRUD operations for cluster configurations
+    - View all configured clusters with real-time status (connected/disconnected/error)
+    - Add new clusters from kubeconfig contexts
+    - Delete clusters with safety checks (admin only)
+    - Display cluster metrics (version, nodes, namespaces)
+    - List available kubeconfig contexts
+    - Admin-only cluster operations with RBAC protection
+- **RBAC Integration** - Role-based access control for user permissions
+  - JWT-based authentication with login/logout
+  - 4 user roles: Admin, Developer, Operator, Viewer
+  - Role-based permissions mapping for all operations
+  - Protected routes and API endpoints
+  - User management UI (admin only)
+  - Password hashing with pbkdf2_sha256
+  - Default test users for each role
+- **Helm Chart Deployment UI** - Deploy and manage Helm charts visually
+  - List all Helm releases across namespaces
+  - View release details, history, and values
+  - Install charts from repositories
+  - Upgrade releases with custom values
+  - Rollback to previous revisions
+  - Uninstall releases
+  - Repository management
+  - Chart search and version selection
+- **Cost Analysis Dashboard** - Monitor and optimize cluster costs
+  - Resource cost estimation per namespace and pod
+  - Cost breakdown by CPU and memory usage
+  - 30-day cost trend visualization
+  - Cost optimization recommendations
+  - Resource efficiency metrics
+  - Top cost consumers identification
+  - Estimated monthly/annual projections
+
+### Improved
+- **Pod Log Viewer** - Graceful handling of non-running pods
+  - Informative status messages based on pod state (Pending, Failed, Unknown)
+  - "Try Fetching Logs Anyway" option for edge cases
+  - Status badge in header shows current pod state
+- **Dark Mode UI** - All Kubernetes views fully themed
+  - Resources view with dark tables and cards
+  - Nodes view
+  - Cluster Metrics
+  - YAML Deploy with dark editor
+  - Terminal with dark theme
+
+## [1.1.0] - 2024-12-01
+
+### Added
+- **WebSocket Real-Time Log Streaming**
+  - Live pod log streaming via WebSocket connections
+  - New `useWebSocketLogs` React hook for frontend integration
+  - WebSocket connection manager for handling multiple concurrent streams
+  - Real-time mode toggle in Pod Logs Viewer
+  - Live connection status indicator (Connected/Connecting/Disconnected)
+  - Auto-scroll to latest logs in streaming mode
+  - Clear logs functionality during streaming
+  - Heartbeat/ping-pong support for connection health
+
+### Changed
+- Enhanced PodLogsViewer component with streaming mode
+- Updated Vite proxy configuration to support WebSocket connections
+
+### Technical
+- Backend: New `/api/v1/ws/pods/{namespace}/{pod_name}/logs` WebSocket endpoint
+- Backend: WebSocketManager class for connection lifecycle management
+- Backend: Async log streaming with Kubernetes client
+- Frontend: Custom React hook with auto-reconnect capability
+- Frontend: Proper WebSocket URL construction based on current host
+
 ## [1.0.0] - 2024-12-01
 
 ### Added
@@ -57,6 +225,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.3.0 | 2025-12-04 | Pod Exec Terminal, Debug Containers, Security Dashboard, Glass-morphism UI |
+| 1.2.0 | 2024-12-02 | Dark Mode, Terminal Persistence, Multi-Cluster, RBAC, Helm UI, Cost Dashboard |
+| 1.1.0 | 2024-12-01 | WebSocket Real-Time Log Streaming |
 | 1.0.0 | 2024-12-01 | Initial Release |
 
 ---

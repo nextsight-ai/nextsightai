@@ -1,22 +1,42 @@
-from fastapi import APIRouter, HTTPException, Query
-from typing import Optional, List
+from typing import List, Optional
 
-from app.services.kubernetes_service import kubernetes_service
-from app.services.k8s_deployment_service import k8s_deployment_service
+from fastapi import APIRouter, HTTPException, Query
+
+from app.schemas.gitflow import DeploymentRequest, DeploymentStatus, Environment, RollbackRequest
 from app.schemas.kubernetes import (
-    NamespaceInfo, PodInfo, DeploymentInfo, ServiceInfo,
-    K8sEvent, ScaleRequest, RestartRequest, K8sClusterHealth,
-    NodeInfo, PodMetrics, NodeMetrics, ClusterMetrics,
-    PodLogResponse, PodExecRequest, PodExecResponse,
-    IngressInfo, ConfigMapInfo, SecretInfo, PVCInfo,
-    StatefulSetInfo, DaemonSetInfo, JobInfo, CronJobInfo, HPAInfo,
-    YAMLApplyRequest, YAMLApplyResponse,
-    KubectlRequest, KubectlResponse,
-    ShellRequest, ShellResponse
+    ClusterMetrics,
+    ConfigMapInfo,
+    CronJobInfo,
+    DaemonSetInfo,
+    DeploymentInfo,
+    HPAInfo,
+    IngressInfo,
+    JobInfo,
+    K8sClusterHealth,
+    K8sEvent,
+    KubectlRequest,
+    KubectlResponse,
+    NamespaceInfo,
+    NodeInfo,
+    NodeMetrics,
+    PodExecRequest,
+    PodExecResponse,
+    PodInfo,
+    PodLogResponse,
+    PodMetrics,
+    PVCInfo,
+    RestartRequest,
+    ScaleRequest,
+    SecretInfo,
+    ServiceInfo,
+    ShellRequest,
+    ShellResponse,
+    StatefulSetInfo,
+    YAMLApplyRequest,
+    YAMLApplyResponse,
 )
-from app.schemas.gitflow import (
-    DeploymentRequest, DeploymentStatus, RollbackRequest, Environment
-)
+from app.services.k8s_deployment_service import k8s_deployment_service
+from app.services.kubernetes_service import kubernetes_service
 
 router = APIRouter()
 
@@ -67,13 +87,19 @@ async def list_services(namespace: Optional[str] = Query(None)):
 
 
 @router.get("/events", response_model=List[K8sEvent])
-async def list_events(
-    namespace: Optional[str] = Query(None),
-    limit: int = Query(100, ge=1, le=500)
-):
+async def list_events(namespace: Optional[str] = Query(None), limit: int = Query(100, ge=1, le=500)):
     """List Kubernetes events."""
     try:
         return await kubernetes_service.get_events(namespace, limit)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/pods/{namespace}/{pod_name}/events", response_model=List[K8sEvent])
+async def get_pod_events(namespace: str, pod_name: str):
+    """Get events for a specific pod."""
+    try:
+        return await kubernetes_service.get_pod_events(namespace, pod_name)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -83,9 +109,7 @@ async def scale_deployment(request: ScaleRequest):
     """Scale a deployment to the specified number of replicas."""
     try:
         return await kubernetes_service.scale_deployment(
-            namespace=request.namespace,
-            deployment_name=request.deployment_name,
-            replicas=request.replicas
+            namespace=request.namespace, deployment_name=request.deployment_name, replicas=request.replicas
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -96,8 +120,7 @@ async def restart_deployment(request: RestartRequest):
     """Restart a deployment by updating its pod template."""
     try:
         return await kubernetes_service.restart_deployment(
-            namespace=request.namespace,
-            deployment_name=request.deployment_name
+            namespace=request.namespace, deployment_name=request.deployment_name
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -116,7 +139,7 @@ async def deploy_release(request: DeploymentRequest):
             image_registry="",
             dry_run=request.dry_run,
             wait_for_ready=request.wait_for_ready,
-            timeout_seconds=request.timeout_seconds
+            timeout_seconds=request.timeout_seconds,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -127,9 +150,7 @@ async def rollback_deployment(request: RollbackRequest):
     """Rollback a deployment to a previous version."""
     try:
         return await k8s_deployment_service.rollback(
-            deployment_id=request.deployment_id,
-            target_version=request.target_version,
-            reason=request.reason
+            deployment_id=request.deployment_id, target_version=request.target_version, reason=request.reason
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -145,10 +166,7 @@ async def get_deployment_status(deployment_id: str):
 
 
 @router.get("/namespaces/{namespace}/history", response_model=List[DeploymentStatus])
-async def get_namespace_deployment_history(
-    namespace: str,
-    limit: int = Query(20, ge=1, le=100)
-):
+async def get_namespace_deployment_history(namespace: str, limit: int = Query(20, ge=1, le=100)):
     """Get deployment history for a namespace."""
     return await k8s_deployment_service.get_deployment_history(namespace, limit)
 
@@ -225,10 +243,11 @@ async def get_pod_logs(
     tail_lines: int = Query(100, ge=1, le=5000),
     since_seconds: Optional[int] = Query(None, ge=1),
     timestamps: bool = Query(False),
-    previous: bool = Query(False)
+    previous: bool = Query(False),
 ):
     """Get logs from a pod container."""
     from kubernetes.client.rest import ApiException
+
     try:
         return await kubernetes_service.get_pod_logs(
             namespace=namespace,
@@ -237,7 +256,7 @@ async def get_pod_logs(
             tail_lines=tail_lines,
             since_seconds=since_seconds,
             timestamps=timestamps,
-            previous=previous
+            previous=previous,
         )
     except ApiException as e:
         if e.status == 404:
@@ -249,18 +268,11 @@ async def get_pod_logs(
 
 # Exec endpoint
 @router.post("/pods/{namespace}/{pod_name}/exec", response_model=PodExecResponse)
-async def exec_pod_command(
-    namespace: str,
-    pod_name: str,
-    request: PodExecRequest
-):
+async def exec_pod_command(namespace: str, pod_name: str, request: PodExecRequest):
     """Execute a command in a pod container."""
     try:
         return await kubernetes_service.exec_command(
-            namespace=namespace,
-            pod_name=pod_name,
-            command=request.command,
-            container=request.container
+            namespace=namespace, pod_name=pod_name, command=request.command, container=request.container
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -362,9 +374,7 @@ async def apply_yaml(request: YAMLApplyRequest):
     """Apply YAML manifest(s) to the cluster."""
     try:
         return await kubernetes_service.apply_yaml(
-            yaml_content=request.yaml_content,
-            namespace=request.namespace,
-            dry_run=request.dry_run
+            yaml_content=request.yaml_content, namespace=request.namespace, dry_run=request.dry_run
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -375,10 +385,7 @@ async def apply_yaml(request: YAMLApplyRequest):
 async def execute_kubectl(request: KubectlRequest):
     """Execute a kubectl command against the cluster."""
     try:
-        return await kubernetes_service.execute_kubectl(
-            command=request.command,
-            timeout=request.timeout
-        )
+        return await kubernetes_service.execute_kubectl(command=request.command, timeout=request.timeout)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -389,9 +396,37 @@ async def execute_shell(request: ShellRequest):
     """Execute a shell command on the backend server."""
     try:
         return await kubernetes_service.execute_shell(
-            command=request.command,
-            timeout=request.timeout,
-            working_directory=request.working_directory
+            command=request.command, timeout=request.timeout, working_directory=request.working_directory
         )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Deployment rollback endpoints
+@router.get("/deployments/{namespace}/{deployment_name}/revisions")
+async def get_deployment_revisions(namespace: str, deployment_name: str):
+    """Get rollout history/revisions of a deployment."""
+    try:
+        return await kubernetes_service.get_deployment_revisions(namespace, deployment_name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/deployments/{namespace}/{deployment_name}/rollback")
+async def rollback_deployment_to_revision(
+    namespace: str,
+    deployment_name: str,
+    revision: int = Query(..., ge=0, description="Target revision number to rollback to"),
+):
+    """Rollback a deployment to a specific revision."""
+    try:
+        result = await kubernetes_service.rollback_deployment_to_revision(
+            namespace=namespace, deployment_name=deployment_name, revision=revision
+        )
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result.get("error", "Rollback failed"))
+        return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

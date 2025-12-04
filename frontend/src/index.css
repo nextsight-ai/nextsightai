@@ -2,18 +2,65 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide scrollbars globally while keeping scroll functionality */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Optional: Show thin scrollbars on hover for better UX */
+.show-scrollbar-on-hover:hover {
+  scrollbar-width: thin;
+}
+
+.show-scrollbar-on-hover:hover::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+  height: 6px;
+}
+
+.show-scrollbar-on-hover:hover::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.show-scrollbar-on-hover:hover::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.5);
+  border-radius: 3px;
+}
+
+.show-scrollbar-on-hover:hover::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.7);
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #213547;
-  background-color: #f8fafc;
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --text-primary: #213547;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
+}
+
+.dark {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --border-color: #334155;
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
 }
 
 @layer components {
@@ -22,7 +69,7 @@ body {
   }
 
   .btn-secondary {
-    @apply bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors font-medium;
+    @apply bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium;
   }
 
   .btn-danger {
@@ -30,18 +77,18 @@ body {
   }
 
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+    @apply bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-6;
   }
 
   .status-healthy {
-    @apply bg-success-50 text-success-600 px-2 py-1 rounded-full text-xs font-medium;
+    @apply bg-success-50 dark:bg-green-900/30 text-success-600 dark:text-green-400 px-2 py-1 rounded-full text-xs font-medium;
   }
 
   .status-warning {
-    @apply bg-warning-50 text-warning-600 px-2 py-1 rounded-full text-xs font-medium;
+    @apply bg-warning-50 dark:bg-yellow-900/30 text-warning-600 dark:text-yellow-400 px-2 py-1 rounded-full text-xs font-medium;
   }
 
   .status-danger {
-    @apply bg-danger-50 text-danger-600 px-2 py-1 rounded-full text-xs font-medium;
+    @apply bg-danger-50 dark:bg-red-900/30 text-danger-600 dark:text-red-400 px-2 py-1 rounded-full text-xs font-medium;
   }
 }
