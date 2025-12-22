@@ -116,8 +116,13 @@ Join thousands of DevOps engineers who've already made the switch.
 Website: https://github.com/gauravtayade11/nextsight
 (Add your actual website when ready)
 
-Industry: Computer Software
-(Alternative: Information Technology & Services)
+Industry: Software Development
+(Best match for DevOps platform/tools)
+
+Alternative Industries (choose the best fit):
+- IT Services and IT Consulting
+- Technology, Information and Internet
+- Computer and Network Security (if emphasizing security)
 
 Company size: 1-10 employees
 (Update as you grow)
