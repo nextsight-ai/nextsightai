@@ -27,7 +27,7 @@ LinkedIn Public URL: linkedin.com/company/nextsight-ai
 (Claim this custom URL immediately!)
 
 Tagline (120 characters max):
-AI-Powered Kubernetes Dashboard | Open Source | Free Forever
+AI-Powered DevOps Platform | Kubernetes + CI/CD + Security | Open Source | Free Forever
 
 Company Logo:
 [Upload high-res logo - 300x300px, PNG with transparent background]
@@ -43,12 +43,12 @@ Cover Image:
 **Overview (2,000 characters max)**
 
 ```
-NextSight AI - The Kubernetes Dashboard That Thinks For You
+NextSight AI - AI-Powered DevOps Platform for Cloud-Native Teams
 
 🎯 WHAT WE DO
 We build open-source, AI-powered tools that make Kubernetes accessible to everyone - from junior developers to platform architects.
 
-Our flagship product is an intelligent Kubernetes management platform that doesn't just show you problems - it explains WHY they're happening and HOW to fix them.
+NextSight AI is an intelligent DevOps platform that unifies Kubernetes management, CI/CD pipelines, and security - with AI that explains problems and suggests solutions in plain English.
 
 🤖 AI-FIRST APPROACH
 Unlike traditional dashboards that simply display status, NextSight AI:
@@ -175,7 +175,8 @@ File: PNG, under 4MB
 ```
 [Left side - 40%]
 NextSight AI Logo
-Tagline: "The Kubernetes Dashboard That Thinks For You"
+Tagline: "AI-Powered DevOps Platform"
+Subtitle: "Kubernetes + CI/CD + Security | All in One"
 
 [Center - 30%]
 Key Stats/Features:
@@ -254,7 +255,7 @@ Product Name: NextSight AI
 Product Type: Software
 
 Product Description (600 characters):
-AI-powered Kubernetes management platform that explains problems and provides fixes. Features include AI chat, built-in Trivy security scanning, browser terminals, visual Helm deployment, and multi-cluster support. Free and open source. No cluster limits, no enterprise paywalls. Perfect for DevOps teams, platform engineers, and SREs who want intelligent Kubernetes management without the complexity.
+Open-source DevOps platform with AI-powered Kubernetes management, CI/CD pipelines, and security scanning. Features include AI chat, built-in Trivy scanner, pipeline orchestration, browser terminals, visual Helm deployment, and multi-cluster support. Free forever with no limits. Perfect for DevOps teams and platform engineers who want comprehensive tooling without the complexity.
 
 Product Image:
 [Screenshot of dashboard or AI chat - 1200x627px]

@@ -8,20 +8,20 @@ Ready-to-use content for promoting NextSight AI across social platforms.
 
 ### Launch Announcement
 ```
-🚀 Introducing NextSight AI - The Kubernetes Dashboard That Thinks For You
+🚀 Just launched NextSight AI - Open-Source DevOps Platform with AI
 
-✅ AI-powered insights & chat
-✅ Built-in Trivy security scanning
-✅ Multi-cluster management
-✅ Browser-based terminals
-✅ Unlimited clusters
-✅ FREE & Open Source
+One platform for:
+✅ Kubernetes (multi-cluster)
+✅ CI/CD pipelines
+✅ Security scanning (Trivy)
+✅ AI-powered insights
+✅ Monitoring & observability
 
-No enterprise pricing. No BS. Just great software.
+No tool sprawl. No enterprise pricing. Just great DevOps.
 
 ⭐ Star us: [GitHub URL]
 
-#Kubernetes #DevOps #OpenSource #AI
+#DevOps #Kubernetes #CICD #OpenSource #AI
 ```
 
 ### Feature Spotlight - AI Chat
