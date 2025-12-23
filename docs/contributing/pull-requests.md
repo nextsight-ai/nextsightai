@@ -31,7 +31,7 @@ docs/api-reference
 ```bash
 git clone https://github.com/YOUR_USERNAME/nextsight.git
 cd nextsight
-git remote add upstream https://github.com/gauravtayade11/nextsight.git
+git remote add upstream https://github.com/nextsight-ai/nextsight.git
 ```
 
 ### 2. Create Branch

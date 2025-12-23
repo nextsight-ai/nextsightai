@@ -24,7 +24,7 @@ export default function SupportPage() {
             <ul className="space-y-3">
               <li>
                 <a
-                  href="https://github.com/gauravtayade11/nextsight/discussions"
+                  href="https://github.com/nextsight-ai/nextsight/discussions"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-indigo-600 dark:text-indigo-400 hover:underline"
@@ -35,7 +35,7 @@ export default function SupportPage() {
               </li>
               <li>
                 <a
-                  href="https://github.com/gauravtayade11/nextsight/issues"
+                  href="https://github.com/nextsight-ai/nextsight/issues"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-indigo-600 dark:text-indigo-400 hover:underline"
@@ -85,7 +85,7 @@ export default function SupportPage() {
             <p>
               NextSight AI is open-source and we welcome contributions! Check out our{' '}
               <a
-                href="https://github.com/gauravtayade11/nextsight"
+                href="https://github.com/nextsight-ai/nextsight"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-indigo-600 dark:text-indigo-400 hover:underline"

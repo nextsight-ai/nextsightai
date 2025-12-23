@@ -33,7 +33,7 @@ export default function QuickStartPage() {
             <CardContent>
               <div className="rounded-lg bg-gray-900 p-4">
                 <pre className="text-sm text-gray-100 overflow-x-auto">
-                  <code>{`git clone https://github.com/gauravtayade11/nextsight.git
+                  <code>{`git clone https://github.com/nextsight-ai/nextsight.git
 cd nextsight
 make dev`}</code>
                 </pre>

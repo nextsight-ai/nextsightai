@@ -205,8 +205,8 @@ npm run lint -- --fix
 
 ## Support
 
-- [Report Issues](https://github.com/gauravtayade11/nextsight/issues)
-- [Discussions](https://github.com/gauravtayade11/nextsight/discussions)
+- [Report Issues](https://github.com/nextsight-ai/nextsight/issues)
+- [Discussions](https://github.com/nextsight-ai/nextsight/discussions)
 
 ## License
 

@@ -10,10 +10,10 @@ keywords:
   - devops
   - monitoring
   - security
-home: https://github.com/gauravtayade11/nextsight
+home: https://github.com/nextsight-ai/nextsight
 sources:
-  - https://github.com/gauravtayade11/nextsight
+  - https://github.com/nextsight-ai/nextsight
 maintainers:
   - name: Gaurav Tayade
     url: https://github.com/gauravtayade11
-icon: https://raw.githubusercontent.com/gauravtayade11/nextsight/main/docs/images/logo.png
+icon: https://raw.githubusercontent.com/nextsight-ai/nextsight/main/docs/images/logo.png

@@ -42,7 +42,7 @@ export default function InstallationPage() {
                 <div className="rounded-lg bg-gray-900 p-4">
                   <pre className="text-sm text-gray-100 overflow-x-auto">
                     <code>{`# Clone the repository
-git clone https://github.com/gauravtayade11/nextsight.git
+git clone https://github.com/nextsight-ai/nextsight.git
 cd nextsight
 
 # Start the application

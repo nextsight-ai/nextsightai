@@ -4,13 +4,13 @@
 
 ### See your DevOps world in one intelligent view
 
-[![CI](https://github.com/gauravtayade11/nextsight/actions/workflows/ci.yml/badge.svg)](https://github.com/gauravtayade11/nextsight/actions/workflows/ci.yml)
-[![Security](https://github.com/gauravtayade11/nextsight/actions/workflows/security.yml/badge.svg)](https://github.com/gauravtayade11/nextsight/actions/workflows/security.yml)
-[![CodeQL](https://github.com/gauravtayade11/nextsight/security/code-scanning/badge.svg)](https://github.com/gauravtayade11/nextsight/security/code-scanning)
+[![CI](https://github.com/nextsight-ai/nextsight/actions/workflows/ci.yml/badge.svg)](https://github.com/nextsight-ai/nextsight/actions/workflows/ci.yml)
+[![Security](https://github.com/nextsight-ai/nextsight/actions/workflows/security.yml/badge.svg)](https://github.com/nextsight-ai/nextsight/actions/workflows/security.yml)
+[![CodeQL](https://github.com/nextsight-ai/nextsight/security/code-scanning/badge.svg)](https://github.com/nextsight-ai/nextsight/security/code-scanning)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)](https://github.com/gauravtayade11/nextsight/releases)
-[![GitHub stars](https://img.shields.io/github/stars/gauravtayade11/nextsight?style=social)](https://github.com/gauravtayade11/nextsight/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/gauravtayade11/nextsight?style=social)](https://github.com/gauravtayade11/nextsight/network/members)
+[![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)](https://github.com/nextsight-ai/nextsight/releases)
+[![GitHub stars](https://img.shields.io/github/stars/nextsight-ai/nextsight?style=social)](https://github.com/nextsight-ai/nextsight/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/nextsight-ai/nextsight?style=social)](https://github.com/nextsight-ai/nextsight/network/members)
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
@@ -19,7 +19,7 @@
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-Ready-326CE5.svg)](https://kubernetes.io/)
 [![Helm](https://img.shields.io/badge/Helm-Chart-0F1689.svg)](https://helm.sh/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/gauravtayade11/nextsight/pulls)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/nextsight-ai/nextsight/pulls)
 
 **AI-powered Kubernetes management platform with real-time monitoring, security scanning, and intelligent insights.**
 
@@ -220,7 +220,7 @@ NextSight AI is an AI-powered Kubernetes management platform that provides real-
 
 ```bash
 # Clone the repository
-git clone https://github.com/gauravtayade11/nextsight.git
+git clone https://github.com/nextsight-ai/nextsight.git
 cd nextsight
 
 # Start the application
@@ -491,7 +491,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ```bash
 # Development setup
-git clone https://github.com/gauravtayade11/nextsight.git
+git clone https://github.com/nextsight-ai/nextsight.git
 cd nextsight
 make dev
 ```

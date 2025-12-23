@@ -5,7 +5,7 @@ The simplest way to run NextSight AI locally or in development.
 ## Quick Start
 
 ```bash
-git clone https://github.com/gauravtayade11/nextsight.git
+git clone https://github.com/nextsight-ai/nextsight.git
 cd nextsight
 docker-compose up -d
 ```

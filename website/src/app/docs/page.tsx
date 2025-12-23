@@ -92,7 +92,7 @@ export default function DocsPage() {
 
           <div className="mt-8 flex justify-center gap-4">
             <a
-              href="https://gauravtayade11.github.io/nextsight/"
+              href="https://nextsight-ai.github.io/nextsight/"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -173,7 +173,7 @@ export default function DocsPage() {
               <ul className="mt-4 space-y-3">
                 <li>
                   <a
-                    href="https://github.com/gauravtayade11/nextsight/discussions"
+                    href="https://github.com/nextsight-ai/nextsight/discussions"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline"
@@ -183,7 +183,7 @@ export default function DocsPage() {
                 </li>
                 <li>
                   <a
-                    href="https://github.com/gauravtayade11/nextsight/issues"
+                    href="https://github.com/nextsight-ai/nextsight/issues"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline"

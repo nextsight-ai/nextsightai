@@ -63,7 +63,7 @@ export default function PrivacyPage() {
               <p>
                 For questions about this privacy policy, please open an issue on our{' '}
                 <a
-                  href="https://github.com/gauravtayade11/nextsight/issues"
+                  href="https://github.com/nextsight-ai/nextsight/issues"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-500"

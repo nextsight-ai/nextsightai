@@ -59,7 +59,7 @@ export default function SecurityPage() {
             <p>
               If you discover a security vulnerability, please report it to our{' '}
               <a
-                href="https://github.com/gauravtayade11/nextsight/security"
+                href="https://github.com/nextsight-ai/nextsight/security"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-indigo-600 dark:text-indigo-400 hover:underline"
