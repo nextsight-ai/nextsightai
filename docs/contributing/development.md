@@ -12,7 +12,7 @@ Set up your local development environment for NextSight AI.
 ## Clone Repository
 
 ```bash
-git clone https://github.com/nextsight-ai/nextsight.git
+git clone https://github.com/nextsight-ai/nextsightai.git
 cd nextsight
 ```
 

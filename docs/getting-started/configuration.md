@@ -285,4 +285,4 @@ Before deploying to production, verify:
 
 ## Environment Variables Reference
 
-See [backend/.env.example](https://github.com/nextsight-ai/nextsight/blob/main/backend/.env.example) for the complete list of environment variables with detailed comments.
+See [backend/.env.example](https://github.com/nextsight-ai/nextsightai/blob/main/backend/.env.example) for the complete list of environment variables with detailed comments.

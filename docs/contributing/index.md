@@ -36,7 +36,7 @@ Learn how to submit effective pull requests.
 
 ### :material-bug: Report Bugs
 
-Found a bug? [Open an issue](https://github.com/nextsight-ai/nextsight/issues/new?template=bug_report.yml) with:
+Found a bug? [Open an issue](https://github.com/nextsight-ai/nextsightai/issues/new?template=bug_report.yml) with:
 
 - Clear description of the problem
 - Steps to reproduce
@@ -45,7 +45,7 @@ Found a bug? [Open an issue](https://github.com/nextsight-ai/nextsight/issues/ne
 
 ### :material-lightbulb: Suggest Features
 
-Have an idea? [Request a feature](https://github.com/nextsight-ai/nextsight/issues/new?template=feature_request.yml) with:
+Have an idea? [Request a feature](https://github.com/nextsight-ai/nextsightai/issues/new?template=feature_request.yml) with:
 
 - Use case description
 - Proposed solution
@@ -69,18 +69,18 @@ Help improve our docs:
 
 ## Code of Conduct
 
-We are committed to providing a welcoming and inclusive environment. Please read our [Code of Conduct](https://github.com/nextsight-ai/nextsight/blob/main/CODE_OF_CONDUCT.md).
+We are committed to providing a welcoming and inclusive environment. Please read our [Code of Conduct](https://github.com/nextsight-ai/nextsightai/blob/main/CODE_OF_CONDUCT.md).
 
 ## Getting Help
 
-- :material-github: [GitHub Discussions](https://github.com/nextsight-ai/nextsight/discussions)
-- :material-bug: [Issue Tracker](https://github.com/nextsight-ai/nextsight/issues)
+- :material-github: [GitHub Discussions](https://github.com/nextsight-ai/nextsightai/discussions)
+- :material-bug: [Issue Tracker](https://github.com/nextsight-ai/nextsightai/issues)
 
 ## Recognition
 
 Contributors are recognized in our:
 
-- [Contributors page](https://github.com/nextsight-ai/nextsight/graphs/contributors)
+- [Contributors page](https://github.com/nextsight-ai/nextsightai/graphs/contributors)
 - Release notes
 - Project documentation
 

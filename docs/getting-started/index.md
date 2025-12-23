@@ -76,6 +76,6 @@ Before you begin, ensure you have:
 
 ## Need Help?
 
-- :material-github: [Open an Issue](https://github.com/nextsight-ai/nextsight/issues)
+- :material-github: [Open an Issue](https://github.com/nextsight-ai/nextsightai/issues)
 - :material-file-document: [Read the Docs](../features/index.md)
 - :material-api: [API Reference](../api/index.md)

@@ -1,8 +1,8 @@
 export const APP_VERSION = '1.4.0';
 export const APP_NAME = 'NextSight AI';
-export const GITHUB_REPO = 'nextsight-ai/nextsight';
+export const GITHUB_REPO = 'nextsight-ai/nextsightai';
 export const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;
-export const DOCS_URL = 'https://nextsight-ai.github.io/nextsight/';
+export const DOCS_URL = 'https://nextsight-ai.github.io/nextsightai/';
 export const DEMO_URL = 'http://localhost:3000'; // Update with your demo instance
 
 export const SOCIAL_LINKS = {

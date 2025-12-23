@@ -22,7 +22,7 @@ hide:
 AI-powered Kubernetes management platform with real-time visibility, intelligent security insights, and complete control over your clusters.
 
 [Get Started :material-arrow-right:](getting-started/installation.md){ .md-button .md-button--primary }
-[View on GitHub :material-github:](https://github.com/nextsight-ai/nextsight){ .md-button }
+[View on GitHub :material-github:](https://github.com/nextsight-ai/nextsightai){ .md-button }
 
 </div>
 </div>
@@ -95,7 +95,7 @@ Get NextSight AI running in under 5 minutes:
 
     ```bash
     # Clone the repository
-    git clone https://github.com/nextsight-ai/nextsight.git
+    git clone https://github.com/nextsight-ai/nextsightai.git
     cd nextsight
 
     # Start the stack
@@ -170,7 +170,7 @@ Get NextSight AI running in under 5 minutes:
 
 ## :material-license: License
 
-NextSight AI is released under the [MIT License](https://github.com/nextsight-ai/nextsight/blob/main/LICENSE).
+NextSight AI is released under the [MIT License](https://github.com/nextsight-ai/nextsightai/blob/main/LICENSE).
 
 <div style="text-align: center; margin-top: 2rem;">
 

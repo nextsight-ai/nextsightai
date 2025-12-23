@@ -45,7 +45,7 @@ The fastest way to get started is using Docker Compose:
 
 ```bash
 # Clone the repository
-git clone https://github.com/nextsight-ai/nextsight.git
+git clone https://github.com/nextsight-ai/nextsightai.git
 cd nextsight
 
 # Start the application

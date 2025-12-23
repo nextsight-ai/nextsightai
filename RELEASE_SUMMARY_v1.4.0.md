@@ -155,7 +155,7 @@ NextSight AI v1.4.0 is a major release that enhances the platform with AI-powere
 
 1. **Docker Compose** (Recommended for development)
    ```bash
-   git clone https://github.com/nextsight-ai/nextsight.git
+   git clone https://github.com/nextsight-ai/nextsightai.git
    cd nextsight
    make dev
    ```
@@ -293,8 +293,8 @@ The following features were scoped for v1.4.0 but deferred to maintain quality a
 
 ## Community & Support
 
-- **Issues**: [GitHub Issues](https://github.com/nextsight-ai/nextsight/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/nextsight-ai/nextsight/discussions)
+- **Issues**: [GitHub Issues](https://github.com/nextsight-ai/nextsightai/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/nextsight-ai/nextsightai/discussions)
 - **Documentation**: [Docs Site](https://gauravtayade11.github.io/nextsight/)
 
 ## Acknowledgments
