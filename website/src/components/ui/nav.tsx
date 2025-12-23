@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Github, Menu, X, Moon, Sun } from 'lucide-react';
 import { Button } from './button';
 import { useTheme } from '@/components/theme-provider';
-import { APP_NAME, NAV_ITEMS, GITHUB_URL } from '@/lib/constants';
+import { APP_NAME, NAV_ITEMS, GITHUB_URL, DOCS_URL } from '@/lib/constants';
 
 export function Nav() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -56,7 +56,7 @@ export function Nav() {
               GitHub
             </Button>
           </Link>
-          <Link href="/docs/installation">
+          <Link href={DOCS_URL} target="_blank" rel="noopener noreferrer">
             <Button size="sm">Get Started</Button>
           </Link>
         </div>
@@ -107,7 +107,7 @@ export function Nav() {
                     GitHub
                   </Button>
                 </Link>
-                <Link href="/docs/installation" className="block">
+                <Link href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="block">
                   <Button className="w-full">Get Started</Button>
                 </Link>
               </div>

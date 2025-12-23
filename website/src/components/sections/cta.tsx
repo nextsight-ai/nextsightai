@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Github } from 'lucide-react';
 import { Button } from '../ui/button';
-import { GITHUB_URL } from '@/lib/constants';
+import { GITHUB_URL, DOCS_URL } from '@/lib/constants';
 
 export function CTA() {
   return (
@@ -22,7 +22,7 @@ export function CTA() {
             Join hundreds of teams already managing their Kubernetes clusters smarter.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/docs/installation" className="group">
+            <Link href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="group">
               <Button size="lg" className="bg-white text-indigo-600 hover:bg-indigo-50 dark:bg-white dark:text-indigo-900 dark:hover:bg-gray-100 gap-x-2 shadow-lg hover:shadow-xl transition-all hover:scale-105">
                 Get Started
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />

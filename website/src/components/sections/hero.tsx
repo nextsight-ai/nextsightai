@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Github, Star, Sparkles } from 'lucide-react';
 import { Button } from '../ui/button';
-import { GITHUB_URL } from '@/lib/constants';
+import { GITHUB_URL, DOCS_URL } from '@/lib/constants';
 
 export function Hero() {
   return (
@@ -66,7 +66,7 @@ export function Hero() {
 
           {/* CTA Buttons with Creative Effects */}
           <div className="mt-8 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <Link href="/docs/installation" className="group">
+            <Link href={DOCS_URL} target="_blank" rel="noopener noreferrer" className="group">
               <Button
                 size="lg"
                 className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white gap-x-2 shadow-lg shadow-indigo-600/50 hover:shadow-xl hover:shadow-indigo-600/60 transition-all duration-300 hover:scale-105"
