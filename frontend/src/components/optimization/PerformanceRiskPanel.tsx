@@ -146,8 +146,13 @@ export default function PerformanceRiskPanel({ dashboardData }: PerformanceRiskP
       const allPodMetrics: PodMetrics[] = await response.json();
 
       // Find the specific pod's metrics
+      // For Deployments/ReplicaSets, the pod name starts with the resource name
+      // e.g., deployment "nginx" creates pods "nginx-5d8f7c9b6c-xyz12"
       const podMetric = allPodMetrics.find(
-        (m) => m.name === rec.resource_name && m.namespace === rec.namespace
+        (m) => m.namespace === rec.namespace && (
+          m.name === rec.resource_name || // Exact match for Pods
+          m.name.startsWith(rec.resource_name + '-') // Prefix match for Deployments/ReplicaSets
+        )
       );
 
       if (podMetric) {
