@@ -21,10 +21,24 @@ interface PerformanceRiskPanelProps {
 }
 
 const severityColors = {
-  critical: 'border-red-300 dark:border-red-700',
-  high: 'border-orange-300 dark:border-orange-700',
-  medium: 'border-amber-300 dark:border-amber-700',
-  low: 'border-blue-300 dark:border-blue-700',
+  critical: 'border-l-4 border-l-red-500 dark:border-l-red-400 border border-red-100 dark:border-red-900/30',
+  high: 'border-l-4 border-l-orange-500 dark:border-l-orange-400 border border-orange-100 dark:border-orange-900/30',
+  medium: 'border-l-4 border-l-amber-500 dark:border-l-amber-400 border border-amber-100 dark:border-amber-900/30',
+  low: 'border-l-4 border-l-blue-500 dark:border-l-blue-400 border border-blue-100 dark:border-blue-900/30',
+};
+
+const severityBgColors = {
+  critical: 'bg-gradient-to-r from-red-50 to-white dark:from-red-950/20 dark:to-slate-800',
+  high: 'bg-gradient-to-r from-orange-50 to-white dark:from-orange-950/20 dark:to-slate-800',
+  medium: 'bg-gradient-to-r from-amber-50 to-white dark:from-amber-950/20 dark:to-slate-800',
+  low: 'bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/20 dark:to-slate-800',
+};
+
+const severityBadgeColors = {
+  critical: 'bg-red-600 text-white shadow-lg shadow-red-600/30',
+  high: 'bg-orange-600 text-white shadow-lg shadow-orange-600/30',
+  medium: 'bg-amber-600 text-white shadow-lg shadow-amber-600/30',
+  low: 'bg-blue-600 text-white shadow-lg shadow-blue-600/30',
 };
 
 interface PodMetrics {
@@ -264,16 +278,20 @@ export default function PerformanceRiskPanel({ dashboardData }: PerformanceRiskP
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.02 }}
-                  className={`p-3 rounded-lg border ${
+                  className={`rounded-lg overflow-hidden ${
                     isReviewed
-                      ? 'bg-green-50 dark:bg-green-900/10 border-green-300 dark:border-green-700'
-                      : 'bg-red-50 dark:bg-red-900/20 ' + (severityColors[rec.severity as keyof typeof severityColors] || severityColors.medium)
+                      ? 'border-l-4 border-l-green-500 dark:border-l-green-400 border border-green-100 dark:border-green-900/30 bg-gradient-to-r from-green-50 to-white dark:from-green-950/20 dark:to-slate-800'
+                      : (severityColors[rec.severity as keyof typeof severityColors] || severityColors.medium) + ' ' + (severityBgColors[rec.severity as keyof typeof severityBgColors] || severityBgColors.medium)
                   }`}
                 >
                   {/* Compact Header - Always Visible */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between p-3">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-600 text-white">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                        isReviewed
+                          ? 'bg-green-600 text-white shadow-lg shadow-green-600/30'
+                          : (severityBadgeColors[rec.severity as keyof typeof severityBadgeColors] || severityBadgeColors.medium)
+                      }`}>
                         {rec.severity.toUpperCase()}
                       </span>
                       {isReviewed && (
@@ -303,7 +321,7 @@ export default function PerformanceRiskPanel({ dashboardData }: PerformanceRiskP
                   </div>
 
                   {/* Quick Impact - Always Visible */}
-                  <div className="mt-2 text-xs text-red-700 dark:text-red-400">
+                  <div className="px-3 pb-3 text-xs text-red-700 dark:text-red-400 font-medium">
                     ⚠️ Can crash node • Noisy neighbor risk
                   </div>
 
@@ -312,7 +330,7 @@ export default function PerformanceRiskPanel({ dashboardData }: PerformanceRiskP
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
-                      className="mt-3 pt-3 border-t border-red-200 dark:border-red-800 space-y-2"
+                      className="px-3 pb-3 pt-0 border-t border-red-200/50 dark:border-red-800/50 space-y-2"
                     >
                       {/* Observation */}
                       <div>
@@ -411,16 +429,20 @@ export default function PerformanceRiskPanel({ dashboardData }: PerformanceRiskP
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.02 }}
-                  className={`p-3 rounded-lg border ${
+                  className={`rounded-lg overflow-hidden ${
                     isReviewed
-                      ? 'bg-green-50 dark:bg-green-900/10 border-green-300 dark:border-green-700'
-                      : 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700'
+                      ? 'border-l-4 border-l-green-500 dark:border-l-green-400 border border-green-100 dark:border-green-900/30 bg-gradient-to-r from-green-50 to-white dark:from-green-950/20 dark:to-slate-800'
+                      : (severityColors[rec.severity as keyof typeof severityColors] || severityColors.medium) + ' ' + (severityBgColors[rec.severity as keyof typeof severityBgColors] || severityBgColors.medium)
                   }`}
                 >
                   {/* Compact Header */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between p-3">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-600 text-white">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                        isReviewed
+                          ? 'bg-green-600 text-white shadow-lg shadow-green-600/30'
+                          : (severityBadgeColors[rec.severity as keyof typeof severityBadgeColors] || severityBadgeColors.medium)
+                      }`}>
                         {rec.severity.toUpperCase()}
                       </span>
                       {isReviewed && (
@@ -448,7 +470,7 @@ export default function PerformanceRiskPanel({ dashboardData }: PerformanceRiskP
                   </div>
 
                   {/* Quick Impact */}
-                  <div className="mt-2 text-xs text-orange-700 dark:text-orange-400">
+                  <div className="px-3 pb-3 text-xs text-orange-700 dark:text-orange-400 font-medium">
                     ⚠️ First to be evicted • QoS BestEffort
                   </div>
 
@@ -457,7 +479,7 @@ export default function PerformanceRiskPanel({ dashboardData }: PerformanceRiskP
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
-                      className="mt-3 pt-3 border-t border-orange-200 dark:border-orange-800 space-y-2"
+                      className="px-3 pb-3 pt-0 border-t border-orange-200/50 dark:border-orange-800/50 space-y-2"
                     >
                       <div>
                         <div className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">🔍 Observation</div>
