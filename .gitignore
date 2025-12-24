@@ -66,6 +66,10 @@ secrets.yml
 # Local development
 .local/
 *.local
+*.pid
+*test*.yaml
+dummy*.yaml
+TEST_*.html
 
 # Claude
 .claude/

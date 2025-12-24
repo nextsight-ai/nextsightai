@@ -565,6 +565,12 @@ class OptimizationService:
                 rec_id = str(uuid.uuid4())
 
                 if pod.optimization_type == OptimizationType.OVER_PROVISIONED:
+                    # Calculate recommended requests and limits
+                    rec_cpu_req = container.cpu_recommendation_millicores or int(container.cpu_usage_millicores * 1.3)
+                    rec_mem_req = container.memory_recommendation_bytes or int(container.memory_usage_bytes * 1.3)
+                    rec_cpu_lim = int(rec_cpu_req * 2)
+                    rec_mem_lim = int(rec_mem_req * 2)
+
                     recommendations.append(OptimizationRecommendation(
                         id=rec_id,
                         type=OptimizationType.OVER_PROVISIONED,
@@ -577,18 +583,25 @@ class OptimizationService:
                         container_name=container.container_name,
                         current_cpu_request=self._format_cpu(container.cpu_request_millicores),
                         current_memory_request=self._format_memory(container.memory_request_bytes),
-                        recommended_cpu_request=self._format_cpu(container.cpu_recommendation_millicores or 0),
-                        recommended_memory_request=self._format_memory(container.memory_recommendation_bytes or 0),
+                        current_cpu_limit=self._format_cpu(container.cpu_limit_millicores) if container.cpu_limit_millicores > 0 else "Not set",
+                        current_memory_limit=self._format_memory(container.memory_limit_bytes) if container.memory_limit_bytes > 0 else "Not set",
+                        recommended_cpu_request=self._format_cpu(rec_cpu_req),
+                        recommended_memory_request=self._format_memory(rec_mem_req),
+                        recommended_cpu_limit=self._format_cpu(rec_cpu_lim),
+                        recommended_memory_limit=self._format_memory(rec_mem_lim),
                         current_cost=pod.current_hourly_cost,
                         estimated_savings=pod.potential_savings,
                         savings_percentage=pod.savings_percentage,
                         risk_level="low",
-                        action=f"Reduce CPU request to {self._format_cpu(container.cpu_recommendation_millicores or 0)} and memory to {self._format_memory(container.memory_recommendation_bytes or 0)}",
+                        action=f"Reduce CPU request to {self._format_cpu(rec_cpu_req)} and memory to {self._format_memory(rec_mem_req)}",
                     ))
 
                 elif pod.optimization_type == OptimizationType.UNDER_PROVISIONED:
-                    rec_cpu = int(container.cpu_usage_millicores * 1.5)
-                    rec_mem = int(container.memory_usage_bytes * 1.5)
+                    rec_cpu_req = int(container.cpu_usage_millicores * 1.5)
+                    rec_mem_req = int(container.memory_usage_bytes * 1.5)
+                    rec_cpu_lim = int(rec_cpu_req * 2)
+                    rec_mem_lim = int(rec_mem_req * 2)
+
                     recommendations.append(OptimizationRecommendation(
                         id=rec_id,
                         type=OptimizationType.UNDER_PROVISIONED,
@@ -601,13 +614,17 @@ class OptimizationService:
                         container_name=container.container_name,
                         current_cpu_request=self._format_cpu(container.cpu_request_millicores),
                         current_memory_request=self._format_memory(container.memory_request_bytes),
-                        recommended_cpu_request=self._format_cpu(rec_cpu),
-                        recommended_memory_request=self._format_memory(rec_mem),
+                        current_cpu_limit=self._format_cpu(container.cpu_limit_millicores) if container.cpu_limit_millicores > 0 else "Not set",
+                        current_memory_limit=self._format_memory(container.memory_limit_bytes) if container.memory_limit_bytes > 0 else "Not set",
+                        recommended_cpu_request=self._format_cpu(rec_cpu_req),
+                        recommended_memory_request=self._format_memory(rec_mem_req),
+                        recommended_cpu_limit=self._format_cpu(rec_cpu_lim),
+                        recommended_memory_limit=self._format_memory(rec_mem_lim),
                         current_cost=pod.current_hourly_cost,
                         estimated_savings=0,
                         savings_percentage=0,
                         risk_level="high",
-                        action=f"Increase CPU request to {self._format_cpu(rec_cpu)} and memory to {self._format_memory(rec_mem)}",
+                        action=f"Increase CPU request to {self._format_cpu(rec_cpu_req)} and memory to {self._format_memory(rec_mem_req)}",
                     ))
 
                 elif pod.optimization_type == OptimizationType.IDLE_RESOURCE:
@@ -615,6 +632,9 @@ class OptimizationService:
                     # The real recommendation is to scale down, but these values allow the Apply button to work
                     min_cpu = 10  # 10m minimum
                     min_mem = 32 * 1024 * 1024  # 32Mi minimum
+                    min_cpu_lim = min_cpu * 2
+                    min_mem_lim = min_mem * 2
+
                     recommendations.append(OptimizationRecommendation(
                         id=rec_id,
                         type=OptimizationType.IDLE_RESOURCE,
@@ -627,8 +647,12 @@ class OptimizationService:
                         container_name=container.container_name,
                         current_cpu_request=self._format_cpu(container.cpu_request_millicores),
                         current_memory_request=self._format_memory(container.memory_request_bytes),
+                        current_cpu_limit=self._format_cpu(container.cpu_limit_millicores) if container.cpu_limit_millicores > 0 else "Not set",
+                        current_memory_limit=self._format_memory(container.memory_limit_bytes) if container.memory_limit_bytes > 0 else "Not set",
                         recommended_cpu_request=self._format_cpu(min_cpu),
                         recommended_memory_request=self._format_memory(min_mem),
+                        recommended_cpu_limit=self._format_cpu(min_cpu_lim),
+                        recommended_memory_limit=self._format_memory(min_mem_lim),
                         current_cost=pod.current_hourly_cost,
                         estimated_savings=pod.current_hourly_cost * 0.95,  # 95% savings with minimal resources
                         savings_percentage=95,
@@ -637,6 +661,14 @@ class OptimizationService:
                     ))
 
                 elif pod.optimization_type == OptimizationType.NO_REQUESTS:
+                    # Calculate recommended requests based on actual usage with headroom
+                    rec_cpu_request = container.cpu_recommendation_millicores or max(container.cpu_usage_millicores, 100)
+                    rec_mem_request = container.memory_recommendation_bytes or max(container.memory_usage_bytes, 128 * 1024 * 1024)
+
+                    # Set limits to 2x requests as best practice
+                    rec_cpu_limit = int(rec_cpu_request * 2)
+                    rec_mem_limit = int(rec_mem_request * 2)
+
                     recommendations.append(OptimizationRecommendation(
                         id=rec_id,
                         type=OptimizationType.NO_REQUESTS,
@@ -649,8 +681,12 @@ class OptimizationService:
                         container_name=container.container_name,
                         current_cpu_request="Not set",
                         current_memory_request="Not set",
-                        recommended_cpu_request=self._format_cpu(container.cpu_recommendation_millicores or 100),
-                        recommended_memory_request=self._format_memory(container.memory_recommendation_bytes or 128 * 1024 * 1024),
+                        current_cpu_limit="Not set",
+                        current_memory_limit="Not set",
+                        recommended_cpu_request=self._format_cpu(rec_cpu_request),
+                        recommended_memory_request=self._format_memory(rec_mem_request),
+                        recommended_cpu_limit=self._format_cpu(rec_cpu_limit),
+                        recommended_memory_limit=self._format_memory(rec_mem_limit),
                         current_cost=0,
                         estimated_savings=0,
                         savings_percentage=0,
