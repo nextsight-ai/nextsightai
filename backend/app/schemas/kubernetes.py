@@ -54,6 +54,7 @@ class PodInfo(BaseModel):
     name: str
     namespace: str
     status: PodPhase
+    status_reason: Optional[str] = None  # Detailed reason like "ImagePullBackOff", "CrashLoopBackOff"
     ready: bool
     restarts: int = 0
     age: str

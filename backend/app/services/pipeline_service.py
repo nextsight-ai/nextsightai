@@ -183,7 +183,7 @@ class PipelineService:
                 "status": "running",
                 "branch": "main",
                 "commit_sha": "u6v7w8x",
-                "commit_message": "chore: bump version to 1.4.0",
+                "commit_message": "chore: bump version to 1.4.1",
                 "triggered_by": "admin",
                 "started_at": now - timedelta(minutes=2),
                 "finished_at": None,

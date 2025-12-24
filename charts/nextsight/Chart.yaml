@@ -2,8 +2,8 @@ apiVersion: v2
 name: nextsight
 description: A Helm chart for NextSight AI - See your DevOps world in one intelligent view
 type: application
-version: 1.4.0
-appVersion: "1.4.0"
+version: 1.4.1
+appVersion: "1.4.1"
 keywords:
   - kubernetes
   - dashboard

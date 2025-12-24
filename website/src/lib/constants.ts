@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.4.0';
+export const APP_VERSION = '1.4.1';
 export const APP_NAME = 'NextSight AI';
 export const GITHUB_REPO = 'nextsight-ai/nextsightai';
 export const GITHUB_URL = `https://github.com/${GITHUB_REPO}`;

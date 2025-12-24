@@ -45,11 +45,30 @@ class PodService(KubernetesBase):
                     cs.restart_count for cs in (pod.status.container_statuses or [])
                 )
 
+                # Get detailed status reason from container statuses
+                status_reason = None
+
+                if pod.status.container_statuses:
+                    for cs in pod.status.container_statuses:
+                        # Check waiting state (ImagePullBackOff, CrashLoopBackOff, etc.)
+                        if cs.state and cs.state.waiting:
+                            status_reason = cs.state.waiting.reason
+                            break
+                        # Check terminated state
+                        elif cs.state and cs.state.terminated:
+                            status_reason = cs.state.terminated.reason
+                            break
+
+                # If no container status reason but pod has a reason, use that
+                if not status_reason and pod.status.reason:
+                    status_reason = pod.status.reason
+
                 result.append(
                     PodInfo(
                         name=pod.metadata.name,
                         namespace=pod.metadata.namespace,
                         status=PodPhase(pod.status.phase),
+                        status_reason=status_reason,
                         ready=ready_containers == total_containers,
                         restarts=restarts,
                         age=self.calculate_age(pod.metadata.creation_timestamp),

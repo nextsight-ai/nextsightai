@@ -97,7 +97,7 @@ export default function AboutPage() {
               className="flex items-center gap-4"
             >
               <span className="px-3 py-1 text-sm font-medium rounded-full bg-primary-500/20 text-primary-600 dark:text-primary-400">
-                v1.4.0
+                v1.4.1
               </span>
               <span className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />

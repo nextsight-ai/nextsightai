@@ -643,7 +643,7 @@ export default function Layout({ children }: LayoutProps) {
                       <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">AI-Powered</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">v1.4.0</span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">v1.4.1</span>
                       <span className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400">
                         <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                         Connected
@@ -746,7 +746,7 @@ export default function Layout({ children }: LayoutProps) {
                       </motion.button>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">v1.4.0</span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">v1.4.1</span>
                       <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-green-500/10 text-[10px] text-green-600 dark:text-green-400 font-medium">
                         <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                         Connected

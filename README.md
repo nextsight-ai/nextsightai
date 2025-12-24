@@ -8,7 +8,7 @@
 [![Security](https://github.com/nextsight-ai/nextsightai/actions/workflows/security.yml/badge.svg)](https://github.com/nextsight-ai/nextsightai/actions/workflows/security.yml)
 [![CodeQL](https://github.com/nextsight-ai/nextsightai/security/code-scanning/badge.svg)](https://github.com/nextsight-ai/nextsightai/security/code-scanning)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.4.0-blue.svg)](https://github.com/nextsight-ai/nextsightai/releases)
+[![Version](https://img.shields.io/badge/version-1.4.1-blue.svg)](https://github.com/nextsight-ai/nextsightai/releases)
 [![GitHub stars](https://img.shields.io/github/stars/nextsight-ai/nextsightai?style=social)](https://github.com/nextsight-ai/nextsightai/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/nextsight-ai/nextsightai?style=social)](https://github.com/nextsight-ai/nextsightai/network/members)
 
@@ -123,7 +123,7 @@
 
 ---
 
-> 💡 **Note**: Screenshots show NextSight AI v1.4.0 with all features enabled. Some features require optional components (metrics-server, Prometheus) or AI API keys (Groq/Gemini/Claude).
+> 💡 **Note**: Screenshots show NextSight AI v1.4.1 with all features enabled. Some features require optional components (metrics-server, Prometheus) or AI API keys (Groq/Gemini/Claude).
 
 </div>
 

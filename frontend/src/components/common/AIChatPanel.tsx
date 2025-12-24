@@ -94,8 +94,13 @@ export default function AIChatPanel({ onClose }: AIChatPanelProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
+  const [panelWidth, setPanelWidth] = useState(320); // 80 * 4 (tailwind w-80)
+  const [panelHeight, setPanelHeight] = useState(420);
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeDirection, setResizeDirection] = useState<'corner' | 'vertical' | 'vertical-top' | 'horizontal' | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const resizeStartRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -186,6 +191,67 @@ export default function AIChatPanel({ onClose }: AIChatPanelProps) {
     inputRef.current?.focus();
   };
 
+  // Resize handlers
+  const handleResizeStart = (e: React.MouseEvent, direction: 'corner' | 'vertical' | 'vertical-top' | 'horizontal') => {
+    e.preventDefault();
+    setIsResizing(true);
+    setResizeDirection(direction);
+    resizeStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      width: panelWidth,
+      height: panelHeight,
+    };
+  };
+
+  useEffect(() => {
+    if (!isResizing || !resizeDirection) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizeStartRef.current) return;
+
+      // Calculate deltas
+      const deltaX = resizeStartRef.current.x - e.clientX;
+      const deltaY = e.clientY - resizeStartRef.current.y;
+
+      // Apply resizing based on direction
+      // Minimum sizes: width 320px, height 400px to keep chat panel usable
+      if (resizeDirection === 'corner') {
+        // Diagonal resize from bottom-left corner
+        const newWidth = Math.min(Math.max(resizeStartRef.current.width + deltaX, 320), 800);
+        const newHeight = Math.min(Math.max(resizeStartRef.current.height + deltaY, 400), window.innerHeight * 0.9);
+        setPanelWidth(newWidth);
+        setPanelHeight(newHeight);
+      } else if (resizeDirection === 'vertical') {
+        // Vertical resize only (from bottom edge)
+        const newHeight = Math.min(Math.max(resizeStartRef.current.height + deltaY, 400), window.innerHeight * 0.9);
+        setPanelHeight(newHeight);
+      } else if (resizeDirection === 'vertical-top') {
+        // Vertical resize from top edge (inverted delta since panel is anchored to bottom)
+        const newHeight = Math.min(Math.max(resizeStartRef.current.height - deltaY, 400), window.innerHeight * 0.9);
+        setPanelHeight(newHeight);
+      } else if (resizeDirection === 'horizontal') {
+        // Horizontal resize only (from left edge)
+        const newWidth = Math.min(Math.max(resizeStartRef.current.width + deltaX, 320), 800);
+        setPanelWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      setResizeDirection(null);
+      resizeStartRef.current = null;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, resizeDirection]);
+
   // Minimized view
   if (isMinimized) {
     return (
@@ -216,9 +282,20 @@ export default function AIChatPanel({ onClose }: AIChatPanelProps) {
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: 300, scale: 0.95 }}
       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-      className="fixed right-4 bottom-4 w-80 h-[420px] z-50 flex flex-col"
+      className="fixed right-4 bottom-4 z-50 flex flex-col"
+      style={{
+        width: `${panelWidth}px`,
+        height: `${panelHeight}px`,
+        cursor: isResizing
+          ? resizeDirection === 'vertical' || resizeDirection === 'vertical-top'
+            ? 'ns-resize'
+            : resizeDirection === 'horizontal'
+            ? 'ew-resize'
+            : 'nwse-resize'
+          : 'auto',
+      }}
     >
-      <div className="flex-1 flex flex-col bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-slate-700/50 overflow-hidden">
+      <div className="flex-1 flex flex-col bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-slate-700/50 overflow-hidden relative">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-100/50 dark:border-slate-700/50 bg-gradient-to-r from-primary-500/10 to-purple-500/10">
           <div className="flex items-center gap-2">
@@ -389,6 +466,57 @@ export default function AIChatPanel({ onClose }: AIChatPanelProps) {
             </motion.button>
           </div>
         </form>
+
+        {/* Resize handles - invisible by default, appear on hover */}
+        {/* Corner resize handle (bottom-left) */}
+        <div
+          onMouseDown={(e) => handleResizeStart(e, 'corner')}
+          className="absolute bottom-0 left-0 w-8 h-8 cursor-nwse-resize group z-10"
+          title="Drag to resize"
+        >
+          <div className="absolute bottom-1 left-1 w-6 h-6 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 group-hover:bg-gray-200/50 dark:group-hover:bg-slate-600/50 transition-all">
+            <svg
+              className="w-3 h-3 text-gray-500 dark:text-gray-400 rotate-90"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+              />
+            </svg>
+          </div>
+        </div>
+
+        {/* Top edge resize handle (vertical) */}
+        <div
+          onMouseDown={(e) => handleResizeStart(e, 'vertical-top')}
+          className="absolute top-0 left-8 right-0 h-2 cursor-ns-resize group"
+          title="Drag to resize vertically"
+        >
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-1 rounded-full bg-gray-400 dark:bg-gray-500 opacity-0 group-hover:opacity-70 transition-all" />
+        </div>
+
+        {/* Bottom edge resize handle (vertical) */}
+        <div
+          onMouseDown={(e) => handleResizeStart(e, 'vertical')}
+          className="absolute bottom-0 left-8 right-0 h-2 cursor-ns-resize group"
+          title="Drag to resize vertically"
+        >
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 rounded-full bg-gray-400 dark:bg-gray-500 opacity-0 group-hover:opacity-70 transition-all" />
+        </div>
+
+        {/* Horizontal resize handle (left edge) */}
+        <div
+          onMouseDown={(e) => handleResizeStart(e, 'horizontal')}
+          className="absolute top-0 bottom-8 left-0 w-2 cursor-ew-resize group"
+          title="Drag to resize horizontally"
+        >
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-16 w-1 rounded-full bg-gray-400 dark:bg-gray-500 opacity-0 group-hover:opacity-70 transition-all" />
+        </div>
       </div>
     </motion.div>
   );

@@ -82,3 +82,6 @@ GITHUB_ACTIONS_OPTIMIZATION.md
 
 # MkDocs build output
 site/
+
+# Local scripts
+nextsight.sh

@@ -2,7 +2,7 @@
 
 # Global settings
 global:
-  imageTag: "1.4.0"
+  imageTag: "1.4.1"
 
 # Backend configuration
 backend:

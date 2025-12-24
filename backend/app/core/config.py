@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # Application
     APP_NAME: str = "NextSight AI"
-    APP_VERSION: str = "1.4.0"
+    APP_VERSION: str = "1.4.1"
     DEBUG: bool = False
     API_PREFIX: str = "/api/v1"
     DEMO_MODE: bool = False  # Enable demo data when K8s is unavailable

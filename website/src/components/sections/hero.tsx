@@ -22,7 +22,7 @@ export function Hero() {
               className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/50 dark:to-purple-950/50 px-4 py-1.5 text-sm font-medium text-indigo-700 dark:text-indigo-300 hover:from-indigo-100 hover:to-purple-100 dark:hover:from-indigo-900/50 dark:hover:to-purple-900/50 transition-all duration-300 ring-1 ring-indigo-600/20 dark:ring-indigo-400/20"
             >
               <Sparkles className="h-3.5 w-3.5 animate-pulse" />
-              <span>Latest release: v1.4.0</span>
+              <span>Latest release: v1.4.1</span>
               <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
             </a>
           </div>
@@ -99,7 +99,7 @@ export function Hero() {
             <div className="text-gray-600 dark:text-gray-400">
               <span className="inline-flex items-center gap-1 font-semibold text-gray-900 dark:text-white">
                 <span className="inline-block h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
-                v1.4.0
+                v1.4.1
               </span>
             </div>
           </div>
