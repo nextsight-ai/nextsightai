@@ -535,23 +535,15 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
               </h2>
             </div>
 
-            {/* Context Panel - Cluster & Namespace (Kubernetes and Deploy modules) */}
-            {(activeModule === 'kubernetes' || activeModule === 'deploy') && (
+            {/* Context Panel - Namespace Filter (Kubernetes module only) */}
+            {activeModule === 'kubernetes' && (
               <div className="px-3 py-3 border-b border-[#E2E8F0] dark:border-[#334155] space-y-2">
                 <div className="space-y-1">
                   <label className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Target Cluster
+                    Filter NS
                   </label>
-                  <ClusterSwitcher />
+                  <NamespaceFilter />
                 </div>
-                {activeModule === 'kubernetes' && (
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Filter NS
-                    </label>
-                    <NamespaceFilter />
-                  </div>
-                )}
               </div>
             )}
 
@@ -650,6 +642,11 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
                 </kbd>
               </motion.div>
             </div>
+
+            {/* Cluster Switcher - Only for cluster-related modules */}
+            {(activeModule === 'kubernetes' || activeModule === 'deploy' || activeModule === 'security' ||
+              activeModule === 'monitoring' || activeModule === 'ai-optimizer' || activeModule === 'cost' ||
+              activeModule === 'pipelines') && <ClusterSwitcher />}
 
             {/* Notifications */}
             <NotificationDropdown />

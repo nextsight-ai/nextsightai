@@ -75,14 +75,14 @@ export default function ClusterSwitcher() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         disabled={switching}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors text-sm font-medium text-gray-700 dark:text-gray-200"
+        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100/80 dark:bg-slate-800/80 hover:bg-gray-200/80 dark:hover:bg-slate-700/80 transition-all duration-300 border border-gray-200/50 dark:border-slate-700/50 shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200"
       >
-        <ServerStackIcon className="h-5 w-5" />
-        <span className="flex items-center gap-2">
+        <ServerStackIcon className="h-4 w-4" />
+        <span className="flex items-center gap-1.5">
           <span
             className={`h-2 w-2 rounded-full ${getStatusColor(activeCluster?.status || 'unknown')}`}
           />
-          {activeCluster?.name || 'Select Cluster'}
+          <span className="hidden sm:inline">{activeCluster?.name || 'Select Cluster'}</span>
         </span>
         <ChevronDownIcon
           className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
@@ -90,7 +90,7 @@ export default function ClusterSwitcher() {
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-72 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-600 z-50">
+        <div className="absolute top-full left-0 mt-1 w-72 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-600 z-[9999]">
           <div className="p-2 border-b border-gray-100 dark:border-slate-700">
             <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-2">
               Kubernetes Clusters

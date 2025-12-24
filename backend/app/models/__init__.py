@@ -23,6 +23,7 @@ from app.models.settings import (
     APIToken,
     UserSettings,
 )
+from app.models.security import ImageScanResult
 
 __all__ = [
     "Base",
@@ -54,4 +55,6 @@ __all__ = [
     "IntegrationStatus",
     "APIToken",
     "UserSettings",
+    # Security models
+    "ImageScanResult",
 ]

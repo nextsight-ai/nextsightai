@@ -244,6 +244,7 @@ async def get_compliance_checks(
 @router.get("/image-scans", response_model=List[ImageScanResult])
 async def get_image_scan_results(
     cluster_id: str = Query("default", description="Cluster ID"),
+    wait: bool = Query(False, description="If true, scan images if cache is empty (may take several minutes)"),
     current_user: UserInfo = Depends(get_current_user),
     security_service: SecurityService = Depends(get_security_service),
 ):
@@ -251,13 +252,62 @@ async def get_image_scan_results(
     Get container image vulnerability scan results.
 
     Requires Trivy to be installed on the system.
-    Returns vulnerability counts by severity for each scanned image.
+
+    - By default, returns cached results instantly (may be empty if no scans have run)
+    - With wait=true, will scan images if cache is empty (slower, but ensures data)
+
+    For background scanning without blocking, use POST /image-scans/start
     """
     try:
-        scans = await security_service.scan_container_images()
+        # Check if we have cached results
+        scans = await security_service._get_cached_image_scans()
+
+        # Auto-scan if cache is missing or insufficient (first time setup)
+        if len(scans) < 5 and wait:
+            logger.info(f"Only {len(scans)} cached scans and wait=true, triggering full scan")
+            scans = await security_service.scan_container_images()
+        elif not scans and wait:
+            logger.info("No cached scans and wait=true, triggering scan")
+            scans = await security_service.scan_container_images()
+
         return scans
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get image scan results: {str(e)}")
+
+
+@router.post("/image-scans/start")
+async def start_image_scan(
+    current_user: UserInfo = Depends(get_current_user),
+    security_service: SecurityService = Depends(get_security_service),
+):
+    """
+    Start image vulnerability scanning in the background.
+
+    Returns immediately without blocking. Use GET /image-scans/status to check progress.
+    Scans all container images found in the cluster using Trivy.
+    """
+    try:
+        result = await security_service.start_background_scan()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start scan: {str(e)}")
+
+
+@router.get("/image-scans/status")
+async def get_scan_status(
+    current_user: UserInfo = Depends(get_current_user),
+    security_service: SecurityService = Depends(get_security_service),
+):
+    """
+    Get current image scanning status and progress.
+
+    Returns scanning progress, ETA, and current image being scanned.
+    """
+    try:
+        status = await security_service.get_scan_status()
+        return status
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get scan status: {str(e)}")
 
 
 @router.post("/remediate")
@@ -319,17 +369,16 @@ async def get_ai_remediation(request: AIRemediationRequest, current_user: UserIn
 async def _generate_ai_remediation(request: AIRemediationRequest) -> dict:
     """Generate intelligent remediation advice based on the security finding."""
     from app.core.config import settings
+    from app.api.routes.ai import generate_ai_response
 
-    # Try to use Google Gemini if available
+    # Try to use AI (supports Groq, Gemini, Claude with automatic fallback)
     try:
-        import google.generativeai as genai
+        # Check if any AI provider is configured
+        if not settings.GROQ_API_KEY and not settings.GEMINI_API_KEY:
+            logger.info("No AI provider configured for security remediation, using rule-based fallback")
+            return _get_rule_based_remediation(request)
 
-        api_key = settings.GEMINI_API_KEY
-        if api_key:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(settings.GEMINI_MODEL)
-
-            prompt = f"""You are a Kubernetes security expert. Analyze this security finding and provide detailed remediation advice.
+        prompt = f"""You are a Kubernetes security expert. Analyze this security finding and provide detailed remediation advice.
 
 **Security Finding:**
 - Type: {request.finding_type}
@@ -351,28 +400,26 @@ Please provide:
 
 Format your response in markdown with clear sections."""
 
-            response = model.generate_content(prompt)
-            return {
-                "status": "success",
-                "ai_powered": True,
-                "finding": {
-                    "type": request.finding_type,
-                    "severity": request.severity,
-                    "title": request.title,
-                },
-                "remediation": {"analysis": response.text, "generated_at": datetime.now().isoformat()},
-            }
-    except ImportError:
-        pass  # Fall back to rule-based
+        response_text = generate_ai_response(prompt)
+        return {
+            "status": "success",
+            "ai_powered": True,
+            "finding": {
+                "type": request.finding_type,
+                "severity": request.severity,
+                "title": request.title,
+            },
+            "remediation": {"analysis": response_text, "generated_at": datetime.now().isoformat()},
+        }
     except Exception as e:
         logger.warning(f"AI remediation failed, using fallback: {e}")
-
-    # Fallback to rule-based remediation
-    return _get_rule_based_remediation(request)
+        # Fallback to rule-based remediation
+        return _get_rule_based_remediation(request)
 
 
 def _get_rule_based_remediation(request: AIRemediationRequest) -> dict:
     """Generate rule-based remediation advice when AI is not available."""
+    from app.core.config import settings
 
     remediation_rules = {
         "vulnerability": {
@@ -571,7 +618,8 @@ spec:
             ],
         }
 
-    return {
+    # Build response
+    response = {
         "status": "success",
         "ai_powered": False,
         "finding": {
@@ -589,8 +637,13 @@ spec:
             "prevention": remediation_data.get("prevention", []),
             "generated_at": datetime.now().isoformat(),
         },
-        "note": "For more detailed AI-powered analysis, configure GOOGLE_API_KEY or GEMINI_API_KEY environment variable.",
     }
+
+    # Only show configuration message if NO AI provider is configured
+    if not settings.GROQ_API_KEY and not settings.GEMINI_API_KEY:
+        response["note"] = "For AI-powered remediation analysis, configure GROQ_API_KEY or GEMINI_API_KEY in your environment."
+
+    return response
 
 
 @router.get("/namespaces/risky")

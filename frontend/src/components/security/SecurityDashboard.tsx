@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShieldCheckIcon,
@@ -15,6 +15,7 @@ import {
   ChartBarIcon,
   LockClosedIcon,
   GlobeAltIcon,
+  CloudIcon,
 } from '@heroicons/react/24/outline';
 import api from '../../services/api';
 import { logger } from '../../utils/logger';
@@ -81,9 +82,22 @@ interface VulnerabilityDetail {
 
 interface ImageScanResult {
   image: string;
+  tag: string;
   vulnerabilities: VulnerabilitySummary;
   vulnerability_details: VulnerabilityDetail[];
-  scan_time: string;
+  scan_date: string;
+}
+
+interface ScanStatus {
+  is_scanning: boolean;
+  total_images: number;
+  scanned: number;
+  failed: number;
+  current_image: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  progress_percent: number;
+  eta_seconds: number | null;
 }
 
 interface SecurityDashboardData {
@@ -275,6 +289,7 @@ export default function SecurityDashboard() {
   const [imageScans, setImageScans] = useState<ImageScanResult[]>([]);
   const [showImageScans, setShowImageScans] = useState(false);
   const [loadingImages, setLoadingImages] = useState(false);
+  const [scanStatus, setScanStatus] = useState<ScanStatus | null>(null);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [showAllFindings, setShowAllFindings] = useState(false);
 
@@ -434,17 +449,107 @@ export default function SecurityDashboard() {
     }
   };
 
+  const checkScanStatus = async () => {
+    try {
+      const clusterId = activeCluster?.id || 'default';
+      const response = await api.get<ScanStatus>(`/security/image-scans/status?cluster_id=${clusterId}`);
+      setScanStatus(response.data);
+      return response.data;
+    } catch (err: any) {
+      logger.error('Error checking scan status', err);
+      return null;
+    }
+  };
+
+  const pollScanStatus = async () => {
+    // Wait a moment for the background scan to start
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    let status = await checkScanStatus();
+
+    // Poll every 2 seconds while scanning
+    while (status?.is_scanning) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      status = await checkScanStatus();
+    }
+
+    // Scan complete, fetch fresh results from database
+    logger.info('Scan completed, fetching updated results...');
+    const clusterId = activeCluster?.id || 'default';
+    const response = await api.get<ImageScanResult[]>(`/security/image-scans?cluster_id=${clusterId}`);
+    logger.info(`Fetched ${response.data.length} scans from database for cluster ${clusterId}`);
+    setImageScans(response.data);
+
+    // Also refresh the main security dashboard data
+    refreshSecurityData();
+  };
+
   const fetchImageScans = async () => {
     try {
       setLoadingImages(true);
-      const response = await api.get<ImageScanResult[]>('/security/image-scans');
-      setImageScans(response.data);
-      setShowImageScans(true);
+
+      // Check if scan is already in progress
+      const status = await checkScanStatus();
+
+      if (status?.is_scanning) {
+        // Join existing scan
+        setShowImageScans(true);
+        await pollScanStatus();
+      } else {
+        // Start new scan or get cached results
+        const clusterId = activeCluster?.id || 'default';
+        const response = await api.get<ImageScanResult[]>(`/security/image-scans?cluster_id=${clusterId}&wait=true`);
+        setImageScans(response.data);
+        setShowImageScans(true);
+
+        // If we triggered a scan, poll for progress
+        const newStatus = await checkScanStatus();
+        if (newStatus?.is_scanning) {
+          await pollScanStatus();
+        }
+      }
     } catch (err: any) {
       logger.error('Error fetching image scans', err);
       setError(err.response?.data?.detail || 'Failed to fetch image scans');
     } finally {
       setLoadingImages(false);
+      setScanStatus(null);
+    }
+  };
+
+  const triggerRescan = async () => {
+    try {
+      setLoadingImages(true);
+      // Set initial scanning state immediately for UI feedback
+      setScanStatus({
+        is_scanning: true,
+        total_images: 0,
+        scanned: 0,
+        failed: 0,
+        current_image: null,
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        progress_percent: 0,
+        eta_seconds: null,
+      });
+
+      logger.info('Triggering fresh scan...');
+
+      // Start background scan
+      const clusterId = activeCluster?.id || 'default';
+      const response = await api.post(`/security/image-scans/start?cluster_id=${clusterId}`);
+      logger.info(`Background scan started for cluster ${clusterId}`, response.data);
+
+      // Poll for progress and results
+      await pollScanStatus();
+
+      logger.info('Scan completed successfully');
+    } catch (err: any) {
+      logger.error('Error triggering rescan', err);
+      setError(err.response?.data?.detail || 'Failed to trigger rescan');
+    } finally {
+      setLoadingImages(false);
+      setScanStatus(null);
     }
   };
 
@@ -712,6 +817,24 @@ export default function SecurityDashboard() {
     }
   };
 
+  // Load initial scan data to show last scan time
+  useEffect(() => {
+    const loadInitialScans = async () => {
+      try {
+        const clusterId = activeCluster?.id || 'default';
+        const response = await api.get<ImageScanResult[]>(`/security/image-scans?cluster_id=${clusterId}`);
+        if (response.data.length > 0) {
+          setImageScans(response.data);
+        }
+      } catch (err) {
+        // Silently fail - user can manually trigger scan
+        logger.debug('No cached scans available', err);
+      }
+    };
+
+    loadInitialScans();
+  }, [activeCluster?.id]); // Reload scans when cluster changes
+
   // Debug logging - check console if page is blank
   logger.debug('[SecurityDashboard] Render state', {
     loading,
@@ -777,7 +900,7 @@ export default function SecurityDashboard() {
       {/* Sticky Header */}
       <motion.div
         variants={itemVariants}
-        className="sticky top-16 z-30 -mx-4 lg:-mx-8 px-4 lg:px-8 py-4 bg-gray-50/95 dark:bg-slate-950/95 backdrop-blur-sm border-b border-gray-200/50 dark:border-slate-700/50"
+        className="sticky top-16 z-20 -mx-4 lg:-mx-8 px-4 lg:px-8 py-4 bg-gray-50/95 dark:bg-slate-950/95 backdrop-blur-sm border-b border-gray-200/50 dark:border-slate-700/50"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -786,11 +909,28 @@ export default function SecurityDashboard() {
             </div>
             <div>
               <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-                Security
+                Security Dashboard
               </h1>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                Cluster security analysis and compliance
-              </p>
+              <div className="flex items-center gap-2 mt-1">
+                {activeCluster?.name ? (
+                  <>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800">
+                      <CloudIcon className="h-3.5 w-3.5 text-primary-600 dark:text-primary-400" />
+                      <span className="text-xs font-semibold text-primary-700 dark:text-primary-300">{activeCluster.name}</span>
+                      {activeCluster.node_count && (
+                        <>
+                          <span className="text-primary-300 dark:text-primary-600">•</span>
+                          <span className="text-xs text-primary-600 dark:text-primary-400">
+                            {activeCluster.node_count} {activeCluster.node_count === 1 ? 'node' : 'nodes'}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">No cluster selected</span>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -1014,14 +1154,21 @@ export default function SecurityDashboard() {
               </div>
             )}
           </div>
-          <button
-            onClick={fetchImageScans}
-            disabled={loadingImages}
-            className="mt-4 w-full text-xs text-primary-600 dark:text-primary-400 hover:text-primary-700 font-medium flex items-center justify-center gap-1"
-          >
-            <span>Images Scanned: <span className="font-semibold">{data.total_images_scanned}</span></span>
-            {loadingImages ? <Spinner size="sm" /> : <InformationCircleIcon className="h-4 w-4" />}
-          </button>
+          <div className="mt-4 space-y-1">
+            <button
+              onClick={fetchImageScans}
+              disabled={loadingImages || scanStatus?.is_scanning}
+              className="w-full text-xs text-primary-600 dark:text-primary-400 hover:text-primary-700 font-medium flex items-center justify-center gap-1 disabled:opacity-50"
+            >
+              <span>Images Scanned: <span className="font-semibold">{data.total_images_scanned}</span></span>
+              {(loadingImages || scanStatus?.is_scanning) ? <Spinner size="sm" /> : <InformationCircleIcon className="h-4 w-4" />}
+            </button>
+            {imageScans.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                Last scan: {new Date(Math.max(...imageScans.map(s => new Date(s.scan_date).getTime()))).toLocaleString()}
+              </p>
+            )}
+          </div>
         </GlassCard>
       </motion.div>
 
@@ -1404,7 +1551,7 @@ export default function SecurityDashboard() {
                               </div>
                               <div>
                                 <h4 className="font-bold text-primary-700 dark:text-primary-300">AI-Powered Analysis</h4>
-                                <p className="text-xs text-primary-600 dark:text-primary-400">Powered by Google Gemini</p>
+                                <p className="text-xs text-primary-600 dark:text-primary-400">Intelligent security insights</p>
                               </div>
                             </div>
                             <button
@@ -1570,12 +1717,99 @@ export default function SecurityDashboard() {
             >
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">Container Image Scans</h3>
-                  <button onClick={() => setShowImageScans(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg">
-                    <XCircleIcon className="h-6 w-6 text-gray-500" />
-                  </button>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">Container Image Scans</h3>
+                    {imageScans.length > 0 && !loadingImages && !scanStatus?.is_scanning && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {imageScans.length} images • Last scan: {new Date(Math.max(...imageScans.map(s => new Date(s.scan_date).getTime()))).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={triggerRescan}
+                      disabled={loadingImages || scanStatus?.is_scanning}
+                      className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      <ArrowPathIcon className={`h-4 w-4 ${(loadingImages || scanStatus?.is_scanning) ? 'animate-spin' : ''}`} />
+                      {(loadingImages || scanStatus?.is_scanning) ? 'Scanning...' : 'Rescan Now'}
+                    </button>
+                    <button onClick={() => setShowImageScans(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg">
+                      <XCircleIcon className="h-6 w-6 text-gray-500" />
+                    </button>
+                  </div>
                 </div>
+                {(loadingImages || scanStatus?.is_scanning) && (
+                  <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Spinner size="sm" />
+                          <div>
+                            <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                              {scanStatus?.is_scanning ? 'Scanning container images...' : 'Loading scan results...'}
+                            </p>
+                            {scanStatus?.current_image && (
+                              <p className="text-xs text-blue-700 dark:text-blue-300 mt-1 font-mono">
+                                Current: {scanStatus.current_image.substring(0, 60)}...
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {scanStatus && (
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-blue-900 dark:text-blue-100">
+                              {scanStatus.progress_percent}%
+                            </p>
+                            <p className="text-xs text-blue-700 dark:text-blue-300">
+                              {scanStatus.scanned + scanStatus.failed}/{scanStatus.total_images}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {scanStatus && (
+                        <div className="space-y-2">
+                          {/* Progress bar */}
+                          <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-2">
+                            <div
+                              className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-500"
+                              style={{ width: `${scanStatus.progress_percent}%` }}
+                            />
+                          </div>
+
+                          {/* Stats */}
+                          <div className="flex items-center justify-between text-xs text-blue-700 dark:text-blue-300">
+                            <span>✓ {scanStatus.scanned} scanned • ✗ {scanStatus.failed} failed</span>
+                            {scanStatus.eta_seconds && scanStatus.eta_seconds > 0 && (
+                              <span>
+                                ETA: {Math.floor(scanStatus.eta_seconds / 60)}m {scanStatus.eta_seconds % 60}s
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {!scanStatus && (
+                        <p className="text-xs text-blue-700 dark:text-blue-300">
+                          This may take a few minutes for the first scan. Subsequent scans will be instant.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-4">
+                  {!loadingImages && imageScans.length === 0 && (
+                    <div className="text-center py-12">
+                      <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 dark:bg-slate-700 rounded-full mb-4">
+                        <InformationCircleIcon className="h-8 w-8 text-gray-400" />
+                      </div>
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Image Scans Available</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Image scans will appear here once completed. Click this button again to start scanning.
+                      </p>
+                    </div>
+                  )}
                   {imageScans.map((scan, idx) => (
                     <div key={idx} className="bg-gray-50 dark:bg-slate-700/50 rounded-xl p-4">
                       <div
@@ -1583,9 +1817,11 @@ export default function SecurityDashboard() {
                         onClick={() => setExpandedImage(expandedImage === scan.image ? null : scan.image)}
                       >
                         <div className="flex-1">
-                          <h4 className="font-mono text-sm text-gray-900 dark:text-white truncate">{scan.image}</h4>
+                          <h4 className="font-mono text-sm text-gray-900 dark:text-white truncate">
+                            {scan.image}:{scan.tag}
+                          </h4>
                           <p className="text-xs text-gray-500 mt-1">
-                            Scanned: {new Date(scan.scan_time).toLocaleString()}
+                            Last scanned: {new Date(scan.scan_date).toLocaleString()}
                           </p>
                         </div>
                         <div className="flex items-center gap-4">
@@ -1930,7 +2166,7 @@ export default function SecurityDashboard() {
                           {aiRemediation.ai_powered ? 'AI-Powered' : 'Rule-Based'} Remediation
                         </h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {aiRemediation.ai_powered ? 'Powered by Google Gemini' : 'Based on security best practices'}
+                          {aiRemediation.ai_powered ? 'AI-generated remediation guidance' : 'Based on security best practices'}
                         </p>
                       </div>
                     </div>

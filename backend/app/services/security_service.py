@@ -6,13 +6,17 @@ import logging
 import os
 import shutil
 import subprocess
+import uuid
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.database import async_session_maker
+from app.models.security import ImageScanResult as DBImageScanResult
 
 logger = logging.getLogger(__name__)
 from app.schemas.security import (  # New schemas for RBAC, Network Policies, and Trends
@@ -49,7 +53,19 @@ CACHE_TTL_MINUTES = 5  # Cache results for 5 minutes
 FAILED_IMAGE_RETRY_MINUTES = 30  # Don't retry failed images for 30 minutes
 
 # Semaphore to limit concurrent Trivy scans
-_trivy_semaphore = asyncio.Semaphore(2)  # Only 2 concurrent scans
+_trivy_semaphore = asyncio.Semaphore(3)  # Limit concurrent scans to avoid overwhelming the system
+
+# Background scan status tracking
+_scan_status = {
+    "is_scanning": False,
+    "total_images": 0,
+    "scanned": 0,
+    "failed": 0,
+    "current_image": None,
+    "started_at": None,
+    "completed_at": None,
+}
+_scan_status_lock = asyncio.Lock()
 
 
 def _find_trivy_binary() -> Optional[str]:
@@ -106,15 +122,19 @@ class SecurityService:
     def __init__(self):
         self.findings_cache: Dict[str, List[SecurityFinding]] = {}
 
-    async def get_security_posture(self, cluster_id: str = "default") -> SecurityPosture:
-        """Get complete security posture for a cluster."""
+    async def get_security_posture(self, cluster_id: str = "default", include_image_scans: bool = False) -> SecurityPosture:
+        """Get complete security posture for a cluster.
+
+        Args:
+            cluster_id: Cluster identifier
+            include_image_scans: If True, wait for image scans (slow). If False, return cached scans only.
+        """
         try:
-            # Run all security checks in parallel
-            findings, pod_checks, compliance, image_scans = await asyncio.gather(
+            # Run fast security checks in parallel (exclude slow image scanning)
+            findings, pod_checks, compliance = await asyncio.gather(
                 self.scan_cluster_security(cluster_id),
                 self.check_pod_security(),
                 self.run_compliance_checks(),
-                self.scan_container_images(),
                 return_exceptions=True,
             )
 
@@ -122,7 +142,18 @@ class SecurityService:
             findings = findings if not isinstance(findings, Exception) else []
             pod_checks = pod_checks if not isinstance(pod_checks, Exception) else []
             compliance = compliance if not isinstance(compliance, Exception) else []
-            image_scans = image_scans if not isinstance(image_scans, Exception) else []
+
+            # For image scans: either get cached results or trigger background scan
+            if include_image_scans:
+                # Wait for scans (slow, only if explicitly requested)
+                try:
+                    image_scans = await self.scan_container_images()
+                except Exception as e:
+                    logger.error(f"Image scanning failed: {e}")
+                    image_scans = []
+            else:
+                # Return cached results only (fast, don't wait for scans)
+                image_scans = await self._get_cached_image_scans()
 
             # Calculate vulnerability summary from both findings and image scans
             vuln_summary = self._calculate_vulnerability_summary(findings, image_scans)
@@ -402,7 +433,204 @@ class SecurityService:
 
         return checks
 
-    async def scan_container_images(self, force_scan: bool = False) -> List[ImageScanResult]:
+    async def _get_cached_image_scans(self) -> List[ImageScanResult]:
+        """Get cached image scan results without triggering new scans (fast)."""
+        # Try memory cache first (fastest)
+        cache_key = "container_images_scan"
+        if cache_key in _scan_cache:
+            cached_result, cached_time = _scan_cache[cache_key]
+            age_minutes = (datetime.utcnow() - cached_time).total_seconds() / 60
+            logger.debug(f"Returning memory cached image scans ({len(cached_result)} images, {age_minutes:.1f} min old)")
+            return cached_result
+
+        # Fall back to database (persistent storage)
+        logger.debug("No memory cache, loading from database")
+        return await self._load_scans_from_db()
+
+    async def _save_scan_to_db(self, scan: ImageScanResult, cluster_id: str = "default"):
+        """Save a single scan result to database for persistence."""
+        async with async_session_maker() as db:
+            try:
+                from sqlalchemy import select
+
+                # Check if scan already exists for this image
+                result = await db.execute(
+                    select(DBImageScanResult).filter(
+                        DBImageScanResult.image_name == scan.image,
+                        DBImageScanResult.cluster_id == cluster_id
+                    )
+                )
+                existing = result.scalar_one_or_none()
+
+                # Prepare vulnerability data
+                vuln_data = [
+                    {
+                        "vulnerability_id": v.vulnerability_id,
+                        "pkg_name": v.pkg_name,
+                        "installed_version": v.installed_version,
+                        "fixed_version": v.fixed_version,
+                        "severity": v.severity,
+                        "title": v.title,
+                        "description": v.description,
+                    }
+                    for v in (scan.vulnerability_details or [])
+                ]
+
+                if existing:
+                    # Update existing record
+                    existing.critical_count = scan.vulnerabilities.critical
+                    existing.high_count = scan.vulnerabilities.high
+                    existing.medium_count = scan.vulnerabilities.medium
+                    existing.low_count = scan.vulnerabilities.low
+                    existing.unknown_count = scan.vulnerabilities.unknown
+                    existing.total_count = scan.vulnerabilities.total
+                    existing.vulnerabilities = vuln_data
+                    existing.scan_time = datetime.fromisoformat(scan.scan_date.replace('Z', '+00:00')) if isinstance(scan.scan_date, str) else scan.scan_date
+                    logger.debug(f"Updated existing scan for {scan.image}")
+                else:
+                    # Create new record
+                    db_scan = DBImageScanResult(
+                        id=str(uuid.uuid4()),
+                        image_name=scan.image,
+                        cluster_id=cluster_id,
+                        critical_count=scan.vulnerabilities.critical,
+                        high_count=scan.vulnerabilities.high,
+                        medium_count=scan.vulnerabilities.medium,
+                        low_count=scan.vulnerabilities.low,
+                        unknown_count=scan.vulnerabilities.unknown,
+                        total_count=scan.vulnerabilities.total,
+                        vulnerabilities=vuln_data,
+                        scan_time=datetime.fromisoformat(scan.scan_date.replace('Z', '+00:00')) if isinstance(scan.scan_date, str) else scan.scan_date,
+                    )
+                    db.add(db_scan)
+                    logger.debug(f"Saved new scan for {scan.image}")
+
+                await db.commit()
+            except Exception as e:
+                logger.error(f"Failed to save scan to database: {e}")
+                await db.rollback()
+                raise
+
+    async def _load_scans_from_db(self, cluster_id: str = "default") -> List[ImageScanResult]:
+        """Load scan results from database (persistent storage)."""
+        async with async_session_maker() as db:
+            try:
+                from sqlalchemy import select
+
+                # Get all scans from database
+                result = await db.execute(
+                    select(DBImageScanResult).filter(
+                        DBImageScanResult.cluster_id == cluster_id
+                    )
+                )
+                db_scans = result.scalars().all()
+
+                # Convert to schema format
+                from app.schemas.security import VulnerabilitySummary, VulnerabilityDetail
+
+                results = []
+                for db_scan in db_scans:
+                    # Reconstruct vulnerability details
+                    vuln_details = [
+                        VulnerabilityDetail(
+                            vulnerability_id=v.get("vulnerability_id", ""),
+                            pkg_name=v.get("pkg_name", ""),
+                            installed_version=v.get("installed_version", ""),
+                            fixed_version=v.get("fixed_version"),
+                            severity=v.get("severity", "UNKNOWN"),
+                            title=v.get("title", ""),
+                            description=v.get("description", ""),
+                        )
+                        for v in (db_scan.vulnerabilities or [])
+                    ]
+
+                    # Create ImageScanResult
+                    # Parse image name and tag
+                    image_parts = db_scan.image_name.split(":")
+                    image_name = image_parts[0] if len(image_parts) > 0 else db_scan.image_name
+                    image_tag = image_parts[1] if len(image_parts) > 1 else "latest"
+
+                    scan_result = ImageScanResult(
+                        image=image_name,
+                        tag=image_tag,
+                        digest=None,
+                        vulnerabilities=VulnerabilitySummary(
+                            critical=db_scan.critical_count,
+                            high=db_scan.high_count,
+                            medium=db_scan.medium_count,
+                            low=db_scan.low_count,
+                            unknown=db_scan.unknown_count,
+                            total=db_scan.total_count,
+                        ),
+                        scan_date=db_scan.scan_time,  # Fixed: use scan_date not scan_time
+                        vulnerability_details=vuln_details,
+                    )
+                    results.append(scan_result)
+
+                logger.info(f"Loaded {len(results)} scans from database")
+                return results
+
+            except Exception as e:
+                logger.error(f"Failed to load scans from database: {e}")
+                return []
+
+    async def get_scan_status(self) -> dict:
+        """Get current image scanning status."""
+        async with _scan_status_lock:
+            status = _scan_status.copy()
+
+        # Calculate progress percentage
+        if status["total_images"] > 0:
+            status["progress_percent"] = int((status["scanned"] + status["failed"]) / status["total_images"] * 100)
+        else:
+            status["progress_percent"] = 0
+
+        # Calculate ETA if scanning
+        if status["is_scanning"] and status["started_at"] and status["scanned"] > 0:
+            elapsed = (datetime.utcnow() - status["started_at"]).total_seconds()
+            avg_time_per_image = elapsed / status["scanned"]
+            remaining_images = status["total_images"] - status["scanned"] - status["failed"]
+            eta_seconds = int(avg_time_per_image * remaining_images)
+            status["eta_seconds"] = eta_seconds
+        else:
+            status["eta_seconds"] = None
+
+        return status
+
+    async def start_background_scan(self) -> dict:
+        """Start image scanning in the background without blocking."""
+        async with _scan_status_lock:
+            if _scan_status["is_scanning"]:
+                return {"status": "already_scanning", "message": "Scan is already in progress"}
+
+            # Reset status
+            _scan_status["is_scanning"] = True
+            _scan_status["started_at"] = datetime.utcnow()
+            _scan_status["completed_at"] = None
+            _scan_status["scanned"] = 0
+            _scan_status["failed"] = 0
+            _scan_status["current_image"] = None
+
+        # Start scanning in background (don't await)
+        asyncio.create_task(self._run_background_scan())
+
+        return {"status": "started", "message": "Background scan initiated"}
+
+    async def _run_background_scan(self):
+        """Run image scanning in the background with status tracking."""
+        try:
+            logger.info("🚀 Starting background image scan")
+            await self.scan_container_images(force_scan=True, update_status=True)
+            logger.info("✅ Background image scan completed")
+        except Exception as e:
+            logger.error(f"❌ Background scan failed: {e}")
+        finally:
+            async with _scan_status_lock:
+                _scan_status["is_scanning"] = False
+                _scan_status["completed_at"] = datetime.utcnow()
+                _scan_status["current_image"] = None
+
+    async def scan_container_images(self, force_scan: bool = False, update_status: bool = False) -> List[ImageScanResult]:
         """Scan container images for vulnerabilities using Trivy.
 
         Args:
@@ -430,6 +658,8 @@ class SecurityService:
                     if container.image:
                         images.add(container.image)
 
+            logger.info(f"📊 Found {len(images)} unique container images in cluster")
+
             # Clean up old failed images entries
             now = datetime.utcnow()
             expired_failed = [
@@ -443,23 +673,77 @@ class SecurityService:
             # Filter out recently failed images
             images_to_scan = [img for img in images if img not in _failed_images]
 
+            if len(_failed_images) > 0:
+                logger.info(f"⚠️  Skipping {len(_failed_images)} images that recently failed to scan")
+
             # Check individual image cache first
-            for image in list(images_to_scan)[:10]:
+            # Limit to first 50 images to avoid overwhelming the system (configurable)
+            max_images = 50  # Increase this if you have more images to scan
+            images_list = list(images_to_scan)[:max_images]
+
+            logger.info(f"🔍 Scanning {len(images_list)} images (max limit: {max_images})")
+
+            # Update status with total image count
+            if update_status:
+                async with _scan_status_lock:
+                    _scan_status["total_images"] = len(images_list)
+
+            scanned_count = 0
+            cached_count = 0
+            failed_count = 0
+
+            for idx, image in enumerate(images_list, 1):
+                # Update current image status
+                if update_status:
+                    async with _scan_status_lock:
+                        _scan_status["current_image"] = image
                 if image in _image_scan_cache:
                     cached_result, cached_time = _image_scan_cache[image]
                     if datetime.utcnow() - cached_time < timedelta(minutes=CACHE_TTL_MINUTES * 2):
                         results.append(cached_result)
+                        cached_count += 1
+                        logger.debug(f"[{idx}/{len(images_list)}] ✓ Cached: {image}")
                         continue
 
                 # Scan new/expired images
+                logger.info(f"[{idx}/{len(images_list)}] 🔎 Scanning: {image}")
                 try:
                     result = await self._scan_image_with_trivy(image)
                     if result:
                         results.append(result)
                         _image_scan_cache[image] = (result, datetime.utcnow())
+
+                        # Save to database for persistence
+                        await self._save_scan_to_db(result)
+
+                        scanned_count += 1
+                        vuln_count = result.vulnerabilities.total
+                        logger.info(f"[{idx}/{len(images_list)}] ✅ Completed: {image} ({vuln_count} vulnerabilities)")
+
+                        # Update status
+                        if update_status:
+                            async with _scan_status_lock:
+                                _scan_status["scanned"] = scanned_count
+                    else:
+                        failed_count += 1
+                        logger.warning(f"[{idx}/{len(images_list)}] ❌ Failed: {image} (returned no results)")
+
+                        # Update status
+                        if update_status:
+                            async with _scan_status_lock:
+                                _scan_status["failed"] = failed_count
                 except Exception as e:
-                    logger.error(f"Error scanning image {image}: {e}")
+                    logger.error(f"[{idx}/{len(images_list)}] ❌ Failed: {image} - {str(e)[:100]}")
                     _failed_images[image] = datetime.utcnow()
+                    failed_count += 1
+
+                    # Update status
+                    if update_status:
+                        async with _scan_status_lock:
+                            _scan_status["failed"] = failed_count
+
+            # Log final summary
+            logger.info(f"📈 Scan Summary: {scanned_count} scanned, {cached_count} cached, {failed_count} failed, {len(results)} total results")
 
             # Cache the full results
             _scan_cache[cache_key] = (results, datetime.utcnow())

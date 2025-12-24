@@ -135,6 +135,7 @@ def generate_ai_response(prompt: str, fallback_providers: list = None) -> str:
 QUERY_KEYWORDS = {
     # Kubernetes
     "pods": ["pod", "pods", "running pods", "pod count", "how many pods"],
+    "failing_pods": ["failing", "failed", "failing pods", "pods failing", "crash", "crashing", "crashloop", "error", "errors", "not running", "broken", "down", "unhealthy pods", "pod failures", "pod errors"],
     "deployments": ["deployment", "deployments", "deploy", "replicas", "rollout"],
     "services": ["service", "services", "svc", "endpoints", "loadbalancer"],
     "nodes": ["node", "nodes", "worker", "master", "control plane"],
@@ -175,9 +176,89 @@ def detect_query_types(message: str) -> list:
     return detected_types
 
 
-async def fetch_context(query_types: list) -> str:
+def extract_pod_name(message: str) -> Optional[str]:
+    """Extract a specific pod name from the user's message."""
+    import re
+
+    # Look for patterns like "my demo-nginx pod", "the demo-nginx pod", "pod demo-nginx", etc.
+    # Pod names typically contain hyphens and alphanumeric characters
+    patterns = [
+        r'(?:my|the)?\s*([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\s+pod',  # "demo-nginx pod"
+        r'pod\s+([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)',  # "pod demo-nginx"
+        r'([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)\s+(?:is|has|was)',  # "demo-nginx is failing"
+    ]
+
+    message_lower = message.lower()
+
+    for pattern in patterns:
+        match = re.search(pattern, message_lower)
+        if match:
+            pod_name = match.group(1)
+            # Filter out common words that might match but aren't pod names
+            excluded_words = ['pod', 'the', 'my', 'is', 'has', 'was', 'are', 'container', 'node']
+            if pod_name not in excluded_words and len(pod_name) > 2:
+                return pod_name
+
+    return None
+
+
+async def fetch_context(query_types: list, specific_pod_name: Optional[str] = None) -> str:
     """Fetch relevant data from all NextSight services based on query types."""
     context_parts = []
+
+    # ===== SPECIFIC POD DETAILS (if pod name is mentioned) =====
+    if specific_pod_name:
+        try:
+            logger.info(f"Fetching details for specific pod: {specific_pod_name}")
+
+            # Get all pods and find the specific one
+            all_pods = await kubernetes_service.get_pods()
+            matching_pods = [p for p in all_pods if specific_pod_name in p.name.lower()]
+
+            if matching_pods:
+                for pod in matching_pods[:3]:  # Limit to 3 matching pods
+                    pod_details = f"""
+## Pod Details: {pod.name} (Namespace: {pod.namespace})
+- **Status**: {pod.status.value}
+- **Ready**: {pod.ready}
+- **Node**: {pod.node or 'Not scheduled'}
+- **Restarts**: {pod.restarts}
+- **Age**: {pod.age}
+- **IP**: {pod.ip or 'Not assigned'}
+"""
+
+                    # Fetch pod events to understand why it's failing
+                    try:
+                        events = await kubernetes_service.get_events(namespace=pod.namespace)
+                        pod_events = [e for e in events if pod.name in str(e.involved_object)]
+
+                        if pod_events:
+                            pod_details += "\n### Recent Events:\n"
+                            for event in pod_events[:10]:
+                                pod_details += f"- [{event.type}] **{event.reason}**: {event.message}\n"
+                        else:
+                            pod_details += "\n### Recent Events:\nNo events found for this pod.\n"
+                    except Exception as e:
+                        logger.warning(f"Could not fetch events for pod {pod.name}: {e}")
+                        pod_details += f"\n### Recent Events:\nCould not fetch events: {e}\n"
+
+                    # Add container information if available
+                    if hasattr(pod, 'containers') and pod.containers:
+                        pod_details += "\n### Containers:\n"
+                        for container in pod.containers:
+                            pod_details += f"- **{container}**\n"
+
+                    context_parts.append(pod_details)
+
+            else:
+                context_parts.append(f"""
+## Pod Search Results
+No pods found matching "{specific_pod_name}". Please check the pod name and try again.
+You can list all pods with: `kubectl get pods -A`
+""")
+        except Exception as e:
+            logger.error(f"Error fetching specific pod details: {e}")
+            context_parts.append(f"## Error\nCould not fetch details for pod '{specific_pod_name}': {e}\n")
 
     # ===== KUBERNETES CONTEXT =====
     try:
@@ -199,7 +280,7 @@ async def fetch_context(query_types: list) -> str:
             except Exception as e:
                 logger.warning(f"Could not fetch cluster health: {e}")
 
-        if "pods" in query_types:
+        if "pods" in query_types and not specific_pod_name:
             try:
                 pods = await kubernetes_service.get_pods()
                 running = sum(1 for p in pods if p.status.value == "Running")
@@ -236,6 +317,107 @@ async def fetch_context(query_types: list) -> str:
                 )
             except Exception as e:
                 logger.warning(f"Could not fetch pods: {e}")
+
+        # Fetch failing pods specifically when asked
+        if "failing_pods" in query_types:
+            try:
+                all_pods = await kubernetes_service.get_pods()
+
+                # Filter for non-running, non-succeeded pods
+                failing_pods = [
+                    p for p in all_pods
+                    if p.status.value not in ["Running", "Succeeded"]
+                ]
+
+                # Also include Running pods with high restart counts (might be crashlooping)
+                crashlooping_pods = [
+                    p for p in all_pods
+                    if p.status.value == "Running" and p.restarts > 5
+                ]
+
+                if failing_pods or crashlooping_pods:
+                    context_parts.append(f"""
+## Failing Pods Analysis ({len(failing_pods)} failing + {len(crashlooping_pods)} crashlooping)
+""")
+
+                    # Show detailed information for each failing pod
+                    for idx, pod in enumerate(failing_pods[:15], 1):  # Limit to 15 pods
+                        # Use status_reason if available for more detail
+                        detailed_status = pod.status_reason if pod.status_reason else pod.status.value
+
+                        context_parts.append(f"""
+### {idx}. {pod.namespace}/{pod.name}
+- **Status**: {detailed_status}
+- **Phase**: {pod.status.value}
+- **Restarts**: {pod.restarts}
+- **Age**: {pod.age}
+- **Node**: {pod.node or "Not scheduled"}
+- **Ready**: {pod.ready}
+
+**Debug Commands:**
+```bash
+# Check pod events and details
+kubectl describe pod {pod.name} -n {pod.namespace}
+
+# View current logs
+kubectl logs {pod.name} -n {pod.namespace}
+
+# View previous logs (if container restarted)
+kubectl logs {pod.name} -n {pod.namespace} --previous
+
+# Get pod YAML for analysis
+kubectl get pod {pod.name} -n {pod.namespace} -o yaml
+```
+
+**Common Fixes for {detailed_status}:**""")
+
+                        # Add status-specific troubleshooting (check status_reason first)
+                        status_check = pod.status_reason if pod.status_reason else pod.status.value
+                        if "ImagePull" in status_check or "ErrImage" in status_check:
+                            context_parts.append("""
+- Check if the image exists: verify the image name and tag
+- Check image pull secrets: `kubectl get secrets -n {namespace}`
+- Verify registry access: ensure credentials are correct
+- Try pulling the image manually: `docker pull <image-name>`
+""")
+                        elif pod.status.value == "CrashLoopBackOff":
+                            context_parts.append("""
+- Check application logs for errors
+- Verify environment variables and ConfigMaps
+- Check resource limits (OOMKilled?)
+- Review liveness/readiness probes
+""")
+                        elif pod.status.value == "Pending":
+                            context_parts.append("""
+- Check node resources: `kubectl describe nodes`
+- Verify PersistentVolumeClaims are bound
+- Check for node selectors or taints
+- Review resource requests/limits
+""")
+                        elif pod.status.value in ["Error", "Failed"]:
+                            context_parts.append("""
+- Check exit code in pod events
+- Review application configuration
+- Verify dependencies are available
+- Check for init container failures
+""")
+
+                    if crashlooping_pods:
+                        context_parts.append(f"\n### ⚠️ Potentially CrashLooping Pods ({len(crashlooping_pods)}):")
+                        context_parts.append("\nThese pods are Running but have high restart counts:\n")
+                        for pod in crashlooping_pods[:5]:
+                            context_parts.append(
+                                f"- **{pod.namespace}/{pod.name}** - {pod.restarts} restarts (investigate with: `kubectl logs {pod.name} -n {pod.namespace} --previous`)"
+                            )
+                else:
+                    context_parts.append("""
+## Failing Pods
+✅ Great news! No failing pods detected. All pods are either Running or Succeeded.
+""")
+
+            except Exception as e:
+                logger.error(f"Could not fetch failing pods: {e}")
+                context_parts.append(f"## Error\nCould not fetch failing pods: {e}\n")
 
         if "deployments" in query_types:
             try:
@@ -500,6 +682,7 @@ Guidelines:
 3. **Be ACCURATE** - Use only the data provided, don't make up numbers
 4. **Use Markdown** - Format responses with headers, lists, and code blocks
 5. **Answer Directly** - Don't ask clarifying questions if the data already has the answer
+6. **PRESERVE EXACT COMMANDS** - When kubectl commands or code blocks are provided in the data context, include them EXACTLY as shown with specific pod names, namespaces, and parameters. Never use generic placeholders like <pod-name> or <namespace>.
 
 When asked about any NextSight feature, use the real-time data provided to give accurate, helpful responses."""
 
@@ -517,12 +700,15 @@ async def chat(request: ChatRequest):
         # Detect what types of data are needed
         query_types = detect_query_types(request.message)
 
+        # Extract specific pod name if mentioned
+        specific_pod_name = extract_pod_name(request.message)
+
         # If no specific types detected, fetch basic overview
         if not query_types:
             query_types = ["k8s_health"]
 
         # Fetch relevant data from all services
-        data_context = await fetch_context(query_types)
+        data_context = await fetch_context(query_types, specific_pod_name=specific_pod_name)
 
         # Build the prompt
         full_prompt = f"{SYSTEM_PROMPT}\n\n"
@@ -533,7 +719,7 @@ async def chat(request: ChatRequest):
         if request.context:
             full_prompt += f"Additional context: {request.context}\n\n"
 
-        full_prompt += f"User Question: {request.message}\n\nAssistant (be concise, use real data):"
+        full_prompt += f"User Question: {request.message}\n\nAssistant (be concise, use real data, include exact kubectl commands from the context above):"
 
         response_text = generate_ai_response(full_prompt)
 

@@ -270,11 +270,25 @@ class KubernetesService:
                 total_containers = len(pod.spec.containers)
                 restarts = sum(cs.restart_count for cs in (pod.status.container_statuses or []))
 
+                # Extract detailed status reason
+                status_reason = None
+                if pod.status.container_statuses:
+                    for cs in pod.status.container_statuses:
+                        if cs.state and cs.state.waiting:
+                            status_reason = cs.state.waiting.reason
+                            break
+                        elif cs.state and cs.state.terminated:
+                            status_reason = cs.state.terminated.reason
+                            break
+                if not status_reason and pod.status.reason:
+                    status_reason = pod.status.reason
+
                 result.append(
                     PodInfo(
                         name=pod.metadata.name,
                         namespace=pod.metadata.namespace,
                         status=PodPhase(pod.status.phase),
+                        status_reason=status_reason,
                         ready=ready_containers == total_containers,
                         restarts=restarts,
                         age=self._calculate_age(pod.metadata.creation_timestamp),
@@ -311,11 +325,25 @@ class KubernetesService:
                 total_containers = len(pod.spec.containers)
                 restarts = sum(cs.restart_count for cs in (pod.status.container_statuses or []))
 
+                # Extract detailed status reason
+                status_reason = None
+                if pod.status.container_statuses:
+                    for cs in pod.status.container_statuses:
+                        if cs.state and cs.state.waiting:
+                            status_reason = cs.state.waiting.reason
+                            break
+                        elif cs.state and cs.state.terminated:
+                            status_reason = cs.state.terminated.reason
+                            break
+                if not status_reason and pod.status.reason:
+                    status_reason = pod.status.reason
+
                 result.append(
                     PodInfo(
                         name=pod.metadata.name,
                         namespace=pod.metadata.namespace,
                         status=PodPhase(pod.status.phase),
+                        status_reason=status_reason,
                         ready=ready_containers == total_containers,
                         restarts=restarts,
                         age=self._calculate_age(pod.metadata.creation_timestamp),
