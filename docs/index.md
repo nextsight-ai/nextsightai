@@ -29,7 +29,7 @@ AI-powered Kubernetes management platform with real-time visibility, intelligent
 
 <div class="stats" markdown>
 <div class="stat">
-<div class="stat-value">v1.4.0</div>
+<div class="stat-value">v1.4.1</div>
 <div class="stat-label">Latest Release</div>
 </div>
 <div class="stat">
@@ -153,7 +153,7 @@ Get NextSight AI running in under 5 minutes:
 
 ---
 
-## :material-help-circle: What's New in v1.4.0
+## :material-help-circle: What's New in v1.4.1
 
 !!! success "Latest Release Highlights"
 

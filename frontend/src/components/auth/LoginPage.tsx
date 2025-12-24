@@ -413,7 +413,7 @@ export default function LoginPage() {
           >
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
               <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-              v1.4.0 — AI Enhanced
+              v1.4.1 — AI Enhanced
             </span>
           </motion.div>
         </div>

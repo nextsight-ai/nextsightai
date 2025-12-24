@@ -581,7 +581,7 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
                   </span>
                 </div>
                 <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                  NextSight AI v1.4.0
+                  NextSight AI v1.4.1
                 </p>
               </div>
             </div>

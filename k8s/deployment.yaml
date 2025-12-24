@@ -21,7 +21,7 @@ spec:
       serviceAccountName: nextsight
       containers:
         - name: backend
-          image: nextsight-backend:1.4.0
+          image: nextsight-backend:1.4.1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8000
@@ -73,7 +73,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: nextsight-frontend:1.4.0
+          image: nextsight-frontend:1.4.1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

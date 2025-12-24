@@ -9,7 +9,7 @@ Create a `.env` file in the backend directory based on `.env.example`:
 ```env
 # Application
 APP_NAME=NextSight AI
-APP_VERSION=1.4.0
+APP_VERSION=1.4.1
 DEBUG=false
 
 # Security (REQUIRED)
