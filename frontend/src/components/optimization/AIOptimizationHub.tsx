@@ -178,14 +178,20 @@ export default function AIOptimizationHub() {
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400">AI-powered cluster optimization recommendations</p>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={analyzing}
-          className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors text-sm"
-        >
-          <ArrowPathIcon className={`h-4 w-4 ${analyzing ? 'animate-spin' : ''}`} />
-          {analyzing ? 'Analyzing...' : 'Refresh'}
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-xs text-purple-700 dark:text-purple-300">
+            <SparklesIcon className="h-3 w-3" />
+            AI-Powered
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={analyzing}
+            className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors text-sm"
+          >
+            <ArrowPathIcon className={`h-4 w-4 ${analyzing ? 'animate-spin' : ''}`} />
+            {analyzing ? 'Analyzing...' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {/* Focus Area Tabs */}
