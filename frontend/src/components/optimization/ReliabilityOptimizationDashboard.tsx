@@ -433,7 +433,7 @@ export default function ReliabilityOptimizationDashboard({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Fixed Header */}
       <div className="flex-shrink-0 space-y-4 mb-4">
         {/* Compact Header */}
