@@ -375,9 +375,9 @@ export default function ResourceOptimizationDashboard({
   const reviewedCount = filteredOptimizations.filter(opt => markedReviewed.has(opt.id)).length;
 
   return (
-    <div className="flex flex-col h-full space-y-4">
+    <div className="flex flex-col h-full">
       {/* Fixed Header */}
-      <div className="flex-shrink-0 space-y-4">
+      <div className="flex-shrink-0 space-y-4 mb-4">
         {/* Compact Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -475,7 +475,7 @@ export default function ResourceOptimizationDashboard({
       </div>
 
       {/* Fixed Footer Disclaimer */}
-      <div className="flex-shrink-0 p-2 rounded bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
+      <div className="flex-shrink-0 mt-4 p-2 rounded bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
         <p className="text-[10px] text-gray-600 dark:text-gray-400 text-center">
           Resource efficiency recommendations based on current usage patterns • Validate in staging before production
         </p>

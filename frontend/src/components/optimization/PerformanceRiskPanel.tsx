@@ -372,9 +372,9 @@ export default function PerformanceRiskPanel({ dashboardData }: PerformanceRiskP
   const memPressureCount = filteredRisks.filter(r => r.risk_type === 'memory_pressure').length;
 
   return (
-    <div className="flex flex-col h-full space-y-4">
+    <div className="flex flex-col h-full">
       {/* Fixed Header */}
-      <div className="flex-shrink-0 space-y-4">
+      <div className="flex-shrink-0 space-y-4 mb-4">
         {/* Compact Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -467,7 +467,7 @@ export default function PerformanceRiskPanel({ dashboardData }: PerformanceRiskP
       </div>
 
       {/* Fixed Footer Disclaimer */}
-      <div className="flex-shrink-0 p-2 rounded bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
+      <div className="flex-shrink-0 mt-4 p-2 rounded bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
         <p className="text-[10px] text-gray-600 dark:text-gray-400 text-center">
           Performance recommendations based on current resource usage • Monitor after changes
         </p>
