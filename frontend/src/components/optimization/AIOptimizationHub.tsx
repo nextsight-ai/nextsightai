@@ -4,8 +4,6 @@ import { motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import {
   SparklesIcon,
-  CpuChipIcon,
-  CurrencyDollarIcon,
   ShieldCheckIcon,
   ArrowPathIcon,
   CheckCircleIcon,
@@ -21,6 +19,7 @@ import { optimizationApi } from '../../services/api';
 import { logger } from '../../utils/logger';
 import type { AIOptimizationAnalysisResponse, OptimizationDashboardResponse } from '../../types';
 import PerformanceRiskPanel from './PerformanceRiskPanel';
+import ReliabilityOptimizationDashboard from './ReliabilityOptimizationDashboard';
 
 type FocusArea = 'efficiency' | 'performance' | 'reliability';
 
@@ -274,6 +273,12 @@ export default function AIOptimizationHub() {
       ) : activeFocus === 'performance' && dashboardData ? (
         /* Show dedicated Performance Risk Dashboard */
         <PerformanceRiskPanel dashboardData={dashboardData} />
+      ) : activeFocus === 'reliability' && dashboardData ? (
+        /* Show dedicated Reliability Optimization Dashboard */
+        <ReliabilityOptimizationDashboard
+          dashboardData={dashboardData}
+          isAnalyzing={analyzing}
+        />
       ) : aiAnalysis ? (
         <div className="space-y-6">
           {/* Trust Disclaimer */}
