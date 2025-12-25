@@ -217,7 +217,7 @@ export default function AIOptimizationHub() {
       </div>
 
       {/* Content Section - Takes remaining space */}
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex-1 min-h-0 overflow-hidden">
         {/* AI Analysis Content */}
         {analyzing ? (
           <motion.div
