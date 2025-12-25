@@ -375,83 +375,86 @@ export default function ResourceOptimizationDashboard({
   const reviewedCount = filteredOptimizations.filter(opt => markedReviewed.has(opt.id)).length;
 
   return (
-    <div className="space-y-4">
-      {/* Compact Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Resource Efficiency Analysis</h2>
-          <p className="text-xs text-gray-600 dark:text-gray-400">Right-size workloads and reduce waste</p>
-        </div>
-        <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-green-50 dark:bg-green-900/20 text-xs text-green-700 dark:text-green-300">
-          <CurrencyDollarIcon className="h-3 w-3" />
-          {formatCurrency(totalSavings)}/mo potential savings
-        </div>
-      </div>
-
-      {/* Compact Summary */}
-      <div className="grid grid-cols-4 gap-3 p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700">
-        <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Total Issues</div>
-          <div className="text-xl font-bold text-gray-900 dark:text-white">{filteredOptimizations.length}</div>
-        </div>
-        <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Reviewed</div>
-          <div className="text-xl font-bold text-blue-600">{reviewedCount}</div>
-        </div>
-        <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Critical/High</div>
-          <div className="text-xl font-bold text-red-600">
-            {filteredOptimizations.filter(o => o.severity === 'critical' || o.severity === 'high').length}
+    <div className="flex flex-col h-[calc(100vh-12rem)] space-y-4">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 space-y-4">
+        {/* Compact Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Resource Efficiency Analysis</h2>
+            <p className="text-xs text-gray-600 dark:text-gray-400">Right-size workloads and reduce waste</p>
+          </div>
+          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-green-50 dark:bg-green-900/20 text-xs text-green-700 dark:text-green-300">
+            <CurrencyDollarIcon className="h-3 w-3" />
+            {formatCurrency(totalSavings)}/mo potential savings
           </div>
         </div>
-        <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Potential Savings</div>
-          <div className="text-xl font-bold text-green-600">{formatCurrency(totalSavings)}/mo</div>
+
+        {/* Compact Summary */}
+        <div className="grid grid-cols-4 gap-3 p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700">
+          <div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Total Issues</div>
+            <div className="text-xl font-bold text-gray-900 dark:text-white">{filteredOptimizations.length}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Reviewed</div>
+            <div className="text-xl font-bold text-blue-600">{reviewedCount}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Critical/High</div>
+            <div className="text-xl font-bold text-red-600">
+              {filteredOptimizations.filter(o => o.severity === 'critical' || o.severity === 'high').length}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Potential Savings</div>
+            <div className="text-xl font-bold text-green-600">{formatCurrency(totalSavings)}/mo</div>
+          </div>
+        </div>
+
+        {/* Compact Filters */}
+        <div className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+          <FunnelIcon className="h-4 w-4 text-gray-500" />
+          <select
+            value={filterSeverity}
+            onChange={(e) => setFilterSeverity(e.target.value)}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
+          >
+            <option value="all">All Severities</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <select
+            value={filterNamespace}
+            onChange={(e) => setFilterNamespace(e.target.value)}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
+          >
+            <option value="all">All Namespaces</option>
+            {namespaces.map(ns => (
+              <option key={ns} value={ns}>{ns}</option>
+            ))}
+          </select>
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
+          >
+            <option value="all">All Types</option>
+            <option value="over_provisioned">Over-provisioned</option>
+            <option value="idle_resource">Idle Resources</option>
+            <option value="no_limits">Missing Limits</option>
+            <option value="no_requests">Missing Requests</option>
+          </select>
+          <div className="ml-auto text-xs text-gray-500 dark:text-gray-400">
+            {filteredOptimizations.length - reviewedCount} pending
+          </div>
         </div>
       </div>
 
-      {/* Compact Filters */}
-      <div className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-        <FunnelIcon className="h-4 w-4 text-gray-500" />
-        <select
-          value={filterSeverity}
-          onChange={(e) => setFilterSeverity(e.target.value)}
-          className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-        >
-          <option value="all">All Severities</option>
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
-        <select
-          value={filterNamespace}
-          onChange={(e) => setFilterNamespace(e.target.value)}
-          className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-        >
-          <option value="all">All Namespaces</option>
-          {namespaces.map(ns => (
-            <option key={ns} value={ns}>{ns}</option>
-          ))}
-        </select>
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-        >
-          <option value="all">All Types</option>
-          <option value="over_provisioned">Over-provisioned</option>
-          <option value="idle_resource">Idle Resources</option>
-          <option value="no_limits">Missing Limits</option>
-          <option value="no_requests">Missing Requests</option>
-        </select>
-        <div className="ml-auto text-xs text-gray-500 dark:text-gray-400">
-          {filteredOptimizations.length - reviewedCount} pending
-        </div>
-      </div>
-
-      {/* Optimization Cards */}
-      <div className="space-y-2">
+      {/* Scrollable Cards Section */}
+      <div className="flex-1 overflow-y-auto space-y-2 pr-2">
         {filteredOptimizations.length === 0 ? (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">
             <CheckCircleIcon className="h-12 w-12 mx-auto mb-2 text-green-500" />
@@ -471,8 +474,8 @@ export default function ResourceOptimizationDashboard({
         )}
       </div>
 
-      {/* Footer Disclaimer */}
-      <div className="p-2 rounded bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
+      {/* Fixed Footer Disclaimer */}
+      <div className="flex-shrink-0 p-2 rounded bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
         <p className="text-[10px] text-gray-600 dark:text-gray-400 text-center">
           Resource efficiency recommendations based on current usage patterns • Validate in staging before production
         </p>

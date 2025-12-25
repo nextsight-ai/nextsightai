@@ -433,93 +433,96 @@ export default function ReliabilityOptimizationDashboard({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Compact Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Reliability Risk Analysis</h2>
-          <p className="text-xs text-gray-600 dark:text-gray-400">Detect configuration and runtime risks</p>
-        </div>
-        {isAnalyzing ? (
-          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300">
-            <ArrowPathIcon className="h-3 w-3 animate-spin" />
-            Analyzing...
+    <div className="flex flex-col h-[calc(100vh-12rem)] space-y-4">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 space-y-4">
+        {/* Compact Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Reliability Risk Analysis</h2>
+            <p className="text-xs text-gray-600 dark:text-gray-400">Detect configuration and runtime risks</p>
           </div>
-        ) : (
-          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300">
-            <ShieldCheckIcon className="h-3 w-3" />
-            {summary.high_risk} high-risk workloads
+          {isAnalyzing ? (
+            <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300">
+              <ArrowPathIcon className="h-3 w-3 animate-spin" />
+              Analyzing...
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300">
+              <ShieldCheckIcon className="h-3 w-3" />
+              {summary.high_risk} high-risk workloads
+            </div>
+          )}
+        </div>
+
+        {/* Compact Summary */}
+        <div className="grid grid-cols-4 gap-3 p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700">
+          <div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Workloads</div>
+            <div className="text-xl font-bold text-gray-900 dark:text-white">{summary.workloads_analyzed}</div>
           </div>
-        )}
-      </div>
+          <div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Total Risks</div>
+            <div className="text-xl font-bold text-orange-600 dark:text-orange-400">{summary.total_risks}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">High-Risk</div>
+            <div className="text-xl font-bold text-red-600 dark:text-red-400">{summary.high_risk}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Outage Risk</div>
+            <div className="text-xl font-bold text-purple-600 dark:text-purple-400">{summary.potential_outages}</div>
+          </div>
+        </div>
 
-      {/* Compact Summary */}
-      <div className="grid grid-cols-4 gap-3 p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700">
-        <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Workloads</div>
-          <div className="text-xl font-bold text-gray-900 dark:text-white">{summary.workloads_analyzed}</div>
-        </div>
-        <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Total Risks</div>
-          <div className="text-xl font-bold text-orange-600 dark:text-orange-400">{summary.total_risks}</div>
-        </div>
-        <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">High-Risk</div>
-          <div className="text-xl font-bold text-red-600 dark:text-red-400">{summary.high_risk}</div>
-        </div>
-        <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Outage Risk</div>
-          <div className="text-xl font-bold text-purple-600 dark:text-purple-400">{summary.potential_outages}</div>
-        </div>
-      </div>
-
-      {/* Compact Filters */}
-      <div className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-        <FunnelIcon className="h-4 w-4 text-gray-500" />
-        <select
-          value={selectedSeverity}
-          onChange={(e) => setSelectedSeverity(e.target.value as ReliabilitySeverity | 'all')}
-          className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-        >
-          <option value="all">All Severities</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
-        <select
-          value={selectedNamespace}
-          onChange={(e) => setSelectedNamespace(e.target.value)}
-          className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-        >
-          {namespaces.map(ns => (
-            <option key={ns} value={ns}>{ns === 'all' ? 'All Namespaces' : ns}</option>
-          ))}
-        </select>
-        <select
-          value={selectedWorkloadType}
-          onChange={(e) => setSelectedWorkloadType(e.target.value)}
-          className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-        >
-          {workloadTypes.map(type => (
-            <option key={type} value={type}>{type === 'all' ? 'All Types' : type}</option>
-          ))}
-        </select>
-        <select
-          value={safeToApplyFilter}
-          onChange={(e) => setSafeToApplyFilter(e.target.value as 'all' | 'yes' | 'needs_review')}
-          className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-        >
-          <option value="all">All</option>
-          <option value="yes">Safe to Apply</option>
-          <option value="needs_review">Needs Review</option>
-        </select>
-        <div className="ml-auto text-xs text-gray-500 dark:text-gray-400">
-          {filteredRisks.length - markedReviewed.size} pending
+        {/* Compact Filters */}
+        <div className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+          <FunnelIcon className="h-4 w-4 text-gray-500" />
+          <select
+            value={selectedSeverity}
+            onChange={(e) => setSelectedSeverity(e.target.value as ReliabilitySeverity | 'all')}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
+          >
+            <option value="all">All Severities</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <select
+            value={selectedNamespace}
+            onChange={(e) => setSelectedNamespace(e.target.value)}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
+          >
+            {namespaces.map(ns => (
+              <option key={ns} value={ns}>{ns === 'all' ? 'All Namespaces' : ns}</option>
+            ))}
+          </select>
+          <select
+            value={selectedWorkloadType}
+            onChange={(e) => setSelectedWorkloadType(e.target.value)}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
+          >
+            {workloadTypes.map(type => (
+              <option key={type} value={type}>{type === 'all' ? 'All Types' : type}</option>
+            ))}
+          </select>
+          <select
+            value={safeToApplyFilter}
+            onChange={(e) => setSafeToApplyFilter(e.target.value as 'all' | 'yes' | 'needs_review')}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
+          >
+            <option value="all">All</option>
+            <option value="yes">Safe to Apply</option>
+            <option value="needs_review">Needs Review</option>
+          </select>
+          <div className="ml-auto text-xs text-gray-500 dark:text-gray-400">
+            {filteredRisks.length - markedReviewed.size} pending
+          </div>
         </div>
       </div>
 
-      {/* Reliability Risk Cards */}
-      <div className="space-y-2">
+      {/* Scrollable Risk Cards */}
+      <div className="flex-1 overflow-y-auto space-y-2 pr-2">
         {filteredRisks.length > 0 ? (
           filteredRisks.map((risk) => (
             <ReliabilityRiskCard
@@ -537,8 +540,8 @@ export default function ReliabilityOptimizationDashboard({
         )}
       </div>
 
-      {/* Footer Disclaimer */}
-      <div className="p-2 rounded bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
+      {/* Fixed Footer Disclaimer */}
+      <div className="flex-shrink-0 p-2 rounded bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
         <p className="text-[10px] text-gray-600 dark:text-gray-400 text-center">
           Reliability recommendations based on Kubernetes best practices • Validate in staging before production
         </p>

@@ -372,79 +372,82 @@ export default function PerformanceRiskPanel({ dashboardData }: PerformanceRiskP
   const memPressureCount = filteredRisks.filter(r => r.risk_type === 'memory_pressure').length;
 
   return (
-    <div className="space-y-4">
-      {/* Compact Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Performance Risk Analysis</h2>
-          <p className="text-xs text-gray-600 dark:text-gray-400">Detect latency and responsiveness issues</p>
+    <div className="flex flex-col h-[calc(100vh-12rem)] space-y-4">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 space-y-4">
+        {/* Compact Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Performance Risk Analysis</h2>
+            <p className="text-xs text-gray-600 dark:text-gray-400">Detect latency and responsiveness issues</p>
+          </div>
+          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-xs text-orange-700 dark:text-orange-300">
+            <BoltIcon className="h-3 w-3" />
+            {criticalCount + highCount} high-risk workloads
+          </div>
         </div>
-        <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-xs text-orange-700 dark:text-orange-300">
-          <BoltIcon className="h-3 w-3" />
-          {criticalCount + highCount} high-risk workloads
+
+        {/* Compact Summary */}
+        <div className="grid grid-cols-4 gap-3 p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700">
+          <div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Total Risks</div>
+            <div className="text-xl font-bold text-gray-900 dark:text-white">{filteredRisks.length}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Critical/High</div>
+            <div className="text-xl font-bold text-red-600 dark:text-red-400">{criticalCount + highCount}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">CPU Throttling</div>
+            <div className="text-xl font-bold text-orange-600 dark:text-orange-400">{throttlingCount}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Memory Pressure</div>
+            <div className="text-xl font-bold text-purple-600 dark:text-purple-400">{memPressureCount}</div>
+          </div>
+        </div>
+
+        {/* Compact Filters */}
+        <div className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+          <FunnelIcon className="h-4 w-4 text-gray-500" />
+          <select
+            value={filterSeverity}
+            onChange={(e) => setFilterSeverity(e.target.value)}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
+          >
+            <option value="all">All Severities</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+          </select>
+          <select
+            value={filterNamespace}
+            onChange={(e) => setFilterNamespace(e.target.value)}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
+          >
+            <option value="all">All Namespaces</option>
+            {namespaces.map(ns => (
+              <option key={ns} value={ns}>{ns}</option>
+            ))}
+          </select>
+          <select
+            value={filterRiskType}
+            onChange={(e) => setFilterRiskType(e.target.value)}
+            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
+          >
+            <option value="all">All Risk Types</option>
+            <option value="cpu_throttling">CPU Throttling</option>
+            <option value="memory_pressure">Memory Pressure</option>
+            <option value="high_cpu_usage">High CPU Usage</option>
+          </select>
+          <div className="ml-auto text-xs text-gray-500 dark:text-gray-400">
+            {filteredRisks.length - markedReviewed.size} pending
+          </div>
         </div>
       </div>
 
-      {/* Compact Summary */}
-      <div className="grid grid-cols-4 gap-3 p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700">
-        <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Total Risks</div>
-          <div className="text-xl font-bold text-gray-900 dark:text-white">{filteredRisks.length}</div>
-        </div>
-        <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Critical/High</div>
-          <div className="text-xl font-bold text-red-600 dark:text-red-400">{criticalCount + highCount}</div>
-        </div>
-        <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">CPU Throttling</div>
-          <div className="text-xl font-bold text-orange-600 dark:text-orange-400">{throttlingCount}</div>
-        </div>
-        <div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">Memory Pressure</div>
-          <div className="text-xl font-bold text-purple-600 dark:text-purple-400">{memPressureCount}</div>
-        </div>
-      </div>
-
-      {/* Compact Filters */}
-      <div className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-        <FunnelIcon className="h-4 w-4 text-gray-500" />
-        <select
-          value={filterSeverity}
-          onChange={(e) => setFilterSeverity(e.target.value)}
-          className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-        >
-          <option value="all">All Severities</option>
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-        </select>
-        <select
-          value={filterNamespace}
-          onChange={(e) => setFilterNamespace(e.target.value)}
-          className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-        >
-          <option value="all">All Namespaces</option>
-          {namespaces.map(ns => (
-            <option key={ns} value={ns}>{ns}</option>
-          ))}
-        </select>
-        <select
-          value={filterRiskType}
-          onChange={(e) => setFilterRiskType(e.target.value)}
-          className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-        >
-          <option value="all">All Risk Types</option>
-          <option value="cpu_throttling">CPU Throttling</option>
-          <option value="memory_pressure">Memory Pressure</option>
-          <option value="high_cpu_usage">High CPU Usage</option>
-        </select>
-        <div className="ml-auto text-xs text-gray-500 dark:text-gray-400">
-          {filteredRisks.length - markedReviewed.size} pending
-        </div>
-      </div>
-
-      {/* Performance Risk Cards */}
-      <div className="space-y-2">
+      {/* Scrollable Risk Cards */}
+      <div className="flex-1 overflow-y-auto space-y-2 pr-2">
         {filteredRisks.length > 0 ? (
           filteredRisks.map((risk) => (
             <PerformanceRiskCard
@@ -463,8 +466,8 @@ export default function PerformanceRiskPanel({ dashboardData }: PerformanceRiskP
         )}
       </div>
 
-      {/* Footer Disclaimer */}
-      <div className="p-2 rounded bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
+      {/* Fixed Footer Disclaimer */}
+      <div className="flex-shrink-0 p-2 rounded bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
         <p className="text-[10px] text-gray-600 dark:text-gray-400 text-center">
           Performance recommendations based on current resource usage • Monitor after changes
         </p>
