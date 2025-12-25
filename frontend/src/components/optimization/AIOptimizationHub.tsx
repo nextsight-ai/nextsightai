@@ -20,6 +20,7 @@ import { logger } from '../../utils/logger';
 import type { AIOptimizationAnalysisResponse, OptimizationDashboardResponse } from '../../types';
 import PerformanceRiskPanel from './PerformanceRiskPanel';
 import ReliabilityOptimizationDashboard from './ReliabilityOptimizationDashboard';
+import ResourceOptimizationDashboard from './ResourceOptimizationDashboard';
 
 type FocusArea = 'efficiency' | 'performance' | 'reliability';
 
@@ -121,15 +122,6 @@ export default function AIOptimizationHub() {
     loadData();
   };
 
-  // Calculate stats
-  const stats = {
-    totalFindings: aiAnalysis?.key_findings?.length || 0,
-    pendingActions: (aiAnalysis?.priority_actions?.length || 0) - appliedActions.size,
-    appliedActions: appliedActions.size,
-    efficiencyImprovement: aiAnalysis?.efficiency_improvement_percent || 0,
-    estimatedImpact: aiAnalysis?.estimated_monthly_impact || 0,
-  };
-
   if (loading) {
     return (
       <div className="space-y-6">
@@ -176,76 +168,47 @@ export default function AIOptimizationHub() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="AI Optimization Hub"
-        description="AI-powered recommendations to optimize your Kubernetes cluster"
-        icon={SparklesIcon}
-        iconColor="purple"
-        badge={{ text: 'AI', color: 'purple' }}
-        actions={
+    <div className="space-y-4">
+      {/* Compact Header with Tabs */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <SparklesIcon className="h-6 w-6 text-purple-500" />
+            AI Optimization Hub
+          </h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400">AI-powered cluster optimization recommendations</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-xs text-purple-700 dark:text-purple-300">
+            <SparklesIcon className="h-3 w-3" />
+            AI-Powered
+          </div>
           <button
             onClick={handleRefresh}
             disabled={analyzing}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors text-sm"
           >
             <ArrowPathIcon className={`h-4 w-4 ${analyzing ? 'animate-spin' : ''}`} />
-            {analyzing ? 'Analyzing...' : 'Refresh Analysis'}
+            {analyzing ? 'Analyzing...' : 'Refresh'}
           </button>
-        }
-      />
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Key Findings', value: stats.totalFindings, icon: LightBulbIcon, color: 'purple' },
-          { label: 'Pending Actions', value: stats.pendingActions, icon: ExclamationTriangleIcon, color: 'amber' },
-          { label: 'Applied', value: stats.appliedActions, icon: CheckCircleIcon, color: 'green' },
-          { label: 'Efficiency Opportunity', value: `${stats.efficiencyImprovement.toFixed(1)}%`, subtext: `~$${stats.estimatedImpact.toLocaleString()}/mo`, icon: ChartBarIcon, color: 'blue' },
-        ].map((stat, index) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-            className="p-4 rounded-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-slate-700/50"
-          >
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg bg-${stat.color}-100 dark:bg-${stat.color}-900/30`}>
-                <stat.icon className={`h-5 w-5 text-${stat.color}-500`} />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{stat.label}</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
-                {'subtext' in stat && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500">{stat.subtext}</p>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        ))}
+        </div>
       </div>
 
       {/* Focus Area Tabs */}
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="flex gap-2 overflow-x-auto">
         {focusTabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => handleFocusChange(tab.id)}
             disabled={analyzing}
-            className={`flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
               activeFocus === tab.id
                 ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg shadow-purple-500/25'
-                : 'bg-white/80 dark:bg-slate-800/80 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-200/50 dark:border-slate-700/50'
+                : 'bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-200 dark:border-slate-700'
             } disabled:opacity-50`}
           >
-            <tab.icon className="h-5 w-5" />
-            <div className="text-left">
-              <div>{tab.label}</div>
-              <div className={`text-xs ${activeFocus === tab.id ? 'text-purple-200' : 'text-gray-400'}`}>
-                {tab.description}
-              </div>
-            </div>
+            <tab.icon className="h-4 w-4" />
+            <span>{tab.label}</span>
           </button>
         ))}
       </div>
@@ -270,6 +233,9 @@ export default function AIOptimizationHub() {
             ⏱️ First analysis takes 30-60s • Future analyses are instant (10-min cache)
           </p>
         </motion.div>
+      ) : activeFocus === 'efficiency' && dashboardData ? (
+        /* Show dedicated Resource Optimization Dashboard */
+        <ResourceOptimizationDashboard dashboardData={dashboardData} />
       ) : activeFocus === 'performance' && dashboardData ? (
         /* Show dedicated Performance Risk Dashboard */
         <PerformanceRiskPanel dashboardData={dashboardData} />

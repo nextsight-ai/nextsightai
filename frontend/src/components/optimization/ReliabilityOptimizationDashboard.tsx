@@ -11,7 +11,6 @@ import {
   ChevronUpIcon,
   FunnelIcon,
 } from '@heroicons/react/24/outline';
-import PageHeader from '../common/PageHeader';
 import type { OptimizationDashboardResponse } from '../../types';
 
 // Reliability Risk Severity
@@ -437,23 +436,24 @@ export default function ReliabilityOptimizationDashboard({
 
   return (
     <div className="space-y-4">
-      {/* Page Header */}
-      <PageHeader
-        title="Reliability Optimization"
-        description="Detect configuration and runtime risks that can lead to outages or degraded service reliability"
-        icon={ShieldCheckIcon}
-        iconColor="blue"
-      />
-
-      {/* Analyzing State */}
-      {isAnalyzing && (
-        <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50">
-          <div className="flex items-center justify-center gap-2 text-blue-700 dark:text-blue-300 text-sm">
-            <ArrowPathIcon className="h-4 w-4 animate-spin" />
-            <span>Analyzing reliability patterns...</span>
-          </div>
+      {/* Compact Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Reliability Risk Analysis</h2>
+          <p className="text-xs text-gray-600 dark:text-gray-400">Detect configuration and runtime risks</p>
         </div>
-      )}
+        {isAnalyzing ? (
+          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300">
+            <ArrowPathIcon className="h-3 w-3 animate-spin" />
+            Analyzing...
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300">
+            <ShieldCheckIcon className="h-3 w-3" />
+            {summary.high_risk} high-risk workloads
+          </div>
+        )}
+      </div>
 
       {/* Compact Summary */}
       <div className="grid grid-cols-4 gap-3 p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700">
