@@ -372,7 +372,7 @@ export default function PerformanceRiskPanel({ dashboardData }: PerformanceRiskP
   const memPressureCount = filteredRisks.filter(r => r.risk_type === 'memory_pressure').length;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)] space-y-4">
+    <div className="flex flex-col h-full space-y-4">
       {/* Fixed Header */}
       <div className="flex-shrink-0 space-y-4">
         {/* Compact Header */}
