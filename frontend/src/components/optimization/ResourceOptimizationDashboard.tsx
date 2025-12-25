@@ -455,28 +455,13 @@ export default function ResourceOptimizationDashboard() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-center p-4 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-        <div className="flex items-center gap-2">
-          <FunnelIcon className="h-4 w-4 text-gray-400" />
-          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Filters:</span>
-        </div>
-
-        <select
-          value={filterNamespace}
-          onChange={(e) => setFilterNamespace(e.target.value)}
-          className="px-3 py-1 text-xs rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
-        >
-          <option value="all">All Namespaces</option>
-          {namespaces.map(ns => (
-            <option key={ns} value={ns}>{ns}</option>
-          ))}
-        </select>
-
+      {/* Compact Filters */}
+      <div className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+        <FunnelIcon className="h-4 w-4 text-gray-500" />
         <select
           value={filterSeverity}
           onChange={(e) => setFilterSeverity(e.target.value)}
-          className="px-3 py-1 text-xs rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+          className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
         >
           <option value="all">All Severities</option>
           <option value="critical">Critical</option>
@@ -484,11 +469,20 @@ export default function ResourceOptimizationDashboard() {
           <option value="medium">Medium</option>
           <option value="low">Low</option>
         </select>
-
+        <select
+          value={filterNamespace}
+          onChange={(e) => setFilterNamespace(e.target.value)}
+          className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
+        >
+          <option value="all">All Namespaces</option>
+          {namespaces.map(ns => (
+            <option key={ns} value={ns}>{ns}</option>
+          ))}
+        </select>
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
-          className="px-3 py-1 text-xs rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white"
+          className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
         >
           <option value="all">All Types</option>
           <option value="over_provisioned">Over-provisioned</option>
@@ -496,17 +490,9 @@ export default function ResourceOptimizationDashboard() {
           <option value="missing_limits">Missing Limits</option>
           <option value="missing_requests">Missing Requests</option>
         </select>
-
-        <button
-          onClick={() => {
-            setFilterNamespace('all');
-            setFilterSeverity('all');
-            setFilterType('all');
-          }}
-          className="ml-auto px-3 py-1 text-xs rounded-lg bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-300 transition-colors"
-        >
-          Clear Filters
-        </button>
+        <div className="ml-auto text-xs text-gray-500 dark:text-gray-400">
+          {filteredOptimizations.length - reviewedCount} pending
+        </div>
       </div>
 
       {/* Optimization Cards */}
