@@ -433,23 +433,23 @@ export default function ResourceOptimizationDashboard() {
         </div>
       </div>
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-4 gap-3">
-        <div className="p-3 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+      {/* Compact Summary */}
+      <div className="grid grid-cols-4 gap-3 p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700">
+        <div>
           <div className="text-xs text-gray-500 dark:text-gray-400">Total Issues</div>
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">{filteredOptimizations.length}</div>
+          <div className="text-xl font-bold text-gray-900 dark:text-white">{filteredOptimizations.length}</div>
         </div>
-        <div className="p-3 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+        <div>
           <div className="text-xs text-gray-500 dark:text-gray-400">Reviewed</div>
-          <div className="text-2xl font-bold text-blue-600">{reviewedCount}</div>
+          <div className="text-xl font-bold text-blue-600">{reviewedCount}</div>
         </div>
-        <div className="p-3 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+        <div>
           <div className="text-xs text-gray-500 dark:text-gray-400">Critical/High</div>
-          <div className="text-2xl font-bold text-red-600">
+          <div className="text-xl font-bold text-red-600">
             {filteredOptimizations.filter(o => o.severity === 'critical' || o.severity === 'high').length}
           </div>
         </div>
-        <div className="p-3 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+        <div>
           <div className="text-xs text-gray-500 dark:text-gray-400">Potential Savings</div>
           <div className="text-xl font-bold text-green-600">{formatCurrency(totalSavings)}/mo</div>
         </div>
