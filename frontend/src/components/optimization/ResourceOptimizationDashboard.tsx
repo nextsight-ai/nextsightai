@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ExclamationTriangleIcon,
@@ -15,7 +15,6 @@ import {
   ArrowTrendingDownIcon,
 } from '@heroicons/react/24/outline';
 import type { OptimizationDashboardResponse, PodOptimization, OptimizationRecommendation } from '../../types';
-import { optimizationApi } from '../../services/api';
 import { formatBytes } from '../../utils/constants';
 
 // Severity colors for left border
@@ -127,48 +126,6 @@ function convertToOptimizations(dashboardData: OptimizationDashboardResponse): R
       });
     }
   });
-
-  // Missing limits
-  dashboardData.recommendations
-    .filter(r => r.type === 'no_limits')
-    .slice(0, 10)
-    .forEach((rec, idx) => {
-      optimizations.push({
-        id: `no-limits-${idx}`,
-        workload_name: rec.resource_name,
-        workload_type: rec.resource_kind,
-        namespace: rec.namespace,
-        severity: 'medium',
-        optimization_type: 'missing_limits',
-        issue: 'No resource limits configured',
-        current_state: `Container: ${rec.container_name} has no limits`,
-        recommendation: `Add CPU and memory limits to prevent resource exhaustion`,
-        estimated_savings: 0,
-        kubectl_command: `kubectl set resources ${rec.resource_kind.toLowerCase()}/${rec.resource_name} -n ${rec.namespace} --limits=cpu=${rec.recommended_cpu_limit || '500m'},memory=${rec.recommended_memory_limit || '512Mi'}`,
-        safe_to_apply: true,
-      });
-    });
-
-  // Missing requests
-  dashboardData.recommendations
-    .filter(r => r.type === 'no_requests')
-    .slice(0, 10)
-    .forEach((rec, idx) => {
-      optimizations.push({
-        id: `no-requests-${idx}`,
-        workload_name: rec.resource_name,
-        workload_type: rec.resource_kind,
-        namespace: rec.namespace,
-        severity: 'high',
-        optimization_type: 'missing_requests',
-        issue: 'No resource requests configured',
-        current_state: `Container: ${rec.container_name} has no requests`,
-        recommendation: `Add CPU and memory requests for proper scheduling`,
-        estimated_savings: 0,
-        kubectl_command: `kubectl set resources ${rec.resource_kind.toLowerCase()}/${rec.resource_name} -n ${rec.namespace} --requests=cpu=${rec.recommended_cpu_request || '100m'},memory=${rec.recommended_memory_request || '128Mi'}`,
-        safe_to_apply: true,
-      });
-    });
 
   return optimizations;
 }
@@ -328,11 +285,11 @@ function OptimizationCard({ optimization, isExpanded, onToggle, isReviewed, onMa
   );
 }
 
-export default function ResourceOptimizationDashboard() {
-  const [dashboardData, setDashboardData] = useState<OptimizationDashboardResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
+export default function ResourceOptimizationDashboard({
+  dashboardData
+}: {
+  dashboardData: OptimizationDashboardResponse
+}) {
   // Filters
   const [filterNamespace, setFilterNamespace] = useState<string>('all');
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
@@ -341,50 +298,6 @@ export default function ResourceOptimizationDashboard() {
   // UI state
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const [markedReviewed, setMarkedReviewed] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await optimizationApi.getDashboard();
-      setDashboardData(res.data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-center">
-          <ChartBarIcon className="h-8 w-8 animate-pulse text-blue-500 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">Loading optimization data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !dashboardData) {
-    return (
-      <div className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-6 rounded-xl text-center">
-        <ExclamationTriangleIcon className="h-12 w-12 mx-auto mb-3" />
-        <p className="font-medium mb-2">Failed to load optimization data</p>
-        <p className="text-sm mb-4">{error}</p>
-        <button
-          onClick={loadData}
-          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-        >
-          Try Again
-        </button>
-      </div>
-    );
-  }
 
   const optimizations = convertToOptimizations(dashboardData);
 
@@ -487,8 +400,6 @@ export default function ResourceOptimizationDashboard() {
           <option value="all">All Types</option>
           <option value="over_provisioned">Over-provisioned</option>
           <option value="idle_resource">Idle Resources</option>
-          <option value="missing_limits">Missing Limits</option>
-          <option value="missing_requests">Missing Requests</option>
         </select>
         <div className="ml-auto text-xs text-gray-500 dark:text-gray-400">
           {filteredOptimizations.length - reviewedCount} pending

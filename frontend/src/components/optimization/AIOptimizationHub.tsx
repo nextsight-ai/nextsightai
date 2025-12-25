@@ -235,7 +235,7 @@ export default function AIOptimizationHub() {
         </motion.div>
       ) : activeFocus === 'efficiency' && dashboardData ? (
         /* Show dedicated Resource Optimization Dashboard */
-        <ResourceOptimizationDashboard />
+        <ResourceOptimizationDashboard dashboardData={dashboardData} />
       ) : activeFocus === 'performance' && dashboardData ? (
         /* Show dedicated Performance Risk Dashboard */
         <PerformanceRiskPanel dashboardData={dashboardData} />
