@@ -97,21 +97,6 @@ function ActionButton({ command, label, onExecuted }: { command: string; label: 
   );
 }
 
-// Severity Badge
-function SeverityBadge({ severity }: { severity: string }) {
-  const colors: Record<string, string> = {
-    high: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-    medium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-    low: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-    info: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-  };
-  return (
-    <span className={`px-2 py-0.5 text-xs font-medium rounded ${colors[severity] || colors.info}`}>
-      {severity.toUpperCase()}
-    </span>
-  );
-}
-
 // Optimization Category Card
 function CategoryCard({
   icon: Icon,
