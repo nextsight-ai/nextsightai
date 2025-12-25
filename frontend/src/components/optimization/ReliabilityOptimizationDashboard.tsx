@@ -23,7 +23,7 @@ interface ReliabilityRisk {
   workload_type: string;
   namespace: string;
   severity: ReliabilitySeverity;
-  risk_type: 'single_replica' | 'missing_probes' | 'restart_loop' | 'missing_pdb' | 'no_resource_limits' | 'high_restart_count';
+  risk_type: 'single_replica' | 'missing_probes' | 'restart_loop' | 'missing_pdb';
   observation: string;
   risk: string;
   impact: string[];
@@ -227,8 +227,6 @@ function ReliabilityRiskCard({ risk, onMarkReviewed, isReviewed }: {
     missing_probes: 'Missing Probes',
     restart_loop: 'Restart Loop',
     missing_pdb: 'No PDB',
-    no_resource_limits: 'No Limits',
-    high_restart_count: 'High Restarts',
   };
 
   return (

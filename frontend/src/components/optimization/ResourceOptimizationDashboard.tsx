@@ -40,7 +40,7 @@ const severityBadgeColors = {
 };
 
 type Severity = 'critical' | 'high' | 'medium' | 'low';
-type OptimizationType = 'over_provisioned' | 'idle_resource' | 'missing_limits' | 'missing_requests' | 'underprovisioned';
+type OptimizationType = 'over_provisioned' | 'idle_resource' | 'missing_limits' | 'missing_requests' | 'underprovisioned' | 'no_limits' | 'no_requests';
 
 interface ResourceOptimization {
   id: string;
@@ -127,6 +127,46 @@ function convertToOptimizations(dashboardData: OptimizationDashboardResponse): R
     }
   });
 
+  // Missing limits - waste issue (can't bin-pack efficiently)
+  dashboardData.recommendations
+    .filter(rec => rec.type.toLowerCase() === 'no_limits')
+    .forEach((rec, idx) => {
+      optimizations.push({
+        id: `no-limits-${idx}`,
+        workload_name: rec.resource_name,
+        workload_type: rec.resource_kind,
+        namespace: rec.namespace,
+        severity: rec.severity as Severity || 'medium',
+        optimization_type: 'no_limits',
+        issue: 'No resource limits - inefficient bin-packing',
+        current_state: 'No limits set',
+        recommendation: `Set limits: CPU ${rec.recommended_cpu_limit || '500m'}, Memory ${rec.recommended_memory_limit || '512Mi'}`,
+        estimated_savings: 0,
+        kubectl_command: `kubectl set resources ${rec.resource_kind.toLowerCase()}/${rec.resource_name} -n ${rec.namespace} --limits=cpu=${rec.recommended_cpu_limit || '500m'},memory=${rec.recommended_memory_limit || '512Mi'}`,
+        safe_to_apply: true,
+      });
+    });
+
+  // Missing requests - waste issue (scheduler can't place efficiently)
+  dashboardData.recommendations
+    .filter(rec => rec.type.toLowerCase() === 'no_requests')
+    .forEach((rec, idx) => {
+      optimizations.push({
+        id: `no-requests-${idx}`,
+        workload_name: rec.resource_name,
+        workload_type: rec.resource_kind,
+        namespace: rec.namespace,
+        severity: rec.severity as Severity || 'medium',
+        optimization_type: 'no_requests',
+        issue: 'No resource requests - inefficient scheduling',
+        current_state: 'No requests set',
+        recommendation: `Set requests: CPU ${rec.recommended_cpu_request || '250m'}, Memory ${rec.recommended_memory_request || '256Mi'}`,
+        estimated_savings: 0,
+        kubectl_command: `kubectl set resources ${rec.resource_kind.toLowerCase()}/${rec.resource_name} -n ${rec.namespace} --requests=cpu=${rec.recommended_cpu_request || '250m'},memory=${rec.recommended_memory_request || '256Mi'}`,
+        safe_to_apply: true,
+      });
+    });
+
   return optimizations;
 }
 
@@ -152,6 +192,8 @@ function OptimizationCard({ optimization, isExpanded, onToggle, isReviewed, onMa
     missing_limits: '⚠️ No Limits',
     missing_requests: '🔴 No Requests',
     underprovisioned: '📈 Underprovisioned',
+    no_limits: '⚠️ No Limits',
+    no_requests: '🔴 No Requests',
   };
 
   return (
@@ -400,6 +442,8 @@ export default function ResourceOptimizationDashboard({
           <option value="all">All Types</option>
           <option value="over_provisioned">Over-provisioned</option>
           <option value="idle_resource">Idle Resources</option>
+          <option value="no_limits">Missing Limits</option>
+          <option value="no_requests">Missing Requests</option>
         </select>
         <div className="ml-auto text-xs text-gray-500 dark:text-gray-400">
           {filteredOptimizations.length - reviewedCount} pending
