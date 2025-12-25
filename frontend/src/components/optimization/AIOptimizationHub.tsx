@@ -20,6 +20,7 @@ import { logger } from '../../utils/logger';
 import type { AIOptimizationAnalysisResponse, OptimizationDashboardResponse } from '../../types';
 import PerformanceRiskPanel from './PerformanceRiskPanel';
 import ReliabilityOptimizationDashboard from './ReliabilityOptimizationDashboard';
+import ResourceOptimizationDashboard from './ResourceOptimizationDashboard';
 
 type FocusArea = 'efficiency' | 'performance' | 'reliability';
 
@@ -270,6 +271,9 @@ export default function AIOptimizationHub() {
             ⏱️ First analysis takes 30-60s • Future analyses are instant (10-min cache)
           </p>
         </motion.div>
+      ) : activeFocus === 'efficiency' && dashboardData ? (
+        /* Show dedicated Resource Optimization Dashboard */
+        <ResourceOptimizationDashboard />
       ) : activeFocus === 'performance' && dashboardData ? (
         /* Show dedicated Performance Risk Dashboard */
         <PerformanceRiskPanel dashboardData={dashboardData} />
