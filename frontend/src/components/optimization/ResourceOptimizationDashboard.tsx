@@ -470,6 +470,13 @@ export default function ResourceOptimizationDashboard({
           ))
         )}
       </div>
+
+      {/* Footer Disclaimer */}
+      <div className="p-2 rounded bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
+        <p className="text-[10px] text-gray-600 dark:text-gray-400 text-center">
+          Resource efficiency recommendations based on current usage patterns • Validate in staging before production
+        </p>
+      </div>
     </div>
   );
 }
