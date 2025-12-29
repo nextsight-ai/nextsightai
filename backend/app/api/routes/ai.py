@@ -1939,7 +1939,7 @@ async def review_yaml(request: YAMLReviewRequest):
         cache_key = f"yaml_review:{yaml_hash}"
 
         # Check cache first (5 minute TTL)
-        cached_result = cache_service.get(cache_key)
+        cached_result = await cache_service.get(cache_key)
         if cached_result:
             logger.info(f"Returning cached YAML review for hash {yaml_hash[:8]}")
             return YAMLReviewResponse(**cached_result)
@@ -2002,7 +2002,7 @@ Analyze this YAML manifest thoroughly and return your findings as JSON.
             )
 
             # Cache the result for 5 minutes (300 seconds)
-            cache_service.set(cache_key, response.dict(), ttl=300)
+            await cache_service.set(cache_key, response.dict(), ttl=300)
             logger.info(f"Cached YAML review for hash {yaml_hash[:8]}")
 
             return response
