@@ -27,6 +27,8 @@ import {
   ListBulletIcon,
 } from '@heroicons/react/24/outline';
 import GlassCard from '../common/GlassCard';
+import { helmApi } from '../../services/api';
+import type { HelmRelease, HelmChartSearchResult } from '../../types';
 
 // Animation variants
 const containerVariants = {
@@ -43,92 +45,27 @@ const itemVariants = {
 };
 
 // Types
-interface HelmChart {
-  name: string;
-  version: string;
-  appVersion: string;
-  description: string;
-  icon?: string;
-  repo: string;
-}
-
-interface HelmRelease {
-  name: string;
-  namespace: string;
-  chart: string;
-  version: string;
-  status: 'deployed' | 'pending' | 'failed' | 'uninstalling';
-  revision: number;
-  updated: string;
-}
-
 interface ChartNode {
   name: string;
   type: 'folder' | 'chart';
   children?: ChartNode[];
-  chart?: HelmChart;
+  chart?: HelmChartSearchResult;
 }
 
-// Mock data for Helm charts
-const mockChartTree: ChartNode[] = [
-  {
-    name: 'bitnami',
-    type: 'folder',
-    children: [
-      { name: 'nginx', type: 'chart', chart: { name: 'nginx', version: '15.4.4', appVersion: '1.25.3', description: 'NGINX Open Source for high-performance web serving', repo: 'bitnami' } },
-      { name: 'postgresql', type: 'chart', chart: { name: 'postgresql', version: '13.2.24', appVersion: '16.1.0', description: 'PostgreSQL is an object-relational database', repo: 'bitnami' } },
-      { name: 'redis', type: 'chart', chart: { name: 'redis', version: '18.4.0', appVersion: '7.2.3', description: 'Redis is an in-memory data structure store', repo: 'bitnami' } },
-      { name: 'mongodb', type: 'chart', chart: { name: 'mongodb', version: '14.3.2', appVersion: '7.0.4', description: 'MongoDB is a document-oriented NoSQL database', repo: 'bitnami' } },
-    ],
-  },
-  {
-    name: 'stable',
-    type: 'folder',
-    children: [
-      { name: 'grafana', type: 'chart', chart: { name: 'grafana', version: '7.0.17', appVersion: '10.2.2', description: 'The leading observability platform', repo: 'stable' } },
-      { name: 'prometheus', type: 'chart', chart: { name: 'prometheus', version: '25.8.2', appVersion: '2.48.0', description: 'Prometheus monitoring system', repo: 'stable' } },
-    ],
-  },
-  {
-    name: 'local',
-    type: 'folder',
-    children: [
-      { name: 'nextsight-api', type: 'chart', chart: { name: 'nextsight-api', version: '1.4.0', appVersion: '1.4.0', description: 'NextSight AI API Server', repo: 'local' } },
-      { name: 'nextsight-frontend', type: 'chart', chart: { name: 'nextsight-frontend', version: '1.4.0', appVersion: '1.4.0', description: 'NextSight AI Frontend Application', repo: 'local' } },
-    ],
-  },
-];
+// Default values template (used when no chart is selected)
+const defaultValuesTemplate = `# Enter your Helm chart values here
+# or select a chart from the left panel
 
-const mockReleases: HelmRelease[] = [
-  { name: 'api-server', namespace: 'production', chart: 'nextsight-api', version: '1.4.0', status: 'deployed', revision: 5, updated: '2024-01-15T10:30:00Z' },
-  { name: 'web-frontend', namespace: 'production', chart: 'nextsight-frontend', version: '1.4.0', status: 'deployed', revision: 3, updated: '2024-01-15T10:30:00Z' },
-  { name: 'redis-cache', namespace: 'production', chart: 'redis', version: '18.4.0', status: 'deployed', revision: 2, updated: '2024-01-10T08:00:00Z' },
-  { name: 'monitoring', namespace: 'monitoring', chart: 'prometheus', version: '25.8.2', status: 'deployed', revision: 1, updated: '2024-01-05T12:00:00Z' },
-  { name: 'failed-release', namespace: 'staging', chart: 'nginx', version: '15.4.4', status: 'failed', revision: 1, updated: '2024-01-14T15:00:00Z' },
-];
-
-const mockDefaultValues = `# Default values for nginx
-replicaCount: 3
+replicaCount: 1
 
 image:
   repository: nginx
   pullPolicy: IfNotPresent
-  tag: "1.25.3"
+  tag: "latest"
 
 service:
   type: ClusterIP
   port: 80
-
-ingress:
-  enabled: true
-  className: "nginx"
-  annotations:
-    kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: app.example.com
-      paths:
-        - path: /
-          pathType: Prefix
 
 resources:
   limits:
@@ -137,16 +74,6 @@ resources:
   requests:
     cpu: 100m
     memory: 128Mi
-
-autoscaling:
-  enabled: true
-  minReplicas: 2
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 80
-
-nodeSelector: {}
-tolerations: []
-affinity: {}
 `;
 
 // Chart Tree Component
@@ -230,39 +157,61 @@ function ChartTree({
 }
 
 // AI Values Analysis Component
-function AIValuesAnalysis({ valuesContent }: { valuesContent: string }) {
+function AIValuesAnalysis({ valuesContent, chartName, namespace }: { valuesContent: string; chartName?: string; namespace?: string }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<{
     riskLevel: 'low' | 'medium' | 'high';
-    issues: { severity: 'warning' | 'error' | 'info'; message: string }[];
+    issues: { severity: 'warning' | 'error' | 'info'; message: string; category?: string }[];
     suggestions: string[];
-    optimizations: string[];
+    productionReady: boolean;
+    securityScore: number;
   } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const analyzeValues = async () => {
     if (!valuesContent.trim()) return;
 
     setAnalyzing(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    setError(null);
 
-    setAnalysis({
-      riskLevel: 'low',
-      issues: [
-        { severity: 'info', message: 'Using recommended resource limits' },
-        { severity: 'warning', message: 'Consider enabling PodDisruptionBudget for HA' },
-        { severity: 'info', message: 'Autoscaling is properly configured' },
-      ],
-      suggestions: [
-        'Add PodDisruptionBudget for high availability',
-        'Consider adding pod anti-affinity rules',
-        'Review ingress TLS configuration',
-      ],
-      optimizations: [
-        'Right-size CPU requests based on usage patterns',
-        'Enable horizontal pod autoscaling metrics',
-      ],
-    });
-    setAnalyzing(false);
+    try {
+      const response = await helmApi.analyzeConfig(valuesContent, chartName, namespace);
+
+      if (response.data.success) {
+        // Map API response to UI format
+        const issues = response.data.issues.map(issue => ({
+          severity: issue.severity === 'critical' || issue.severity === 'high' ? 'error' :
+                    issue.severity === 'medium' ? 'warning' : 'info',
+          message: issue.issue,
+          category: issue.category,
+        })) as { severity: 'warning' | 'error' | 'info'; message: string; category?: string }[];
+
+        const suggestions = response.data.recommendations.map(rec => rec.description);
+
+        // Determine risk level based on security score and production readiness
+        let riskLevel: 'low' | 'medium' | 'high' = 'low';
+        if (!response.data.production_ready || response.data.security_score < 60) {
+          riskLevel = 'high';
+        } else if (response.data.security_score < 80) {
+          riskLevel = 'medium';
+        }
+
+        setAnalysis({
+          riskLevel,
+          issues,
+          suggestions,
+          productionReady: response.data.production_ready,
+          securityScore: response.data.security_score,
+        });
+      } else {
+        setError('Analysis failed. Please try again.');
+      }
+    } catch (err: any) {
+      console.error('AI analysis error:', err);
+      setError(err.response?.data?.detail || 'Failed to analyze values. Please check your configuration.');
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   const riskColors = {
@@ -295,6 +244,19 @@ function AIValuesAnalysis({ valuesContent }: { valuesContent: string }) {
       </motion.button>
 
       <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="p-3 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20"
+          >
+            <div className="flex items-start gap-2">
+              <XCircleIcon className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <span className="text-xs text-red-600 dark:text-red-400">{error}</span>
+            </div>
+          </motion.div>
+        )}
         {analysis && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -302,37 +264,61 @@ function AIValuesAnalysis({ valuesContent }: { valuesContent: string }) {
             exit={{ opacity: 0, y: -10 }}
             className="space-y-3"
           >
-            {/* Risk Level */}
+            {/* Risk Level & Security Score */}
             <div className={`p-3 rounded-xl border ${riskColors[analysis.riskLevel]}`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <SparklesIcon className="h-4 w-4" />
+                  <span className="text-xs font-semibold uppercase">
+                    {analysis.riskLevel} Risk
+                  </span>
+                </div>
+                <span className="text-xs font-semibold">
+                  Security: {analysis.securityScore}/100
+                </span>
+              </div>
               <div className="flex items-center gap-2">
-                <SparklesIcon className="h-4 w-4" />
-                <span className="text-xs font-semibold uppercase">
-                  {analysis.riskLevel} Risk
+                {analysis.productionReady ? (
+                  <CheckCircleIcon className="h-3.5 w-3.5" />
+                ) : (
+                  <ExclamationTriangleIcon className="h-3.5 w-3.5" />
+                )}
+                <span className="text-xs">
+                  {analysis.productionReady ? 'Production Ready' : 'Not Production Ready'}
                 </span>
               </div>
             </div>
 
             {/* Issues */}
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Analysis</p>
-              {analysis.issues.map((issue, idx) => (
-                <div key={idx} className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 dark:bg-slate-800/50">
-                  {severityIcons[issue.severity]}
-                  <span className="text-xs text-gray-700 dark:text-gray-300">{issue.message}</span>
-                </div>
-              ))}
-            </div>
+            {analysis.issues.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Issues Found</p>
+                {analysis.issues.map((issue, idx) => (
+                  <div key={idx} className="flex items-start gap-2 p-2 rounded-lg bg-gray-50 dark:bg-slate-800/50">
+                    {severityIcons[issue.severity]}
+                    <div className="flex-1">
+                      <span className="text-xs text-gray-700 dark:text-gray-300">{issue.message}</span>
+                      {issue.category && (
+                        <span className="ml-2 text-xs text-gray-400">({issue.category})</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Suggestions */}
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Suggestions</p>
-              {analysis.suggestions.map((suggestion, idx) => (
-                <div key={idx} className="flex items-start gap-2 p-2 rounded-lg bg-purple-50 dark:bg-purple-500/5">
-                  <CheckCircleIcon className="h-4 w-4 text-purple-500 flex-shrink-0" />
-                  <span className="text-xs text-gray-700 dark:text-gray-300">{suggestion}</span>
-                </div>
-              ))}
-            </div>
+            {analysis.suggestions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Recommendations</p>
+                {analysis.suggestions.map((suggestion, idx) => (
+                  <div key={idx} className="flex items-start gap-2 p-2 rounded-lg bg-purple-50 dark:bg-purple-500/5">
+                    <CheckCircleIcon className="h-4 w-4 text-purple-500 flex-shrink-0" />
+                    <span className="text-xs text-gray-700 dark:text-gray-300">{suggestion}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -341,15 +327,18 @@ function AIValuesAnalysis({ valuesContent }: { valuesContent: string }) {
 }
 
 // Status Badge Component
-function ReleaseBadge({ status }: { status: HelmRelease['status'] }) {
-  const statusConfig = {
+function ReleaseBadge({ status }: { status: string }) {
+  const statusConfig: Record<string, { color: string; label: string }> = {
     deployed: { color: 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400', label: 'Deployed' },
-    pending: { color: 'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400', label: 'Pending' },
+    'pending-install': { color: 'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400', label: 'Pending' },
+    'pending-upgrade': { color: 'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400', label: 'Upgrading' },
+    'pending-rollback': { color: 'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400', label: 'Rolling Back' },
     failed: { color: 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400', label: 'Failed' },
     uninstalling: { color: 'bg-gray-100 dark:bg-gray-500/10 text-gray-600 dark:text-gray-400', label: 'Uninstalling' },
+    superseded: { color: 'bg-gray-100 dark:bg-gray-500/10 text-gray-600 dark:text-gray-400', label: 'Superseded' },
   };
 
-  const config = statusConfig[status];
+  const config = statusConfig[status] || { color: 'bg-gray-100 dark:bg-gray-500/10 text-gray-600 dark:text-gray-400', label: status };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
       {config.label}
@@ -358,7 +347,8 @@ function ReleaseBadge({ status }: { status: HelmRelease['status'] }) {
 }
 
 export default function HelmDeployEnhanced() {
-  const [valuesContent, setValuesContent] = useState(mockDefaultValues);
+  // UI State
+  const [valuesContent, setValuesContent] = useState(defaultValuesTemplate);
   const [selectedChart, setSelectedChart] = useState<ChartNode | null>(null);
   const [selectedRelease, setSelectedRelease] = useState<HelmRelease | null>(null);
   const [releaseName, setReleaseName] = useState('');
@@ -371,52 +361,182 @@ export default function HelmDeployEnhanced() {
   const [searchQuery, setSearchQuery] = useState('');
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // Data State
+  const [releases, setReleases] = useState<HelmRelease[]>([]);
+  const [chartTree, setChartTree] = useState<ChartNode[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+
   const namespaces = ['default', 'production', 'staging', 'development', 'monitoring', 'kube-system'];
 
-  const handleChartSelect = (node: ChartNode) => {
-    if (node.type === 'chart' && node.chart) {
-      setSelectedChart(node);
-      setReleaseName(node.chart.name + '-release');
-      addLog(`Selected chart: ${node.chart.name} v${node.chart.version}`);
-    }
-  };
+  // Load releases from API
+  useEffect(() => {
+    const loadReleases = async () => {
+      try {
+        const response = await helmApi.listReleases(undefined, true);
+        setReleases(response.data.releases);
+        addLog(`Loaded ${response.data.releases.length} releases`);
+      } catch (error: any) {
+        console.error('Failed to load releases:', error);
+        addLog(`Error loading releases: ${error.response?.data?.detail || error.message}`);
+      }
+    };
+    loadReleases();
+  }, []);
 
-  const handleReleaseSelect = (release: HelmRelease) => {
-    setSelectedRelease(release);
-    setReleaseName(release.name);
-    setNamespace(release.namespace);
-    addLog(`Selected release: ${release.name} (rev ${release.revision})`);
-  };
+  // Load chart repositories and build tree
+  useEffect(() => {
+    const loadCharts = async () => {
+      setLoadingData(true);
+      try {
+        // Get all repositories
+        const reposResponse = await helmApi.listRepositories();
+        const repos = reposResponse.data.repositories;
+
+        // Build chart tree by repository
+        const tree: ChartNode[] = [];
+
+        for (const repo of repos) {
+          // Search for charts in this repository
+          try {
+            const chartsResponse = await helmApi.searchCharts('', repo.name);
+            const charts = chartsResponse.data;
+
+            if (charts.length > 0) {
+              // Group charts by repository
+              const repoNode: ChartNode = {
+                name: repo.name,
+                type: 'folder',
+                children: charts.map(chart => ({
+                  name: chart.name,
+                  type: 'chart' as const,
+                  chart: chart,
+                })),
+              };
+              tree.push(repoNode);
+            }
+          } catch (error) {
+            console.error(`Failed to load charts from ${repo.name}:`, error);
+          }
+        }
+
+        setChartTree(tree);
+        addLog(`Loaded ${tree.length} chart repositories`);
+      } catch (error: any) {
+        console.error('Failed to load chart repositories:', error);
+        addLog(`Error loading charts: ${error.response?.data?.detail || error.message}`);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+    loadCharts();
+  }, []);
 
   const addLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
   };
 
+  const handleChartSelect = async (node: ChartNode) => {
+    if (node.type === 'chart' && node.chart) {
+      setSelectedChart(node);
+      setReleaseName(node.chart.name + '-release');
+      addLog(`Selected chart: ${node.chart.name} v${node.chart.version}`);
+
+      // Load default values for the chart
+      try {
+        addLog(`Loading default values for ${node.chart.name}...`);
+        const valuesResponse = await helmApi.getChartValues(
+          `${node.chart.repository}/${node.chart.name}`,
+          node.chart.repository
+        );
+
+        // Convert object to YAML-like string
+        const yamlString = JSON.stringify(valuesResponse.data, null, 2);
+        setValuesContent(yamlString);
+        addLog(`Loaded default values`);
+      } catch (error: any) {
+        console.error('Failed to load chart values:', error);
+        addLog(`Warning: Could not load default values`);
+        setValuesContent(defaultValuesTemplate);
+      }
+    }
+  };
+
+  const handleReleaseSelect = async (release: HelmRelease) => {
+    setSelectedRelease(release);
+    setReleaseName(release.name);
+    setNamespace(release.namespace);
+    addLog(`Selected release: ${release.name} (rev ${release.revision})`);
+
+    // Load current values for the release
+    try {
+      addLog(`Loading current values for ${release.name}...`);
+      const valuesResponse = await helmApi.getReleaseValues(release.namespace, release.name, false);
+      const yamlString = JSON.stringify(valuesResponse.data.user_supplied, null, 2);
+      setValuesContent(yamlString);
+      addLog(`Loaded current values`);
+    } catch (error: any) {
+      console.error('Failed to load release values:', error);
+      addLog(`Warning: Could not load release values`);
+    }
+  };
+
   const handleInstall = async (dryRun: boolean) => {
-    if (!selectedChart) {
+    if (!selectedChart || !selectedChart.chart) {
       addLog('Error: No chart selected');
       return;
     }
 
     setLoading(true);
     setResult(null);
-    addLog(`Starting ${dryRun ? 'dry run' : 'installation'} of ${selectedChart.chart?.name}...`);
+    addLog(`Starting ${dryRun ? 'dry run' : 'installation'} of ${selectedChart.chart.name}...`);
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Parse values content as JSON (since we stored it as JSON string)
+      let values = {};
+      try {
+        values = JSON.parse(valuesContent);
+      } catch (error) {
+        addLog('Warning: Could not parse values as JSON, using as-is');
+      }
 
-    if (dryRun) {
-      addLog('Dry run completed successfully');
-      addLog('Resources to be created: Deployment, Service, Ingress, ConfigMap');
-      setResult({ success: true, message: 'Dry run completed - 4 resources would be created' });
-    } else {
-      addLog(`Installing ${selectedChart.chart?.name} as ${releaseName}...`);
-      addLog('Creating resources...');
-      addLog('Release installed successfully!');
-      setResult({ success: true, message: `Release ${releaseName} installed successfully` });
+      const response = await helmApi.installRelease({
+        release_name: releaseName,
+        chart: `${selectedChart.chart.repository}/${selectedChart.chart.name}`,
+        namespace: namespace,
+        version: selectedChart.chart.version,
+        values: values,
+        create_namespace: true,
+        wait: false,
+        dry_run: dryRun,
+        repository: selectedChart.chart.repository,
+      });
+
+      if (response.data.success) {
+        if (dryRun) {
+          addLog('Dry run completed successfully');
+          addLog(response.data.message);
+          setResult({ success: true, message: 'Dry run completed successfully' });
+        } else {
+          addLog(`Installing ${selectedChart.chart.name} as ${releaseName}...`);
+          addLog(response.data.message);
+          setResult({ success: true, message: `Release ${releaseName} installed successfully` });
+
+          // Reload releases
+          const releasesResponse = await helmApi.listReleases(undefined, true);
+          setReleases(releasesResponse.data.releases);
+        }
+      } else {
+        addLog(`Error: ${response.data.message}`);
+        setResult({ success: false, message: response.data.message });
+      }
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.detail || error.message || 'Installation failed';
+      addLog(`Error: ${errorMsg}`);
+      setResult({ success: false, message: errorMsg });
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const handleUpgrade = async () => {
@@ -429,12 +549,45 @@ export default function HelmDeployEnhanced() {
     setResult(null);
     addLog(`Upgrading release ${selectedRelease.name}...`);
 
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Parse values content
+      let values = {};
+      try {
+        values = JSON.parse(valuesContent);
+      } catch (error) {
+        addLog('Warning: Could not parse values as JSON, using as-is');
+      }
 
-    addLog('Upgrade completed successfully!');
-    setResult({ success: true, message: `Release ${selectedRelease.name} upgraded to revision ${selectedRelease.revision + 1}` });
+      const response = await helmApi.upgradeRelease(
+        selectedRelease.namespace,
+        selectedRelease.name,
+        {
+          values: values,
+          reuse_values: false,
+          wait: false,
+          dry_run: false,
+        }
+      );
 
-    setLoading(false);
+      if (response.data.success) {
+        addLog('Upgrade completed successfully!');
+        addLog(response.data.message);
+        setResult({ success: true, message: `Release ${selectedRelease.name} upgraded successfully` });
+
+        // Reload releases
+        const releasesResponse = await helmApi.listReleases(undefined, true);
+        setReleases(releasesResponse.data.releases);
+      } else {
+        addLog(`Error: ${response.data.message}`);
+        setResult({ success: false, message: response.data.message });
+      }
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.detail || error.message || 'Upgrade failed';
+      addLog(`Error: ${errorMsg}`);
+      setResult({ success: false, message: errorMsg });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRollback = async () => {
@@ -443,16 +596,43 @@ export default function HelmDeployEnhanced() {
       return;
     }
 
+    if (selectedRelease.revision <= 1) {
+      addLog('Error: Cannot rollback - no previous revision available');
+      return;
+    }
+
     setLoading(true);
     setResult(null);
-    addLog(`Rolling back release ${selectedRelease.name} to revision ${selectedRelease.revision - 1}...`);
+    const targetRevision = selectedRelease.revision - 1;
+    addLog(`Rolling back release ${selectedRelease.name} to revision ${targetRevision}...`);
 
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      const response = await helmApi.rollbackRelease(
+        selectedRelease.namespace,
+        selectedRelease.name,
+        targetRevision,
+        { wait: false, dry_run: false }
+      );
 
-    addLog('Rollback completed successfully!');
-    setResult({ success: true, message: `Release ${selectedRelease.name} rolled back to revision ${selectedRelease.revision - 1}` });
+      if (response.data.success) {
+        addLog('Rollback completed successfully!');
+        addLog(response.data.message);
+        setResult({ success: true, message: `Release ${selectedRelease.name} rolled back to revision ${targetRevision}` });
 
-    setLoading(false);
+        // Reload releases
+        const releasesResponse = await helmApi.listReleases(undefined, true);
+        setReleases(releasesResponse.data.releases);
+      } else {
+        addLog(`Error: ${response.data.message}`);
+        setResult({ success: false, message: response.data.message });
+      }
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.detail || error.message || 'Rollback failed';
+      addLog(`Error: ${errorMsg}`);
+      setResult({ success: false, message: errorMsg });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const copyToClipboard = () => {
@@ -467,7 +647,7 @@ export default function HelmDeployEnhanced() {
     { id: 'ai', label: 'AI Review', icon: SparklesIcon },
   ] as const;
 
-  const filteredReleases = mockReleases.filter(release =>
+  const filteredReleases = releases.filter(release =>
     release.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     release.chart.toLowerCase().includes(searchQuery.toLowerCase()) ||
     release.namespace.toLowerCase().includes(searchQuery.toLowerCase())
@@ -554,11 +734,22 @@ export default function HelmDeployEnhanced() {
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-2">
             {activeLeftTab === 'charts' ? (
-              <ChartTree
-                nodes={mockChartTree}
-                selectedChart={selectedChart?.name || null}
-                onSelectChart={handleChartSelect}
-              />
+              loadingData ? (
+                <div className="flex items-center justify-center h-32">
+                  <ArrowPathIcon className="h-6 w-6 animate-spin text-gray-400" />
+                </div>
+              ) : chartTree.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-32 text-center p-4">
+                  <p className="text-xs text-gray-500 mb-2">No chart repositories found</p>
+                  <p className="text-xs text-gray-400">Add repositories via Helm CLI</p>
+                </div>
+              ) : (
+                <ChartTree
+                  nodes={chartTree}
+                  selectedChart={selectedChart?.name || null}
+                  onSelectChart={handleChartSelect}
+                />
+              )
             ) : (
               <div className="space-y-1">
                 {filteredReleases.map((release) => (
@@ -693,7 +884,11 @@ export default function HelmDeployEnhanced() {
             )}
             {activeEditorTab === 'ai' && (
               <div className="h-full p-4 overflow-auto">
-                <AIValuesAnalysis valuesContent={valuesContent} />
+                <AIValuesAnalysis
+                  valuesContent={valuesContent}
+                  chartName={selectedChart?.chart?.name || selectedRelease?.chart}
+                  namespace={namespace}
+                />
               </div>
             )}
           </div>
@@ -846,7 +1041,11 @@ export default function HelmDeployEnhanced() {
 
             {/* AI Analysis */}
             <div className="pt-4 border-t border-gray-200/50 dark:border-slate-700/50">
-              <AIValuesAnalysis valuesContent={valuesContent} />
+              <AIValuesAnalysis
+                valuesContent={valuesContent}
+                chartName={selectedChart?.chart?.name || selectedRelease?.chart}
+                namespace={namespace}
+              />
             </div>
           </div>
         </GlassCard>
