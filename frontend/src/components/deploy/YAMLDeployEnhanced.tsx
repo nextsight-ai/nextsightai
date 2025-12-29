@@ -259,6 +259,7 @@ export default function YAMLDeployEnhanced() {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [deployedYAML, setDeployedYAML] = useState<string>('');
   const [fetchingDeployed, setFetchingDeployed] = useState(false);
+  const [selectedIssues, setSelectedIssues] = useState<Set<number>>(new Set());
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Save YAML content to localStorage when it changes
@@ -402,6 +403,9 @@ export default function YAMLDeployEnhanced() {
           bestPracticeScore: response.data.best_practice_score,
         });
 
+        // Select all issues by default
+        setSelectedIssues(new Set(response.data.issues.map((_, idx) => idx)));
+
         addLog('success', `✓ AI review completed - Score: ${response.data.score}/100`);
         setActiveTab('ai-review');
       } else {
@@ -416,9 +420,36 @@ export default function YAMLDeployEnhanced() {
     }
   };
 
+  const toggleIssue = (idx: number) => {
+    setSelectedIssues(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(idx)) {
+        newSet.delete(idx);
+      } else {
+        newSet.add(idx);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllIssues = () => {
+    if (aiReview) {
+      setSelectedIssues(new Set(aiReview.issues.map((_, idx) => idx)));
+    }
+  };
+
+  const deselectAllIssues = () => {
+    setSelectedIssues(new Set());
+  };
+
   const handleAutoFix = async () => {
     if (!aiReview || aiReview.issues.length === 0) {
       addLog('warning', 'No issues to fix');
+      return;
+    }
+
+    if (selectedIssues.size === 0) {
+      addLog('warning', 'No issues selected for fixing');
       return;
     }
 
@@ -428,12 +459,13 @@ export default function YAMLDeployEnhanced() {
     }
 
     setLoading(true);
-    addLog('info', '🤖 AI applying automatic fixes...');
+    const selectedIssuesList = aiReview.issues.filter((_, idx) => selectedIssues.has(idx));
+    addLog('info', `🤖 AI applying fixes for ${selectedIssuesList.length} selected issue(s)...`);
 
     try {
       const response = await aiApi.yamlAutoFix({
         yaml_content: yamlContent,
-        issues: aiReview.issues,
+        issues: selectedIssuesList,
         namespace: selectedNamespace || undefined,
       });
 
@@ -442,6 +474,7 @@ export default function YAMLDeployEnhanced() {
         addLog('success', `✓ ${response.data.changes_summary}`);
         // Clear AI review since issues are fixed
         setAiReview(null);
+        setSelectedIssues(new Set());
         setActiveTab('editor');
       } else {
         addLog('error', '✗ Auto-fix failed');
@@ -891,11 +924,45 @@ export default function YAMLDeployEnhanced() {
                         {/* Issues */}
                         {aiReview.issues.length > 0 && (
                           <div>
-                            <h3 className="text-xs font-semibold text-gray-900 dark:text-white mb-2">Issues Detected</h3>
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="text-xs font-semibold text-gray-900 dark:text-white">
+                                Issues Detected ({selectedIssues.size} / {aiReview.issues.length} selected)
+                              </h3>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={selectAllIssues}
+                                  className="text-[10px] font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                >
+                                  Select All
+                                </button>
+                                <span className="text-gray-400">|</span>
+                                <button
+                                  onClick={deselectAllIssues}
+                                  className="text-[10px] font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                >
+                                  Deselect All
+                                </button>
+                              </div>
+                            </div>
                             <div className="space-y-1.5">
                               {aiReview.issues.map((issue, idx) => (
-                                <div key={idx} className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+                                <div
+                                  key={idx}
+                                  className={`p-2 rounded-lg bg-white dark:bg-slate-800 border ${
+                                    selectedIssues.has(idx)
+                                      ? 'border-primary-300 dark:border-primary-500/40 ring-1 ring-primary-200 dark:ring-primary-500/20'
+                                      : 'border-gray-200 dark:border-slate-700'
+                                  } transition-all cursor-pointer`}
+                                  onClick={() => toggleIssue(idx)}
+                                >
                                   <div className="flex items-start gap-3">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedIssues.has(idx)}
+                                      onChange={() => toggleIssue(idx)}
+                                      className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
                                     <ExclamationTriangleIcon className={`h-4 w-4 flex-shrink-0 mt-0.5 ${
                                       issue.severity === 'critical' ? 'text-red-600' :
                                       issue.severity === 'high' ? 'text-orange-600' :
@@ -1106,7 +1173,7 @@ export default function YAMLDeployEnhanced() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={handleAutoFix}
-                    disabled={loading}
+                    disabled={loading || selectedIssues.size === 0}
                     className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
@@ -1117,7 +1184,7 @@ export default function YAMLDeployEnhanced() {
                     ) : (
                       <>
                         <CheckCircleIcon className="h-4 w-4" />
-                        AI Auto-Fix ({aiReview.issues.length})
+                        AI Auto-Fix ({selectedIssues.size} selected)
                       </>
                     )}
                   </motion.button>
@@ -1128,7 +1195,7 @@ export default function YAMLDeployEnhanced() {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => { setYamlContent(''); setAiReview(null); addLog('info', 'Cleared'); }}
+                onClick={() => { setYamlContent(''); setAiReview(null); setSelectedIssues(new Set()); addLog('info', 'Cleared'); }}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
               >
                 <TrashIcon className="h-4 w-4" />
