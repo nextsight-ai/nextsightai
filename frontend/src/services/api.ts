@@ -703,6 +703,12 @@ export const optimizationApi = {
     api.post<AIOptimizationAnalysisResponse>('/ai/optimization/analyze', request),
 };
 
+// Reliability API
+export const reliabilityApi = {
+  getAnalysis: (namespace?: string) =>
+    api.get<any>('/reliability/analysis', { params: { namespace } }),
+};
+
 // Health API
 export const healthApi = {
   check: () => api.get('/health'),

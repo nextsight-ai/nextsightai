@@ -19,6 +19,7 @@ from app.api.routes import (
     optimization,
     # pipelines,  # Excluded from v1.4.0 release - coming in future version
     prometheus,
+    reliability,
     security,
     selfservice,
     settings as settings_routes,
@@ -139,6 +140,7 @@ app.include_router(security.router, prefix=f"{settings.API_PREFIX}", tags=["Secu
 app.include_router(ai.router, prefix=f"{settings.API_PREFIX}", tags=["AI"])
 app.include_router(argocd.router, prefix=f"{settings.API_PREFIX}", tags=["ArgoCD"])
 app.include_router(optimization.router, prefix=f"{settings.API_PREFIX}/optimization", tags=["Optimization"])
+app.include_router(reliability.router, prefix=f"{settings.API_PREFIX}/reliability", tags=["Reliability"])
 # app.include_router(pipelines.router, prefix=f"{settings.API_PREFIX}", tags=["Pipelines"])  # Excluded from v1.4.0
 app.include_router(testing.router, prefix=f"{settings.API_PREFIX}", tags=["Testing & Coverage"])
 app.include_router(agents.router, prefix=f"{settings.API_PREFIX}", tags=["Agents"])
