@@ -260,6 +260,9 @@ export default function YAMLDeployEnhanced() {
   const [deployedYAML, setDeployedYAML] = useState<string>('');
   const [fetchingDeployed, setFetchingDeployed] = useState(false);
   const [selectedIssues, setSelectedIssues] = useState<Set<number>>(new Set());
+  const [resourceStatuses, setResourceStatuses] = useState<Map<string, any>>(new Map());
+  const [trackingResources, setTrackingResources] = useState(false);
+  const statusIntervalRef = useRef<number | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Save YAML content to localStorage when it changes
@@ -305,6 +308,82 @@ export default function YAMLDeployEnhanced() {
       logger.error('Failed to load namespaces', err);
     }
   };
+
+  const startResourceTracking = (resources: any[]) => {
+    // Clear any existing tracking
+    if (statusIntervalRef.current) {
+      clearInterval(statusIntervalRef.current);
+    }
+
+    setTrackingResources(true);
+    setResourceStatuses(new Map());
+    addLog('info', '📊 Tracking resource status...');
+
+    // Initial status check
+    checkResourceStatuses(resources);
+
+    // Poll every 3 seconds
+    statusIntervalRef.current = window.setInterval(() => {
+      checkResourceStatuses(resources);
+    }, 3000);
+
+    // Stop tracking after 60 seconds
+    setTimeout(() => {
+      stopResourceTracking();
+    }, 60000);
+  };
+
+  const checkResourceStatuses = async (resources: any[]) => {
+    const newStatuses = new Map();
+
+    for (const resource of resources) {
+      try {
+        const response = await kubernetesApi.getResourceStatus(
+          resource.kind,
+          resource.name,
+          resource.namespace
+        );
+
+        if (response.data.success && response.data.resource) {
+          const key = `${resource.kind}/${resource.name}`;
+          newStatuses.set(key, response.data.resource);
+        }
+      } catch (err) {
+        logger.error(`Failed to get status for ${resource.kind}/${resource.name}`, err);
+      }
+    }
+
+    setResourceStatuses(newStatuses);
+
+    // Check if all resources are ready
+    let allReady = true;
+    for (const [, status] of newStatuses) {
+      if (status.status !== 'Ready') {
+        allReady = false;
+        break;
+      }
+    }
+
+    if (allReady && newStatuses.size > 0) {
+      addLog('success', '✓ All resources are ready');
+      stopResourceTracking();
+    }
+  };
+
+  const stopResourceTracking = () => {
+    if (statusIntervalRef.current) {
+      clearInterval(statusIntervalRef.current);
+      statusIntervalRef.current = null;
+    }
+    setTrackingResources(false);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopResourceTracking();
+    };
+  }, []);
 
   const handleApply = async (dryRun: boolean) => {
     if (!yamlContent.trim()) {
@@ -362,6 +441,9 @@ export default function YAMLDeployEnhanced() {
             podsRestarted,
           });
           setShowSummaryModal(true);
+
+          // Start tracking resource status
+          startResourceTracking(response.data.resources);
         }
       } else {
         addLog('error', '✗ ' + response.data.message);
@@ -1237,6 +1319,84 @@ export default function YAMLDeployEnhanced() {
             </div>
         </div>
       </div>
+
+      {/* Resource Status Tracker */}
+      {trackingResources && resourceStatuses.size > 0 && (
+        <div className="border-t border-gray-200 dark:border-slate-700 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900">
+          <div className="px-4 py-2 border-b border-gray-200 dark:border-slate-700">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                  <h3 className="text-xs font-semibold text-gray-900 dark:text-white">Resource Status</h3>
+                </div>
+                <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                  Tracking {resourceStatuses.size} resource(s)
+                </span>
+              </div>
+              <button
+                onClick={stopResourceTracking}
+                className="text-[10px] font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              >
+                Stop Tracking
+              </button>
+            </div>
+          </div>
+          <div className="px-4 py-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+            {Array.from(resourceStatuses.entries()).map(([key, status]) => (
+              <motion.div
+                key={key}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <div className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${
+                      status.status === 'Ready' ? 'bg-green-500' :
+                      status.status === 'Pending' ? 'bg-yellow-500 animate-pulse' :
+                      status.status === 'Failed' ? 'bg-red-500' :
+                      status.status === 'Degraded' ? 'bg-orange-500' :
+                      'bg-gray-400'
+                    }`} />
+                    <span className="text-[10px] font-medium text-gray-900 dark:text-white truncate">
+                      {key}
+                    </span>
+                  </div>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
+                    status.status === 'Ready' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                    status.status === 'Pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                    status.status === 'Failed' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                    status.status === 'Degraded' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                    'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
+                  }`}>
+                    {status.status}
+                  </span>
+                </div>
+                {status.ready && (
+                  <div className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">
+                    Ready: {status.ready}
+                  </div>
+                )}
+                {status.message && (
+                  <div className={`text-[10px] ${
+                    status.status === 'Failed' || status.status === 'Degraded'
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-gray-600 dark:text-gray-400'
+                  } line-clamp-2`}>
+                    {status.message}
+                  </div>
+                )}
+                {status.age && (
+                  <div className="text-[9px] text-gray-500 dark:text-gray-500 mt-1">
+                    Age: {status.age}
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Bottom Panel - Logs Console */}
       <div className="h-48 border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col">
