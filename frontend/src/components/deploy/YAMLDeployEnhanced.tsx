@@ -398,7 +398,7 @@ export default function YAMLDeployEnhanced() {
     try {
       const response = await kubernetesApi.applyYAML({
         yaml_content: yamlContent,
-        namespace: selectedNamespace || undefined,
+        namespace: selectedNamespace || 'default',
         dry_run: dryRun,
       });
 
