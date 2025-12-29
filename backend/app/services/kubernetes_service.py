@@ -2122,6 +2122,169 @@ class KubernetesService:
                 dry_run=dry_run,
             )
 
+    async def get_resource_status(
+        self, kind: str, name: str, namespace: Optional[str] = None
+    ) -> "ResourceStatusResponse":
+        """Get real-time status of a deployed resource."""
+        from app.schemas.kubernetes import ResourceStatusInfo, ResourceStatusResponse
+        from datetime import datetime
+
+        self._initialize()
+
+        try:
+            kind_lower = kind.lower()
+            status = "Unknown"
+            ready = None
+            message = None
+            age = None
+            details = {}
+
+            # Get resource based on kind
+            if kind_lower == "deployment":
+                deployment = self._apps_v1.read_namespaced_deployment(name, namespace or "default")
+                replicas = deployment.spec.replicas or 0
+                ready_replicas = deployment.status.ready_replicas or 0
+                unavailable = deployment.status.unavailable_replicas or 0
+
+                ready = f"{ready_replicas}/{replicas}"
+                status = "Ready" if ready_replicas == replicas else "Pending"
+
+                if unavailable > 0:
+                    status = "Degraded"
+                    message = f"{unavailable} replica(s) unavailable"
+
+                if deployment.status.conditions:
+                    for condition in deployment.status.conditions:
+                        if condition.type == "Available" and condition.status != "True":
+                            message = condition.message
+
+                age = self._calculate_age(deployment.metadata.creation_timestamp)
+                details = {
+                    "replicas": replicas,
+                    "ready_replicas": ready_replicas,
+                    "updated_replicas": deployment.status.updated_replicas or 0,
+                }
+
+            elif kind_lower == "pod":
+                pod = self._core_v1.read_namespaced_pod(name, namespace or "default")
+                phase = pod.status.phase
+
+                status = phase if phase in ["Running", "Succeeded"] else "Pending"
+
+                if phase == "Failed":
+                    status = "Failed"
+                    message = pod.status.message or "Pod failed"
+
+                # Check container statuses
+                if pod.status.container_statuses:
+                    for container in pod.status.container_statuses:
+                        if container.state.waiting:
+                            status = "Pending"
+                            message = f"{container.state.waiting.reason}: {container.state.waiting.message}"
+                        elif container.state.terminated:
+                            if container.state.terminated.exit_code != 0:
+                                status = "Failed"
+                                message = f"Exit code {container.state.terminated.exit_code}: {container.state.terminated.reason}"
+
+                age = self._calculate_age(pod.metadata.creation_timestamp)
+                details = {
+                    "phase": phase,
+                    "pod_ip": pod.status.pod_ip,
+                    "node": pod.spec.node_name,
+                }
+
+            elif kind_lower == "service":
+                service = self._core_v1.read_namespaced_service(name, namespace or "default")
+                status = "Ready"
+
+                if service.spec.type == "LoadBalancer":
+                    if service.status.load_balancer.ingress:
+                        lb_ip = service.status.load_balancer.ingress[0].ip or service.status.load_balancer.ingress[0].hostname
+                        message = f"LoadBalancer IP: {lb_ip}"
+                    else:
+                        status = "Pending"
+                        message = "Waiting for LoadBalancer IP"
+
+                age = self._calculate_age(service.metadata.creation_timestamp)
+                details = {
+                    "type": service.spec.type,
+                    "cluster_ip": service.spec.cluster_ip,
+                }
+
+            elif kind_lower == "ingress":
+                ingress = self._networking_v1.read_namespaced_ingress(name, namespace or "default")
+                status = "Ready"
+
+                if ingress.status.load_balancer.ingress:
+                    lb_info = ingress.status.load_balancer.ingress[0]
+                    message = f"Address: {lb_info.ip or lb_info.hostname}"
+                else:
+                    status = "Pending"
+                    message = "Waiting for address assignment"
+
+                age = self._calculate_age(ingress.metadata.creation_timestamp)
+
+            elif kind_lower in ["statefulset", "daemonset", "replicaset"]:
+                # Generic handling for other workload types
+                status = "Ready"
+                message = f"{kind} resource exists"
+
+            else:
+                status = "Unknown"
+                message = f"Status check not implemented for {kind}"
+
+            return ResourceStatusResponse(
+                success=True,
+                resource=ResourceStatusInfo(
+                    kind=kind,
+                    name=name,
+                    namespace=namespace,
+                    status=status,
+                    ready=ready,
+                    message=message,
+                    age=age,
+                    details=details,
+                ),
+            )
+
+        except ApiException as e:
+            if e.status == 404:
+                return ResourceStatusResponse(
+                    success=False,
+                    error=f"{kind}/{name} not found in namespace {namespace or 'default'}",
+                )
+            return ResourceStatusResponse(
+                success=False,
+                error=f"Failed to get resource status: {e.reason}",
+            )
+        except Exception as e:
+            logger.error(f"Error getting resource status: {e}")
+            return ResourceStatusResponse(
+                success=False,
+                error=str(e),
+            )
+
+    def _calculate_age(self, creation_timestamp) -> str:
+        """Calculate age from creation timestamp."""
+        from datetime import datetime, timezone
+
+        if not creation_timestamp:
+            return "Unknown"
+
+        now = datetime.now(timezone.utc)
+        delta = now - creation_timestamp
+
+        days = delta.days
+        hours = delta.seconds // 3600
+        minutes = (delta.seconds % 3600) // 60
+
+        if days > 0:
+            return f"{days}d{hours}h"
+        elif hours > 0:
+            return f"{hours}h{minutes}m"
+        else:
+            return f"{minutes}m"
+
     def _patch_resource(self, doc: Dict[str, Any], namespace: Optional[str] = None):
         """Patch an existing resource."""
         kind = doc.get("kind", "").lower()

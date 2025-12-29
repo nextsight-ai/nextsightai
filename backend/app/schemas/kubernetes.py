@@ -418,6 +418,30 @@ class YAMLApplyResponse(BaseModel):
     dry_run: bool = False
 
 
+# Resource Status
+class ResourceStatusRequest(BaseModel):
+    kind: str = Field(..., description="Resource kind (e.g., Deployment, Pod, Service)")
+    name: str = Field(..., description="Resource name")
+    namespace: Optional[str] = Field(None, description="Resource namespace")
+
+
+class ResourceStatusInfo(BaseModel):
+    kind: str
+    name: str
+    namespace: Optional[str] = None
+    status: str  # Ready, Pending, Failed, Unknown
+    ready: Optional[str] = None  # e.g., "3/3" for pods
+    message: Optional[str] = None  # Error message if any
+    age: Optional[str] = None
+    details: dict = {}  # Additional status details
+
+
+class ResourceStatusResponse(BaseModel):
+    success: bool
+    resource: Optional[ResourceStatusInfo] = None
+    error: Optional[str] = None
+
+
 # Kubectl Exec
 class KubectlRequest(BaseModel):
     command: str = Field(..., description="kubectl command to execute (without 'kubectl' prefix)")

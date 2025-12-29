@@ -37,6 +37,8 @@ from app.schemas.kubernetes import (
     PVInfo,
     PVCreateRequest,
     ResourceDeleteResponse,
+    ResourceStatusRequest,
+    ResourceStatusResponse,
     ResourceYAMLRequest,
     ResourceYAMLResponse,
     RestartRequest,
@@ -792,6 +794,18 @@ async def apply_yaml(request: YAMLApplyRequest):
     try:
         return await kubernetes_service.apply_yaml(
             yaml_content=request.yaml_content, namespace=request.namespace, dry_run=request.dry_run
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Resource Status endpoint
+@router.post("/resource/status", response_model=ResourceStatusResponse)
+async def get_resource_status(request: ResourceStatusRequest):
+    """Get real-time status of a deployed resource."""
+    try:
+        return await kubernetes_service.get_resource_status(
+            kind=request.kind, name=request.name, namespace=request.namespace
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

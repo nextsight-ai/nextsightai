@@ -218,6 +218,9 @@ export const kubernetesApi = {
   // YAML Apply
   applyYAML: (request: YAMLApplyRequest) =>
     api.post<YAMLApplyResponse>('/kubernetes/apply', request),
+  // Resource Status
+  getResourceStatus: (kind: string, name: string, namespace?: string) =>
+    api.post<{ success: boolean; resource?: any; error?: string }>('/kubernetes/resource/status', { kind, name, namespace }),
   // Kubectl
   executeKubectl: (request: KubectlRequest) =>
     api.post<KubectlResponse>('/kubernetes/kubectl', request),
