@@ -245,3 +245,24 @@ async def get_chart_values(
 ):
     """Get default values for a chart."""
     return await helm_service.get_chart_values(chart, repository)
+
+
+@router.post("/charts/template")
+async def render_chart_template(
+    chart: str = Query(..., description="Chart name"),
+    release_name: str = Query(..., description="Release name"),
+    namespace: str = Query("default", description="Namespace"),
+    version: Optional[str] = Query(None, description="Chart version"),
+    repository: Optional[str] = Query(None, description="Repository URL"),
+    values: Dict[str, Any] = {},
+    current_user: UserInfo = Depends(get_current_user),
+):
+    """Render chart templates without installing."""
+    return await helm_service.template(
+        chart=chart,
+        release_name=release_name,
+        namespace=namespace,
+        values=values,
+        version=version,
+        repository=repository,
+    )

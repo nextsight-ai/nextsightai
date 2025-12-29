@@ -541,6 +541,10 @@ export const helmApi = {
     api.get<Record<string, unknown>>(`/helm/charts/${chart}/values`, {
       params: { repository }
     }),
+  renderTemplate: (chart: string, releaseName: string, namespace: string, values: Record<string, unknown>, version?: string, repository?: string) =>
+    api.post<{ success: boolean; manifest: string; message: string }>('/helm/charts/template', values, {
+      params: { chart, release_name: releaseName, namespace, version, repository }
+    }),
   getChartVersions: (chart: string, repository?: string) =>
     api.get<HelmChartSearchResult[]>(`/helm/charts/${chart}/versions`, {
       params: { repository }

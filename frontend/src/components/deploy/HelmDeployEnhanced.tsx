@@ -365,6 +365,8 @@ export default function HelmDeployEnhanced() {
   const [releases, setReleases] = useState<HelmRelease[]>([]);
   const [chartTree, setChartTree] = useState<ChartNode[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [renderedTemplate, setRenderedTemplate] = useState<string>('');
+  const [renderingTemplate, setRenderingTemplate] = useState(false);
 
   const namespaces = ['default', 'production', 'staging', 'development', 'monitoring', 'kube-system'];
 
@@ -640,6 +642,50 @@ export default function HelmDeployEnhanced() {
     addLog('Values copied to clipboard');
   };
 
+  const handleRenderTemplate = async () => {
+    if (!selectedChart || !selectedChart.chart) {
+      addLog('Error: No chart selected');
+      return;
+    }
+
+    setRenderingTemplate(true);
+    addLog(`Rendering templates for ${selectedChart.chart.name}...`);
+
+    try {
+      // Parse values content as JSON
+      let values = {};
+      try {
+        values = JSON.parse(valuesContent);
+      } catch (error) {
+        addLog('Warning: Could not parse values as JSON, using as-is');
+      }
+
+      const response = await helmApi.renderTemplate(
+        `${selectedChart.chart.repository}/${selectedChart.chart.name}`,
+        releaseName,
+        namespace,
+        values,
+        selectedChart.chart.version,
+        selectedChart.chart.repository
+      );
+
+      if (response.data.success) {
+        setRenderedTemplate(response.data.manifest);
+        addLog('Templates rendered successfully');
+        setActiveEditorTab('templates');
+      } else {
+        addLog(`Error: ${response.data.message}`);
+        setRenderedTemplate(`# Error rendering templates\n# ${response.data.message}`);
+      }
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.detail || error.message || 'Template rendering failed';
+      addLog(`Error: ${errorMsg}`);
+      setRenderedTemplate(`# Error rendering templates\n# ${errorMsg}`);
+    } finally {
+      setRenderingTemplate(false);
+    }
+  };
+
   const editorTabs = [
     { id: 'values', label: 'Values', icon: DocumentTextIcon },
     { id: 'chart', label: 'Chart Info', icon: BookOpenIcon },
@@ -870,15 +916,37 @@ export default function HelmDeployEnhanced() {
               </div>
             )}
             {activeEditorTab === 'templates' && (
-              <div className="h-full p-4 overflow-auto">
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-3">Templates</p>
-                  {['deployment.yaml', 'service.yaml', 'ingress.yaml', 'configmap.yaml', 'secrets.yaml', 'hpa.yaml', 'pdb.yaml', 'serviceaccount.yaml'].map((template) => (
-                    <div key={template} className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-slate-800/50 hover:bg-gray-100 dark:hover:bg-slate-700/50 cursor-pointer">
-                      <DocumentTextIcon className="h-4 w-4 text-blue-500" />
-                      <span className="text-xs text-gray-700 dark:text-gray-300">{template}</span>
+              <div className="h-full flex flex-col">
+                <div className="p-4 border-b border-gray-200/50 dark:border-slate-700/50">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleRenderTemplate}
+                    disabled={!selectedChart || renderingTemplate}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {renderingTemplate ? (
+                      <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <DocumentTextIcon className="h-4 w-4" />
+                    )}
+                    {renderingTemplate ? 'Rendering...' : 'Render Template Preview'}
+                  </motion.button>
+                </div>
+                <div className="flex-1 overflow-auto p-4">
+                  {renderedTemplate ? (
+                    <pre className="text-xs font-mono text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+                      {renderedTemplate}
+                    </pre>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                      <DocumentTextIcon className="h-12 w-12 text-gray-300 dark:text-gray-600 mb-3" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">No templates rendered yet</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                        Click "Render Template Preview" to see the<br />generated Kubernetes manifests
+                      </p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}
