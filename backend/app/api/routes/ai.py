@@ -66,7 +66,15 @@ def get_gemini_model():
 
         genai.configure(api_key=settings.GEMINI_API_KEY)
         model_name = getattr(settings, "GEMINI_MODEL", None) or "gemini-2.0-flash"
-        _gemini_model = genai.GenerativeModel(model_name)
+
+        # Configure for more consistent results (lower temperature = less randomness)
+        generation_config = genai.types.GenerationConfig(
+            temperature=0.2,  # Low temperature for consistent analysis
+            top_p=0.8,
+            top_k=40,
+        )
+
+        _gemini_model = genai.GenerativeModel(model_name, generation_config=generation_config)
     return _gemini_model
 
 
@@ -1925,6 +1933,17 @@ Return your analysis as JSON with this exact structure:
 async def review_yaml(request: YAMLReviewRequest):
     """Analyze Kubernetes YAML manifest for security issues, best practices, and production readiness."""
     try:
+        # Create cache key from YAML content
+        import hashlib
+        yaml_hash = hashlib.md5(request.yaml_content.encode()).hexdigest()
+        cache_key = f"yaml_review:{yaml_hash}"
+
+        # Check cache first (5 minute TTL)
+        cached_result = cache_service.get(cache_key)
+        if cached_result:
+            logger.info(f"Returning cached YAML review for hash {yaml_hash[:8]}")
+            return YAMLReviewResponse(**cached_result)
+
         context = f"""
 # Kubernetes YAML Manifest Review
 
@@ -1973,7 +1992,7 @@ Analyze this YAML manifest thoroughly and return your findings as JSON.
                     suggestion=issue.get('suggestion')
                 ))
 
-            return YAMLReviewResponse(
+            response = YAMLReviewResponse(
                 score=result.get('score', 50),
                 issues=issues,
                 suggestions=result.get('suggestions', []),
@@ -1981,6 +2000,12 @@ Analyze this YAML manifest thoroughly and return your findings as JSON.
                 best_practice_score=result.get('best_practice_score', 50),
                 success=True
             )
+
+            # Cache the result for 5 minutes (300 seconds)
+            cache_service.set(cache_key, response.dict(), ttl=300)
+            logger.info(f"Cached YAML review for hash {yaml_hash[:8]}")
+
+            return response
         except json.JSONDecodeError:
             return create_fallback_yaml_review(request.yaml_content)
 
