@@ -335,10 +335,10 @@ export default function YAMLDeployEnhanced() {
           // Calculate deployment metrics
           const podsUpdated = response.data.resources.filter(r =>
             (r.kind === 'Deployment' || r.kind === 'StatefulSet' || r.kind === 'DaemonSet') &&
-            r.status === 'updated'
+            r.action === 'updated'
           ).length;
           const podsRestarted = response.data.resources.filter(r =>
-            r.kind === 'Pod' && r.status === 'updated'
+            r.kind === 'Pod' && r.action === 'updated'
           ).length;
 
           // Assume zero downtime if duration < 5s and no errors
@@ -350,7 +350,7 @@ export default function YAMLDeployEnhanced() {
               kind: r.kind,
               name: r.name,
               namespace: r.namespace,
-              status: r.status as 'created' | 'updated' | 'unchanged',
+              status: r.action as 'created' | 'updated' | 'unchanged',
             })),
             duration,
             timestamp: new Date(),
@@ -414,6 +414,45 @@ export default function YAMLDeployEnhanced() {
     }
   };
 
+  const handleAutoFix = async () => {
+    if (!aiReview || aiReview.issues.length === 0) {
+      addLog('warning', 'No issues to fix');
+      return;
+    }
+
+    if (!yamlContent.trim()) {
+      addLog('warning', 'No YAML content to fix');
+      return;
+    }
+
+    setLoading(true);
+    addLog('info', '🤖 AI applying automatic fixes...');
+
+    try {
+      const response = await aiApi.yamlAutoFix({
+        yaml_content: yamlContent,
+        issues: aiReview.issues,
+        namespace: selectedNamespace || undefined,
+      });
+
+      if (response.data.success) {
+        setYamlContent(response.data.fixed_yaml);
+        addLog('success', `✓ ${response.data.changes_summary}`);
+        // Clear AI review since issues are fixed
+        setAiReview(null);
+        setActiveTab('editor');
+      } else {
+        addLog('error', '✗ Auto-fix failed');
+      }
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Auto-fix service unavailable';
+      addLog('error', `✗ Auto-fix failed: ${errorMessage}`);
+      logger.error('Auto-fix error', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadSample = () => {
     setYamlContent(SAMPLE_YAML);
     setAiReview(null);
@@ -442,8 +481,8 @@ export default function YAMLDeployEnhanced() {
             namespace: resource.metadata.namespace || selectedNamespace || undefined,
           });
 
-          if (response.data.yaml) {
-            deployedResources.push(response.data.yaml);
+          if (response.data.yaml_content) {
+            deployedResources.push(response.data.yaml_content);
           }
         } catch (err: any) {
           // Resource might not exist yet
@@ -1003,10 +1042,21 @@ export default function YAMLDeployEnhanced() {
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg transition-all"
+                    onClick={handleAutoFix}
+                    disabled={loading}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <CheckCircleIcon className="h-4 w-4" />
-                    AI Auto-Fix
+                    {loading ? (
+                      <>
+                        <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                        Applying Fixes...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircleIcon className="h-4 w-4" />
+                        AI Auto-Fix ({aiReview.issues.length})
+                      </>
+                    )}
                   </motion.button>
                 )}
               </div>

@@ -1994,6 +1994,97 @@ Analyze this YAML manifest thoroughly and return your findings as JSON.
 
 
 # ============================================================================
+# YAML Auto-Fix Endpoint
+# ============================================================================
+
+class YAMLAutoFixRequest(BaseModel):
+    yaml_content: str
+    issues: List[Dict[str, Any]]
+    namespace: Optional[str] = None
+
+
+class YAMLAutoFixResponse(BaseModel):
+    fixed_yaml: str
+    changes_summary: str
+    success: bool
+
+
+YAML_AUTOFIX_PROMPT = """You are a Kubernetes expert tasked with automatically fixing issues in Kubernetes YAML manifests.
+
+You have been given a YAML manifest and a list of issues detected by our analysis system.
+
+**Original YAML:**
+```yaml
+{yaml_content}
+```
+
+**Issues to Fix:**
+{issues_list}
+
+Your task:
+1. Carefully apply fixes for ALL the issues listed above
+2. Preserve the structure and comments of the original YAML
+3. Only modify what's necessary to fix the issues
+4. Ensure the resulting YAML is valid and follows Kubernetes best practices
+
+Return ONLY the fixed YAML manifest without any explanations or markdown formatting.
+Do not include ```yaml code blocks - just return the raw YAML content.
+"""
+
+
+@router.post("/yaml-autofix", response_model=YAMLAutoFixResponse)
+async def autofix_yaml(request: YAMLAutoFixRequest):
+    """Automatically fix issues in Kubernetes YAML manifest using AI."""
+    try:
+        # Format issues list for the prompt
+        issues_text = []
+        for idx, issue in enumerate(request.issues, 1):
+            severity = issue.get('severity', 'unknown')
+            issue_type = issue.get('type', 'general')
+            message = issue.get('message', '')
+            suggestion = issue.get('suggestion', '')
+
+            issues_text.append(f"{idx}. [{severity.upper()}] {issue_type}: {message}")
+            if suggestion:
+                issues_text.append(f"   Suggested fix: {suggestion}")
+
+        issues_list_str = "\n".join(issues_text)
+
+        full_prompt = YAML_AUTOFIX_PROMPT.format(
+            yaml_content=request.yaml_content,
+            issues_list=issues_list_str
+        )
+
+        fixed_yaml = generate_ai_response(full_prompt)
+
+        # Clean up the response - remove markdown code blocks if present
+        import re
+        cleaned_yaml = re.sub(r'```yaml\s*', '', fixed_yaml)
+        cleaned_yaml = re.sub(r'```\s*$', '', cleaned_yaml)
+        cleaned_yaml = cleaned_yaml.strip()
+
+        # Generate a summary of changes
+        changes_summary = f"Applied fixes for {len(request.issues)} issue(s):\n"
+        for issue in request.issues[:5]:  # Show first 5
+            changes_summary += f"- Fixed {issue.get('type', 'issue')}: {issue.get('message', '')[:60]}...\n"
+        if len(request.issues) > 5:
+            changes_summary += f"- ... and {len(request.issues) - 5} more\n"
+
+        return YAMLAutoFixResponse(
+            fixed_yaml=cleaned_yaml,
+            changes_summary=changes_summary.strip(),
+            success=True
+        )
+
+    except ValueError as e:
+        logger.error(f"AI not configured: {e}")
+        raise HTTPException(status_code=503, detail="AI service not configured")
+    except Exception as e:
+        logger.error(f"Error auto-fixing YAML: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to auto-fix YAML: {str(e)}")
+
+
+# ============================================================================
 # Workload Analysis Endpoint
 # ============================================================================
 
