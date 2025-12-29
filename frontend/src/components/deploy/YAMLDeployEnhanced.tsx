@@ -32,6 +32,12 @@ interface LogEntry {
   timestamp: Date;
 }
 
+interface DiffLine {
+  type: 'added' | 'removed' | 'unchanged';
+  content: string;
+  lineNumber?: number;
+}
+
 interface AIReviewResult {
   score: number;
   issues: Array<{
@@ -109,6 +115,123 @@ const STORAGE_KEYS = {
   NAMESPACE: 'nextsight_yaml_namespace',
 };
 
+// Simple line-by-line diff computation
+function computeDiff(oldText: string, newText: string): { left: DiffLine[]; right: DiffLine[] } {
+  const oldLines = oldText.split('\n');
+  const newLines = newText.split('\n');
+
+  const left: DiffLine[] = [];
+  const right: DiffLine[] = [];
+
+  let oldIndex = 0;
+  let newIndex = 0;
+
+  while (oldIndex < oldLines.length || newIndex < newLines.length) {
+    if (oldIndex < oldLines.length && newIndex < newLines.length) {
+      if (oldLines[oldIndex] === newLines[newIndex]) {
+        // Unchanged line
+        left.push({ type: 'unchanged', content: oldLines[oldIndex], lineNumber: oldIndex + 1 });
+        right.push({ type: 'unchanged', content: newLines[newIndex], lineNumber: newIndex + 1 });
+        oldIndex++;
+        newIndex++;
+      } else {
+        // Changed line - show as removed and added
+        left.push({ type: 'removed', content: oldLines[oldIndex], lineNumber: oldIndex + 1 });
+        right.push({ type: 'added', content: newLines[newIndex], lineNumber: newIndex + 1 });
+        oldIndex++;
+        newIndex++;
+      }
+    } else if (oldIndex < oldLines.length) {
+      // Removed line
+      left.push({ type: 'removed', content: oldLines[oldIndex], lineNumber: oldIndex + 1 });
+      right.push({ type: 'unchanged', content: '', lineNumber: undefined });
+      oldIndex++;
+    } else {
+      // Added line
+      left.push({ type: 'unchanged', content: '', lineNumber: undefined });
+      right.push({ type: 'added', content: newLines[newIndex], lineNumber: newIndex + 1 });
+      newIndex++;
+    }
+  }
+
+  return { left, right };
+}
+
+// DiffView Component
+function DiffView({ oldText, newText }: { oldText: string; newText: string }) {
+  const { left, right } = computeDiff(oldText, newText);
+
+  const getLineStyle = (type: DiffLine['type']) => {
+    switch (type) {
+      case 'added':
+        return 'bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500';
+      case 'removed':
+        return 'bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500';
+      default:
+        return 'bg-white dark:bg-slate-800';
+    }
+  };
+
+  const getTextStyle = (type: DiffLine['type']) => {
+    switch (type) {
+      case 'added':
+        return 'text-green-800 dark:text-green-300';
+      case 'removed':
+        return 'text-red-800 dark:text-red-300';
+      default:
+        return 'text-gray-700 dark:text-gray-300';
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-2 gap-0 h-full overflow-auto font-mono text-xs">
+      {/* Left Side - Deployed */}
+      <div className="border-r border-gray-200 dark:border-slate-700">
+        <div className="sticky top-0 bg-gray-100 dark:bg-slate-800 px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-slate-700 z-10">
+          Deployed (Current)
+        </div>
+        <div>
+          {left.map((line, idx) => (
+            <div
+              key={idx}
+              className={`flex px-2 py-1 ${getLineStyle(line.type)}`}
+            >
+              <span className="w-12 flex-shrink-0 text-gray-400 dark:text-gray-600 select-none text-right pr-3">
+                {line.lineNumber || ''}
+              </span>
+              <span className={`flex-1 whitespace-pre ${getTextStyle(line.type)}`}>
+                {line.content || '\u00A0'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Right Side - Local */}
+      <div>
+        <div className="sticky top-0 bg-gray-100 dark:bg-slate-800 px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-slate-700 z-10">
+          Local (Your Changes)
+        </div>
+        <div>
+          {right.map((line, idx) => (
+            <div
+              key={idx}
+              className={`flex px-2 py-1 ${getLineStyle(line.type)}`}
+            >
+              <span className="w-12 flex-shrink-0 text-gray-400 dark:text-gray-600 select-none text-right pr-3">
+                {line.lineNumber || ''}
+              </span>
+              <span className={`flex-1 whitespace-pre ${getTextStyle(line.type)}`}>
+                {line.content || '\u00A0'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function YAMLDeployEnhanced() {
   const [activeTab, setActiveTab] = useState<TabType>('editor');
   const [yamlContent, setYamlContent] = useState(() => {
@@ -132,6 +255,8 @@ export default function YAMLDeployEnhanced() {
   const [reviewing, setReviewing] = useState(false);
   const [deploySummary, setDeploySummary] = useState<DeploySummary | null>(null);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [deployedYAML, setDeployedYAML] = useState<string>('');
+  const [fetchingDeployed, setFetchingDeployed] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Save YAML content to localStorage when it changes
@@ -293,6 +418,53 @@ export default function YAMLDeployEnhanced() {
     setYamlContent(SAMPLE_YAML);
     setAiReview(null);
     addLog('info', 'Sample YAML loaded');
+  };
+
+  const fetchDeployedYAML = async () => {
+    if (!parsedYAML || parsedYAML.length === 0) {
+      addLog('warning', 'No resources parsed from current YAML');
+      return;
+    }
+
+    setFetchingDeployed(true);
+    addLog('info', 'Fetching deployed resources...');
+
+    try {
+      const deployedResources: string[] = [];
+
+      for (const resource of parsedYAML) {
+        if (!resource || !resource.kind || !resource.metadata?.name) continue;
+
+        try {
+          const response = await kubernetesApi.getResourceYAML({
+            kind: resource.kind,
+            name: resource.metadata.name,
+            namespace: resource.metadata.namespace || selectedNamespace || undefined,
+          });
+
+          if (response.data.yaml) {
+            deployedResources.push(response.data.yaml);
+          }
+        } catch (err: any) {
+          // Resource might not exist yet
+          if (err.response?.status === 404) {
+            deployedResources.push(`# Resource not found: ${resource.kind}/${resource.metadata.name}`);
+          } else {
+            logger.error('Failed to fetch resource', err);
+          }
+        }
+      }
+
+      const deployedYAMLContent = deployedResources.join('\n---\n');
+      setDeployedYAML(deployedYAMLContent);
+      addLog('success', `Fetched ${deployedResources.length} deployed resources`);
+      setActiveTab('diff');
+    } catch (err) {
+      logger.error('Failed to fetch deployed YAML', err);
+      addLog('error', 'Failed to fetch deployed resources');
+    } finally {
+      setFetchingDeployed(false);
+    }
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -515,29 +687,47 @@ export default function YAMLDeployEnhanced() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="h-full overflow-auto p-4 bg-gradient-to-br from-slate-50 to-amber-50/30 dark:from-slate-900 dark:to-slate-800"
+                      className="h-full overflow-hidden flex flex-col"
                     >
-                      <div className="flex flex-col items-center justify-center h-full">
-                        <div className="p-6 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/20 dark:to-orange-900/20 mb-6 border border-amber-200 dark:border-amber-500/20">
-                          <ArrowPathIcon className="h-16 w-16 text-amber-600 dark:text-amber-400" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                          Diff View Coming Soon
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 text-center max-w-md">
-                          Compare your local changes with deployed resources in real-time
-                        </p>
-                        <div className="mt-6 grid grid-cols-2 gap-3">
-                          <div className="p-3 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Side-by-side</p>
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400">Compare changes visually</p>
+                      {deployedYAML ? (
+                        <DiffView oldText={deployedYAML} newText={yamlContent} />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full p-8">
+                          <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 mb-6 border border-blue-200 dark:border-blue-500/20">
+                            <ArrowPathIcon className="h-16 w-16 text-blue-600 dark:text-blue-400" />
                           </div>
-                          <div className="p-3 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Inline diff</p>
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400">View unified changes</p>
-                          </div>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                            Compare with Deployed Resources
+                          </h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 text-center max-w-md mb-6">
+                            Fetch the current deployed YAML from the cluster to see side-by-side differences
+                          </p>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={fetchDeployedYAML}
+                            disabled={fetchingDeployed || !yamlContent.trim() || !parsedYAML}
+                            className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                          >
+                            {fetchingDeployed ? (
+                              <>
+                                <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                                Fetching...
+                              </>
+                            ) : (
+                              <>
+                                <ArrowPathIcon className="h-5 w-5" />
+                                Fetch Deployed YAML
+                              </>
+                            )}
+                          </motion.button>
+                          {(!yamlContent.trim() || !parsedYAML) && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
+                              Enter valid YAML in the editor first
+                            </p>
+                          )}
                         </div>
-                      </div>
+                      )}
                     </motion.div>
                   )}
 
@@ -767,7 +957,7 @@ export default function YAMLDeployEnhanced() {
                 </div>
               )}
 
-              {/* AI Fix Buttons */}
+              {/* AI & Diff Actions */}
               <div className="space-y-2">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
@@ -785,6 +975,26 @@ export default function YAMLDeployEnhanced() {
                     <>
                       <SparklesIcon className="h-4 w-4" />
                       AI Review
+                    </>
+                  )}
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={fetchDeployedYAML}
+                  disabled={!yamlContent.trim() || !parsedYAML || fetchingDeployed}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {fetchingDeployed ? (
+                    <>
+                      <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                      Fetching...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowPathIcon className="h-4 w-4" />
+                      Compare with Deployed
                     </>
                   )}
                 </motion.button>
