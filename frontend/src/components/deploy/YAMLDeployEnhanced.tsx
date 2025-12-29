@@ -447,6 +447,12 @@ export default function YAMLDeployEnhanced() {
         }
       } else {
         addLog('error', '✗ ' + response.data.message);
+        // Log individual errors
+        if (response.data.errors && response.data.errors.length > 0) {
+          response.data.errors.forEach(err => {
+            addLog('error', `  → ${err}`);
+          });
+        }
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed';
