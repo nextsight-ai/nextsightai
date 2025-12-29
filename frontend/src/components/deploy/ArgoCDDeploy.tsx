@@ -71,6 +71,144 @@ const HealthIcon = ({ status }: { status: string }) => {
   }
 };
 
+// Resource Tree Node Interface
+interface TreeNode {
+  uid: string;
+  kind: string;
+  name: string;
+  namespace?: string;
+  health?: string;
+  status?: string;
+  parentRefs?: Array<{ uid: string }>;
+  children?: TreeNode[];
+}
+
+// Resource Tree View Component
+function ResourceTreeView({ tree, loading }: { tree: any; loading: boolean }) {
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <ArrowPathIcon className="h-6 w-6 animate-spin text-primary-600" />
+        <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading resource tree...</span>
+      </div>
+    );
+  }
+
+  if (!tree || !tree.nodes || tree.nodes.length === 0) {
+    return (
+      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+        <CubeIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+        <p className="text-sm">No resources found</p>
+      </div>
+    );
+  }
+
+  // Build tree structure from flat list
+  const buildTree = (nodes: TreeNode[]): TreeNode[] => {
+    const nodeMap = new Map<string, TreeNode>();
+    const rootNodes: TreeNode[] = [];
+
+    // First pass: create node map
+    nodes.forEach(node => {
+      nodeMap.set(node.uid, { ...node, children: [] });
+    });
+
+    // Second pass: build parent-child relationships
+    nodes.forEach(node => {
+      const treeNode = nodeMap.get(node.uid);
+      if (!treeNode) return;
+
+      if (node.parentRefs && node.parentRefs.length > 0) {
+        // Has parent(s)
+        node.parentRefs.forEach(parentRef => {
+          const parent = nodeMap.get(parentRef.uid);
+          if (parent) {
+            parent.children = parent.children || [];
+            parent.children.push(treeNode);
+          }
+        });
+      } else {
+        // Root node
+        rootNodes.push(treeNode);
+      }
+    });
+
+    return rootNodes;
+  };
+
+  const toggleNode = (uid: string) => {
+    const newExpanded = new Set(expandedNodes);
+    if (newExpanded.has(uid)) {
+      newExpanded.delete(uid);
+    } else {
+      newExpanded.add(uid);
+    }
+    setExpandedNodes(newExpanded);
+  };
+
+  const renderNode = (node: TreeNode, depth: number = 0) => {
+    const hasChildren = node.children && node.children.length > 0;
+    const isExpanded = expandedNodes.has(node.uid);
+    const paddingLeft = depth * 16;
+
+    return (
+      <div key={node.uid}>
+        <div
+          className="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded cursor-pointer"
+          onClick={() => hasChildren && toggleNode(node.uid)}
+          style={{ paddingLeft: `${paddingLeft + 8}px` }}
+        >
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {hasChildren ? (
+              <ChevronRightIcon
+                className={`h-4 w-4 text-gray-400 transition-transform flex-shrink-0 ${
+                  isExpanded ? 'rotate-90' : ''
+                }`}
+              />
+            ) : (
+              <div className="w-4 h-4 flex-shrink-0" />
+            )}
+            <CubeIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                {node.kind}
+              </span>
+              <span className="text-sm text-gray-600 dark:text-gray-400 ml-1 truncate">
+                / {node.name}
+              </span>
+              {node.namespace && (
+                <span className="text-xs text-gray-500 ml-2">({node.namespace})</span>
+              )}
+            </div>
+          </div>
+          {node.health && (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <span className={`text-xs px-2 py-0.5 rounded ${healthStatusColors[node.health] || ''}`}>
+                {node.health}
+              </span>
+            </div>
+          )}
+        </div>
+        {hasChildren && isExpanded && (
+          <div>
+            {node.children?.map(child => renderNode(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const treeNodes = buildTree(tree.nodes);
+
+  return (
+    <div className="space-y-1">
+      {treeNodes.map(node => renderNode(node))}
+    </div>
+  );
+}
+
 export default function ArgoCDDeploy() {
   // Connection state
   const [connectionStatus, setConnectionStatus] = useState<ArgoCDStatus | null>(null);
@@ -106,6 +244,8 @@ export default function ArgoCDDeploy() {
   const [applications, setApplications] = useState<ArgoCDApplicationSummary[]>([]);
   const [selectedApp, setSelectedApp] = useState<ArgoCDApplication | null>(null);
   const [selectedAppHistory, setSelectedAppHistory] = useState<ArgoCDRevisionHistory[]>([]);
+  const [resourceTree, setResourceTree] = useState<any>(null);
+  const [loadingTree, setLoadingTree] = useState(false);
   const [projects, setProjects] = useState<ArgoCDProjectSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -363,15 +503,21 @@ export default function ArgoCDDeploy() {
 
   const handleViewApplication = async (name: string) => {
     try {
-      const [appResponse, historyResponse] = await Promise.all([
+      setLoadingTree(true);
+      const [appResponse, historyResponse, treeResponse] = await Promise.all([
         argocdApi.getApplication(name),
         argocdApi.getApplicationHistory(name),
+        argocdApi.getResourceTree(name),
       ]);
       setSelectedApp(appResponse.data);
       setSelectedAppHistory(historyResponse.data.history);
+      setResourceTree(treeResponse.data);
       setShowDetailModal(true);
     } catch (err) {
       logger.error('Failed to load application', err);
+      setResourceTree(null);
+    } finally {
+      setLoadingTree(false);
     }
   };
 
@@ -1448,39 +1594,20 @@ export default function ArgoCDDeploy() {
                   </div>
                 )}
 
-                {/* Resources */}
-                {selectedApp.status.resources.length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-                      Resources ({selectedApp.status.resources.length})
-                    </h4>
-                    <div className="space-y-1 max-h-48 overflow-y-auto">
-                      {selectedApp.status.resources.map((resource, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between p-2 rounded text-sm"
-                        >
-                          <div className="flex items-center gap-2">
-                            <ChevronRightIcon className="h-4 w-4 text-gray-400" />
-                            <span className="text-gray-900 dark:text-white">
-                              {resource.kind}/{resource.name}
-                            </span>
-                            {resource.namespace && (
-                              <span className="text-xs text-gray-500">
-                                ({resource.namespace})
-                              </span>
-                            )}
-                          </div>
-                          {resource.health && (
-                            <span className={`text-xs px-2 py-0.5 rounded ${healthStatusColors[resource.health] || ''}`}>
-                              {resource.health}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                {/* Resource Tree */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                    Resource Tree
+                    {resourceTree?.nodes && (
+                      <span className="ml-2 text-xs font-normal text-gray-500">
+                        ({resourceTree.nodes.length} resources)
+                      </span>
+                    )}
+                  </h4>
+                  <div className="max-h-96 overflow-y-auto border border-gray-200 dark:border-slate-700 rounded-lg">
+                    <ResourceTreeView tree={resourceTree} loading={loadingTree} />
                   </div>
-                )}
+                </div>
 
                 {/* Actions */}
                 <div className="flex gap-3 pt-4 border-t border-gray-100 dark:border-slate-700">
