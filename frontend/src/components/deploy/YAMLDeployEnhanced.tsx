@@ -17,6 +17,8 @@ import {
   ArrowPathIcon,
   BeakerIcon,
   DocumentArrowUpIcon,
+  ArrowDownTrayIcon,
+  ClipboardDocumentIcon,
   TrashIcon,
   XMarkIcon,
   RocketLaunchIcon,
@@ -457,6 +459,38 @@ export default function YAMLDeployEnhanced() {
     setYamlContent(SAMPLE_YAML);
     setAiReview(null);
     addLog('info', 'Sample YAML loaded');
+  };
+
+  const exportToFile = () => {
+    if (!yamlContent.trim()) {
+      addLog('warning', 'No YAML content to export');
+      return;
+    }
+
+    const blob = new Blob([yamlContent], { type: 'text/yaml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `deployment-${Date.now()}.yaml`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    addLog('success', `✓ Exported to ${a.download}`);
+  };
+
+  const copyToClipboard = async () => {
+    if (!yamlContent.trim()) {
+      addLog('warning', 'No YAML content to copy');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(yamlContent);
+      addLog('success', '✓ Copied to clipboard');
+    } catch (error) {
+      addLog('error', '✗ Failed to copy to clipboard');
+    }
   };
 
   const fetchDeployedYAML = async () => {
@@ -934,8 +968,11 @@ export default function YAMLDeployEnhanced() {
                 </select>
               </div>
 
-              {/* File Upload and Load Sample */}
+              {/* File Operations */}
               <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">File Operations</p>
+
+                {/* Import YAML */}
                 <input
                   type="file"
                   id="file-upload"
@@ -950,8 +987,34 @@ export default function YAMLDeployEnhanced() {
                   className="cursor-pointer w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
                 >
                   <DocumentArrowUpIcon className="h-4 w-4" />
-                  Upload YAML
+                  Import YAML
                 </motion.label>
+
+                {/* Export YAML */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={exportToFile}
+                  disabled={!yamlContent.trim()}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ArrowDownTrayIcon className="h-4 w-4" />
+                  Export YAML
+                </motion.button>
+
+                {/* Copy to Clipboard */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={copyToClipboard}
+                  disabled={!yamlContent.trim()}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ClipboardDocumentIcon className="h-4 w-4" />
+                  Copy to Clipboard
+                </motion.button>
+
+                {/* Load Sample */}
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
