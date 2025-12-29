@@ -375,7 +375,7 @@ export default function ResourceOptimizationDashboard({
   const reviewedCount = filteredOptimizations.filter(opt => markedReviewed.has(opt.id)).length;
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Fixed Header */}
       <div className="flex-shrink-0 space-y-4 mb-4">
         {/* Compact Header */}

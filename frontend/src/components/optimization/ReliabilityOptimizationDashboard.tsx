@@ -12,6 +12,7 @@ import {
   FunnelIcon,
 } from '@heroicons/react/24/outline';
 import type { OptimizationDashboardResponse } from '../../types';
+import { reliabilityApi } from '../../services/api';
 
 // Reliability Risk Severity
 type ReliabilitySeverity = 'high' | 'medium' | 'low';
@@ -392,10 +393,23 @@ export default function ReliabilityOptimizationDashboard({
   const [markedReviewed, setMarkedReviewed] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    // Generate base risks from dashboard data
-    const risks = generateMockReliabilityData(dashboardData);
-    setReliabilityRisks(risks);
-    setLoading(false);
+    // Fetch real reliability analysis from backend
+    const loadReliabilityData = async () => {
+      setLoading(true);
+      try {
+        const response = await reliabilityApi.getAnalysis();
+        setReliabilityRisks(response.data.risks || []);
+      } catch (error) {
+        console.error('Failed to load reliability analysis:', error);
+        // Fallback to mock data if API fails
+        const risks = generateMockReliabilityData(dashboardData);
+        setReliabilityRisks(risks);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadReliabilityData();
   }, [dashboardData]);
 
   // Calculate summary stats
@@ -433,7 +447,7 @@ export default function ReliabilityOptimizationDashboard({
   }
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Fixed Header */}
       <div className="flex-shrink-0 space-y-4 mb-4">
         {/* Compact Header */}

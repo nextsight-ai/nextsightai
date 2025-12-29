@@ -168,7 +168,7 @@ export default function AIOptimizationHub() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-8rem)] overflow-hidden">
       {/* Fixed Header Section */}
       <div className="flex-shrink-0 space-y-4 mb-4">
         {/* Compact Header with Tabs */}
@@ -251,7 +251,7 @@ export default function AIOptimizationHub() {
             isAnalyzing={analyzing}
           />
         ) : aiAnalysis ? (
-        <div className="space-y-6">
+        <div className="flex-1 overflow-y-auto space-y-6 pr-2">
           {/* Trust Disclaimer */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}

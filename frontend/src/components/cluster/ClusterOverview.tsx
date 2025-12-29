@@ -25,17 +25,7 @@ import { useCluster } from '../../contexts/ClusterContext';
 import { useClusterOverviewData } from '../../hooks/useClusterOverviewData';
 import GlassCard from '../common/GlassCard';
 import type { K8sEvent } from '../../types';
-
-// Animation variants
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 15 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
-};
+import { containerVariants, itemVariants } from '../../utils/constants';
 
 const pulseVariants = {
   pulse: {
