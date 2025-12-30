@@ -218,6 +218,9 @@ export const kubernetesApi = {
   // YAML Apply
   applyYAML: (request: YAMLApplyRequest) =>
     api.post<YAMLApplyResponse>('/kubernetes/apply', request),
+  // Resource Status
+  getResourceStatus: (kind: string, name: string, namespace?: string) =>
+    api.post<{ success: boolean; resource?: any; error?: string }>('/kubernetes/resource/status', { kind, name, namespace }),
   // Kubectl
   executeKubectl: (request: KubectlRequest) =>
     api.post<KubectlResponse>('/kubernetes/kubectl', request),
@@ -541,6 +544,10 @@ export const helmApi = {
     api.get<Record<string, unknown>>(`/helm/charts/${chart}/values`, {
       params: { repository }
     }),
+  renderTemplate: (chart: string, releaseName: string, namespace: string, values: Record<string, unknown>, version?: string, repository?: string) =>
+    api.post<{ success: boolean; manifest: string; message: string }>('/helm/charts/template', values, {
+      params: { chart, release_name: releaseName, namespace, version, repository }
+    }),
   getChartVersions: (chart: string, repository?: string) =>
     api.get<HelmChartSearchResult[]>(`/helm/charts/${chart}/versions`, {
       params: { repository }
@@ -757,6 +764,8 @@ export const aiApi = {
     api.post<{ response: string; success: boolean }>('/ai/chat', request),
   yamlReview: (request: { yaml_content: string; namespace?: string }) =>
     api.post<YAMLReviewResponse>('/ai/yaml-review', request),
+  yamlAutoFix: (request: { yaml_content: string; issues: Array<{ severity: string; type: string; message: string; suggestion?: string }>; namespace?: string }) =>
+    api.post<{ fixed_yaml: string; changes_summary: string; success: boolean }>('/ai/yaml-autofix', request),
   analyzeWorkload: (request: {
     workload_name: string;
     workload_type: string;

@@ -17,6 +17,8 @@ import {
   ArrowPathIcon,
   BeakerIcon,
   DocumentArrowUpIcon,
+  ArrowDownTrayIcon,
+  ClipboardDocumentIcon,
   TrashIcon,
   XMarkIcon,
   RocketLaunchIcon,
@@ -30,6 +32,12 @@ interface LogEntry {
   type: 'info' | 'success' | 'error' | 'warning';
   message: string;
   timestamp: Date;
+}
+
+interface DiffLine {
+  type: 'added' | 'removed' | 'unchanged';
+  content: string;
+  lineNumber?: number;
 }
 
 interface AIReviewResult {
@@ -109,6 +117,123 @@ const STORAGE_KEYS = {
   NAMESPACE: 'nextsight_yaml_namespace',
 };
 
+// Simple line-by-line diff computation
+function computeDiff(oldText: string, newText: string): { left: DiffLine[]; right: DiffLine[] } {
+  const oldLines = oldText.split('\n');
+  const newLines = newText.split('\n');
+
+  const left: DiffLine[] = [];
+  const right: DiffLine[] = [];
+
+  let oldIndex = 0;
+  let newIndex = 0;
+
+  while (oldIndex < oldLines.length || newIndex < newLines.length) {
+    if (oldIndex < oldLines.length && newIndex < newLines.length) {
+      if (oldLines[oldIndex] === newLines[newIndex]) {
+        // Unchanged line
+        left.push({ type: 'unchanged', content: oldLines[oldIndex], lineNumber: oldIndex + 1 });
+        right.push({ type: 'unchanged', content: newLines[newIndex], lineNumber: newIndex + 1 });
+        oldIndex++;
+        newIndex++;
+      } else {
+        // Changed line - show as removed and added
+        left.push({ type: 'removed', content: oldLines[oldIndex], lineNumber: oldIndex + 1 });
+        right.push({ type: 'added', content: newLines[newIndex], lineNumber: newIndex + 1 });
+        oldIndex++;
+        newIndex++;
+      }
+    } else if (oldIndex < oldLines.length) {
+      // Removed line
+      left.push({ type: 'removed', content: oldLines[oldIndex], lineNumber: oldIndex + 1 });
+      right.push({ type: 'unchanged', content: '', lineNumber: undefined });
+      oldIndex++;
+    } else {
+      // Added line
+      left.push({ type: 'unchanged', content: '', lineNumber: undefined });
+      right.push({ type: 'added', content: newLines[newIndex], lineNumber: newIndex + 1 });
+      newIndex++;
+    }
+  }
+
+  return { left, right };
+}
+
+// DiffView Component
+function DiffView({ oldText, newText }: { oldText: string; newText: string }) {
+  const { left, right } = computeDiff(oldText, newText);
+
+  const getLineStyle = (type: DiffLine['type']) => {
+    switch (type) {
+      case 'added':
+        return 'bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500';
+      case 'removed':
+        return 'bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500';
+      default:
+        return 'bg-white dark:bg-slate-800';
+    }
+  };
+
+  const getTextStyle = (type: DiffLine['type']) => {
+    switch (type) {
+      case 'added':
+        return 'text-green-800 dark:text-green-300';
+      case 'removed':
+        return 'text-red-800 dark:text-red-300';
+      default:
+        return 'text-gray-700 dark:text-gray-300';
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-2 gap-0 h-full overflow-auto font-mono text-xs">
+      {/* Left Side - Deployed */}
+      <div className="border-r border-gray-200 dark:border-slate-700">
+        <div className="sticky top-0 bg-gray-100 dark:bg-slate-800 px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-slate-700 z-10">
+          Deployed (Current)
+        </div>
+        <div>
+          {left.map((line, idx) => (
+            <div
+              key={idx}
+              className={`flex px-2 py-1 ${getLineStyle(line.type)}`}
+            >
+              <span className="w-12 flex-shrink-0 text-gray-400 dark:text-gray-600 select-none text-right pr-3">
+                {line.lineNumber || ''}
+              </span>
+              <span className={`flex-1 whitespace-pre ${getTextStyle(line.type)}`}>
+                {line.content || '\u00A0'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Right Side - Local */}
+      <div>
+        <div className="sticky top-0 bg-gray-100 dark:bg-slate-800 px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-slate-700 z-10">
+          Local (Your Changes)
+        </div>
+        <div>
+          {right.map((line, idx) => (
+            <div
+              key={idx}
+              className={`flex px-2 py-1 ${getLineStyle(line.type)}`}
+            >
+              <span className="w-12 flex-shrink-0 text-gray-400 dark:text-gray-600 select-none text-right pr-3">
+                {line.lineNumber || ''}
+              </span>
+              <span className={`flex-1 whitespace-pre ${getTextStyle(line.type)}`}>
+                {line.content || '\u00A0'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function YAMLDeployEnhanced() {
   const [activeTab, setActiveTab] = useState<TabType>('editor');
   const [yamlContent, setYamlContent] = useState(() => {
@@ -132,6 +257,12 @@ export default function YAMLDeployEnhanced() {
   const [reviewing, setReviewing] = useState(false);
   const [deploySummary, setDeploySummary] = useState<DeploySummary | null>(null);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [deployedYAML, setDeployedYAML] = useState<string>('');
+  const [fetchingDeployed, setFetchingDeployed] = useState(false);
+  const [selectedIssues, setSelectedIssues] = useState<Set<number>>(new Set());
+  const [resourceStatuses, setResourceStatuses] = useState<Map<string, any>>(new Map());
+  const [trackingResources, setTrackingResources] = useState(false);
+  const statusIntervalRef = useRef<number | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Save YAML content to localStorage when it changes
@@ -178,6 +309,82 @@ export default function YAMLDeployEnhanced() {
     }
   };
 
+  const startResourceTracking = (resources: any[]) => {
+    // Clear any existing tracking
+    if (statusIntervalRef.current) {
+      clearInterval(statusIntervalRef.current);
+    }
+
+    setTrackingResources(true);
+    setResourceStatuses(new Map());
+    addLog('info', '📊 Tracking resource status...');
+
+    // Initial status check
+    checkResourceStatuses(resources);
+
+    // Poll every 3 seconds
+    statusIntervalRef.current = window.setInterval(() => {
+      checkResourceStatuses(resources);
+    }, 3000);
+
+    // Stop tracking after 60 seconds
+    setTimeout(() => {
+      stopResourceTracking();
+    }, 60000);
+  };
+
+  const checkResourceStatuses = async (resources: any[]) => {
+    const newStatuses = new Map();
+
+    for (const resource of resources) {
+      try {
+        const response = await kubernetesApi.getResourceStatus(
+          resource.kind,
+          resource.name,
+          resource.namespace
+        );
+
+        if (response.data.success && response.data.resource) {
+          const key = `${resource.kind}/${resource.name}`;
+          newStatuses.set(key, response.data.resource);
+        }
+      } catch (err) {
+        logger.error(`Failed to get status for ${resource.kind}/${resource.name}`, err);
+      }
+    }
+
+    setResourceStatuses(newStatuses);
+
+    // Check if all resources are ready
+    let allReady = true;
+    for (const [, status] of newStatuses) {
+      if (status.status !== 'Ready') {
+        allReady = false;
+        break;
+      }
+    }
+
+    if (allReady && newStatuses.size > 0) {
+      addLog('success', '✓ All resources are ready');
+      stopResourceTracking();
+    }
+  };
+
+  const stopResourceTracking = () => {
+    if (statusIntervalRef.current) {
+      clearInterval(statusIntervalRef.current);
+      statusIntervalRef.current = null;
+    }
+    setTrackingResources(false);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopResourceTracking();
+    };
+  }, []);
+
   const handleApply = async (dryRun: boolean) => {
     if (!yamlContent.trim()) {
       addLog('error', 'No YAML content provided');
@@ -191,7 +398,7 @@ export default function YAMLDeployEnhanced() {
     try {
       const response = await kubernetesApi.applyYAML({
         yaml_content: yamlContent,
-        namespace: selectedNamespace || undefined,
+        namespace: selectedNamespace || 'default',
         dry_run: dryRun,
       });
 
@@ -210,10 +417,10 @@ export default function YAMLDeployEnhanced() {
           // Calculate deployment metrics
           const podsUpdated = response.data.resources.filter(r =>
             (r.kind === 'Deployment' || r.kind === 'StatefulSet' || r.kind === 'DaemonSet') &&
-            r.status === 'updated'
+            r.action === 'updated'
           ).length;
           const podsRestarted = response.data.resources.filter(r =>
-            r.kind === 'Pod' && r.status === 'updated'
+            r.kind === 'Pod' && r.action === 'updated'
           ).length;
 
           // Assume zero downtime if duration < 5s and no errors
@@ -225,7 +432,7 @@ export default function YAMLDeployEnhanced() {
               kind: r.kind,
               name: r.name,
               namespace: r.namespace,
-              status: r.status as 'created' | 'updated' | 'unchanged',
+              status: r.action as 'created' | 'updated' | 'unchanged',
             })),
             duration,
             timestamp: new Date(),
@@ -234,9 +441,18 @@ export default function YAMLDeployEnhanced() {
             podsRestarted,
           });
           setShowSummaryModal(true);
+
+          // Start tracking resource status
+          startResourceTracking(response.data.resources);
         }
       } else {
         addLog('error', '✗ ' + response.data.message);
+        // Log individual errors
+        if (response.data.errors && response.data.errors.length > 0) {
+          response.data.errors.forEach(err => {
+            addLog('error', `  → ${err}`);
+          });
+        }
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed';
@@ -275,6 +491,9 @@ export default function YAMLDeployEnhanced() {
           bestPracticeScore: response.data.best_practice_score,
         });
 
+        // Select all issues by default
+        setSelectedIssues(new Set(response.data.issues.map((_, idx) => idx)));
+
         addLog('success', `✓ AI review completed - Score: ${response.data.score}/100`);
         setActiveTab('ai-review');
       } else {
@@ -289,10 +508,157 @@ export default function YAMLDeployEnhanced() {
     }
   };
 
+  const toggleIssue = (idx: number) => {
+    setSelectedIssues(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(idx)) {
+        newSet.delete(idx);
+      } else {
+        newSet.add(idx);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllIssues = () => {
+    if (aiReview) {
+      setSelectedIssues(new Set(aiReview.issues.map((_, idx) => idx)));
+    }
+  };
+
+  const deselectAllIssues = () => {
+    setSelectedIssues(new Set());
+  };
+
+  const handleAutoFix = async () => {
+    if (!aiReview || aiReview.issues.length === 0) {
+      addLog('warning', 'No issues to fix');
+      return;
+    }
+
+    if (selectedIssues.size === 0) {
+      addLog('warning', 'No issues selected for fixing');
+      return;
+    }
+
+    if (!yamlContent.trim()) {
+      addLog('warning', 'No YAML content to fix');
+      return;
+    }
+
+    setLoading(true);
+    const selectedIssuesList = aiReview.issues.filter((_, idx) => selectedIssues.has(idx));
+    addLog('info', `🤖 AI applying fixes for ${selectedIssuesList.length} selected issue(s)...`);
+
+    try {
+      const response = await aiApi.yamlAutoFix({
+        yaml_content: yamlContent,
+        issues: selectedIssuesList,
+        namespace: selectedNamespace || undefined,
+      });
+
+      if (response.data.success) {
+        setYamlContent(response.data.fixed_yaml);
+        addLog('success', `✓ ${response.data.changes_summary}`);
+        // Clear AI review since issues are fixed
+        setAiReview(null);
+        setSelectedIssues(new Set());
+        setActiveTab('editor');
+      } else {
+        addLog('error', '✗ Auto-fix failed');
+      }
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Auto-fix service unavailable';
+      addLog('error', `✗ Auto-fix failed: ${errorMessage}`);
+      logger.error('Auto-fix error', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadSample = () => {
     setYamlContent(SAMPLE_YAML);
     setAiReview(null);
     addLog('info', 'Sample YAML loaded');
+  };
+
+  const exportToFile = () => {
+    if (!yamlContent.trim()) {
+      addLog('warning', 'No YAML content to export');
+      return;
+    }
+
+    const blob = new Blob([yamlContent], { type: 'text/yaml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `deployment-${Date.now()}.yaml`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    addLog('success', `✓ Exported to ${a.download}`);
+  };
+
+  const copyToClipboard = async () => {
+    if (!yamlContent.trim()) {
+      addLog('warning', 'No YAML content to copy');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(yamlContent);
+      addLog('success', '✓ Copied to clipboard');
+    } catch (error) {
+      addLog('error', '✗ Failed to copy to clipboard');
+    }
+  };
+
+  const fetchDeployedYAML = async () => {
+    if (!parsedYAML || parsedYAML.length === 0) {
+      addLog('warning', 'No resources parsed from current YAML');
+      return;
+    }
+
+    setFetchingDeployed(true);
+    addLog('info', 'Fetching deployed resources...');
+
+    try {
+      const deployedResources: string[] = [];
+
+      for (const resource of parsedYAML) {
+        if (!resource || !resource.kind || !resource.metadata?.name) continue;
+
+        try {
+          const response = await kubernetesApi.getResourceYAML({
+            kind: resource.kind,
+            name: resource.metadata.name,
+            namespace: resource.metadata.namespace || selectedNamespace || undefined,
+          });
+
+          if (response.data.yaml_content) {
+            deployedResources.push(response.data.yaml_content);
+          }
+        } catch (err: any) {
+          // Resource might not exist yet
+          if (err.response?.status === 404) {
+            deployedResources.push(`# Resource not found: ${resource.kind}/${resource.metadata.name}`);
+          } else {
+            logger.error('Failed to fetch resource', err);
+          }
+        }
+      }
+
+      const deployedYAMLContent = deployedResources.join('\n---\n');
+      setDeployedYAML(deployedYAMLContent);
+      addLog('success', `Fetched ${deployedResources.length} deployed resources`);
+      setActiveTab('diff');
+    } catch (err) {
+      logger.error('Failed to fetch deployed YAML', err);
+      addLog('error', 'Failed to fetch deployed resources');
+    } finally {
+      setFetchingDeployed(false);
+    }
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -515,29 +881,47 @@ export default function YAMLDeployEnhanced() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="h-full overflow-auto p-4 bg-gradient-to-br from-slate-50 to-amber-50/30 dark:from-slate-900 dark:to-slate-800"
+                      className="h-full overflow-hidden flex flex-col"
                     >
-                      <div className="flex flex-col items-center justify-center h-full">
-                        <div className="p-6 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/20 dark:to-orange-900/20 mb-6 border border-amber-200 dark:border-amber-500/20">
-                          <ArrowPathIcon className="h-16 w-16 text-amber-600 dark:text-amber-400" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                          Diff View Coming Soon
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 text-center max-w-md">
-                          Compare your local changes with deployed resources in real-time
-                        </p>
-                        <div className="mt-6 grid grid-cols-2 gap-3">
-                          <div className="p-3 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Side-by-side</p>
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400">Compare changes visually</p>
+                      {deployedYAML ? (
+                        <DiffView oldText={deployedYAML} newText={yamlContent} />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full p-8">
+                          <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 mb-6 border border-blue-200 dark:border-blue-500/20">
+                            <ArrowPathIcon className="h-16 w-16 text-blue-600 dark:text-blue-400" />
                           </div>
-                          <div className="p-3 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Inline diff</p>
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400">View unified changes</p>
-                          </div>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                            Compare with Deployed Resources
+                          </h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 text-center max-w-md mb-6">
+                            Fetch the current deployed YAML from the cluster to see side-by-side differences
+                          </p>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={fetchDeployedYAML}
+                            disabled={fetchingDeployed || !yamlContent.trim() || !parsedYAML}
+                            className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                          >
+                            {fetchingDeployed ? (
+                              <>
+                                <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                                Fetching...
+                              </>
+                            ) : (
+                              <>
+                                <ArrowPathIcon className="h-5 w-5" />
+                                Fetch Deployed YAML
+                              </>
+                            )}
+                          </motion.button>
+                          {(!yamlContent.trim() || !parsedYAML) && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
+                              Enter valid YAML in the editor first
+                            </p>
+                          )}
                         </div>
-                      </div>
+                      )}
                     </motion.div>
                   )}
 
@@ -628,11 +1012,45 @@ export default function YAMLDeployEnhanced() {
                         {/* Issues */}
                         {aiReview.issues.length > 0 && (
                           <div>
-                            <h3 className="text-xs font-semibold text-gray-900 dark:text-white mb-2">Issues Detected</h3>
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="text-xs font-semibold text-gray-900 dark:text-white">
+                                Issues Detected ({selectedIssues.size} / {aiReview.issues.length} selected)
+                              </h3>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={selectAllIssues}
+                                  className="text-[10px] font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                >
+                                  Select All
+                                </button>
+                                <span className="text-gray-400">|</span>
+                                <button
+                                  onClick={deselectAllIssues}
+                                  className="text-[10px] font-medium text-primary-600 dark:text-primary-400 hover:underline"
+                                >
+                                  Deselect All
+                                </button>
+                              </div>
+                            </div>
                             <div className="space-y-1.5">
                               {aiReview.issues.map((issue, idx) => (
-                                <div key={idx} className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
+                                <div
+                                  key={idx}
+                                  className={`p-2 rounded-lg bg-white dark:bg-slate-800 border ${
+                                    selectedIssues.has(idx)
+                                      ? 'border-primary-300 dark:border-primary-500/40 ring-1 ring-primary-200 dark:ring-primary-500/20'
+                                      : 'border-gray-200 dark:border-slate-700'
+                                  } transition-all cursor-pointer`}
+                                  onClick={() => toggleIssue(idx)}
+                                >
                                   <div className="flex items-start gap-3">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedIssues.has(idx)}
+                                      onChange={() => toggleIssue(idx)}
+                                      className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
                                     <ExclamationTriangleIcon className={`h-4 w-4 flex-shrink-0 mt-0.5 ${
                                       issue.severity === 'critical' ? 'text-red-600' :
                                       issue.severity === 'high' ? 'text-orange-600' :
@@ -705,8 +1123,11 @@ export default function YAMLDeployEnhanced() {
                 </select>
               </div>
 
-              {/* File Upload and Load Sample */}
+              {/* File Operations */}
               <div className="space-y-1.5">
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">File Operations</p>
+
+                {/* Import YAML */}
                 <input
                   type="file"
                   id="file-upload"
@@ -721,8 +1142,34 @@ export default function YAMLDeployEnhanced() {
                   className="cursor-pointer w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
                 >
                   <DocumentArrowUpIcon className="h-4 w-4" />
-                  Upload YAML
+                  Import YAML
                 </motion.label>
+
+                {/* Export YAML */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={exportToFile}
+                  disabled={!yamlContent.trim()}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ArrowDownTrayIcon className="h-4 w-4" />
+                  Export YAML
+                </motion.button>
+
+                {/* Copy to Clipboard */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={copyToClipboard}
+                  disabled={!yamlContent.trim()}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ClipboardDocumentIcon className="h-4 w-4" />
+                  Copy to Clipboard
+                </motion.button>
+
+                {/* Load Sample */}
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -767,7 +1214,7 @@ export default function YAMLDeployEnhanced() {
                 </div>
               )}
 
-              {/* AI Fix Buttons */}
+              {/* AI & Diff Actions */}
               <div className="space-y-2">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
@@ -789,14 +1236,45 @@ export default function YAMLDeployEnhanced() {
                   )}
                 </motion.button>
 
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={fetchDeployedYAML}
+                  disabled={!yamlContent.trim() || !parsedYAML || fetchingDeployed}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  {fetchingDeployed ? (
+                    <>
+                      <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                      Fetching...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowPathIcon className="h-4 w-4" />
+                      Compare with Deployed
+                    </>
+                  )}
+                </motion.button>
+
                 {aiReview && aiReview.issues.length > 0 && (
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg transition-all"
+                    onClick={handleAutoFix}
+                    disabled={loading || selectedIssues.size === 0}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <CheckCircleIcon className="h-4 w-4" />
-                    AI Auto-Fix
+                    {loading ? (
+                      <>
+                        <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                        Applying Fixes...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircleIcon className="h-4 w-4" />
+                        AI Auto-Fix ({selectedIssues.size} selected)
+                      </>
+                    )}
                   </motion.button>
                 )}
               </div>
@@ -805,7 +1283,7 @@ export default function YAMLDeployEnhanced() {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => { setYamlContent(''); setAiReview(null); addLog('info', 'Cleared'); }}
+                onClick={() => { setYamlContent(''); setAiReview(null); setSelectedIssues(new Set()); addLog('info', 'Cleared'); }}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
               >
                 <TrashIcon className="h-4 w-4" />
@@ -847,6 +1325,84 @@ export default function YAMLDeployEnhanced() {
             </div>
         </div>
       </div>
+
+      {/* Resource Status Tracker */}
+      {trackingResources && resourceStatuses.size > 0 && (
+        <div className="border-t border-gray-200 dark:border-slate-700 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900">
+          <div className="px-4 py-2 border-b border-gray-200 dark:border-slate-700">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                  <h3 className="text-xs font-semibold text-gray-900 dark:text-white">Resource Status</h3>
+                </div>
+                <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                  Tracking {resourceStatuses.size} resource(s)
+                </span>
+              </div>
+              <button
+                onClick={stopResourceTracking}
+                className="text-[10px] font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              >
+                Stop Tracking
+              </button>
+            </div>
+          </div>
+          <div className="px-4 py-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+            {Array.from(resourceStatuses.entries()).map(([key, status]) => (
+              <motion.div
+                key={key}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <div className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${
+                      status.status === 'Ready' ? 'bg-green-500' :
+                      status.status === 'Pending' ? 'bg-yellow-500 animate-pulse' :
+                      status.status === 'Failed' ? 'bg-red-500' :
+                      status.status === 'Degraded' ? 'bg-orange-500' :
+                      'bg-gray-400'
+                    }`} />
+                    <span className="text-[10px] font-medium text-gray-900 dark:text-white truncate">
+                      {key}
+                    </span>
+                  </div>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
+                    status.status === 'Ready' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                    status.status === 'Pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                    status.status === 'Failed' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                    status.status === 'Degraded' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+                    'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
+                  }`}>
+                    {status.status}
+                  </span>
+                </div>
+                {status.ready && (
+                  <div className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">
+                    Ready: {status.ready}
+                  </div>
+                )}
+                {status.message && (
+                  <div className={`text-[10px] ${
+                    status.status === 'Failed' || status.status === 'Degraded'
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-gray-600 dark:text-gray-400'
+                  } line-clamp-2`}>
+                    {status.message}
+                  </div>
+                )}
+                {status.age && (
+                  <div className="text-[9px] text-gray-500 dark:text-gray-500 mt-1">
+                    Age: {status.age}
+                  </div>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Bottom Panel - Logs Console */}
       <div className="h-48 border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col">

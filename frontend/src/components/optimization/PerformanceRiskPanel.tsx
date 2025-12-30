@@ -71,7 +71,7 @@ function generatePerformanceRisks(dashboardData: OptimizationDashboardResponse):
   const risks: PerformanceRisk[] = [];
 
   // CPU Throttling - pods using >80% of their CPU limits
-  dashboardData.top_wasteful_pods.forEach((pod, idx) => {
+  dashboardData.top_underprovisioned_pods.forEach((pod, idx) => {
     const cpuUsagePercent = pod.cpu_efficiency?.score || 0;
 
     // High CPU usage indicates potential throttling
@@ -103,7 +103,7 @@ function generatePerformanceRisks(dashboardData: OptimizationDashboardResponse):
   });
 
   // Memory Pressure - pods using >85% of their memory limits
-  dashboardData.top_wasteful_pods.forEach((pod, idx) => {
+  dashboardData.top_underprovisioned_pods.forEach((pod, idx) => {
     const memUsagePercent = pod.memory_efficiency?.score || 0;
 
     if (memUsagePercent > 85) {

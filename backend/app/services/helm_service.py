@@ -424,6 +424,67 @@ class HelmService:
                 except Exception as e:
                     logger.warning(f"Failed to clean up temp file {values_file}: {e}")
 
+    async def template(
+        self,
+        chart: str,
+        release_name: str,
+        namespace: str = "default",
+        values: Optional[Dict[str, Any]] = None,
+        version: Optional[str] = None,
+        repository: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Render chart templates locally without installing.
+
+        Returns:
+            Dict with 'success', 'manifest' (rendered YAML), and 'message'
+        """
+        import tempfile
+        import os
+
+        logger.info(f"Rendering templates for chart {chart} as {release_name}")
+
+        args = ["template", release_name, chart]
+        args.extend(["-n", namespace])
+
+        if version:
+            args.extend(["--version", version])
+
+        if repository:
+            args.extend(["--repo", repository])
+
+        # Write values to temporary file if provided
+        values_file = None
+        if values:
+            try:
+                fd, values_file = tempfile.mkstemp(suffix='.yaml', text=True)
+                values_yaml = yaml.dump(values, default_flow_style=False)
+                with os.fdopen(fd, 'w') as f:
+                    f.write(values_yaml)
+                args.extend(["-f", values_file])
+            except Exception as e:
+                logger.error(f"Failed to write values file: {e}")
+                if values_file and os.path.exists(values_file):
+                    os.unlink(values_file)
+                return {"success": False, "message": f"Failed to prepare values: {str(e)}", "manifest": ""}
+
+        try:
+            success, stdout, stderr = await self._run_helm_cmd(args)
+
+            if success:
+                return {"success": True, "manifest": stdout, "message": "Templates rendered successfully"}
+            else:
+                logger.error(f"Template rendering failed: {stderr}")
+                return {"success": False, "manifest": "", "message": stderr or "Template rendering failed"}
+
+        finally:
+            # Clean up temp file
+            if values_file:
+                try:
+                    os.unlink(values_file)
+                except Exception as e:
+                    logger.warning(f"Failed to clean up temp file {values_file}: {e}")
+
     async def upgrade(self, name: str, namespace: str, request: UpgradeRequest) -> HelmOperationResult:
         """Upgrade a Helm release."""
         import tempfile

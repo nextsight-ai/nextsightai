@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -66,7 +66,15 @@ def get_gemini_model():
 
         genai.configure(api_key=settings.GEMINI_API_KEY)
         model_name = getattr(settings, "GEMINI_MODEL", None) or "gemini-2.0-flash"
-        _gemini_model = genai.GenerativeModel(model_name)
+
+        # Configure for more consistent results (lower temperature = less randomness)
+        generation_config = genai.types.GenerationConfig(
+            temperature=0.2,  # Low temperature for consistent analysis
+            top_p=0.8,
+            top_k=40,
+        )
+
+        _gemini_model = genai.GenerativeModel(model_name, generation_config=generation_config)
     return _gemini_model
 
 
@@ -1925,6 +1933,17 @@ Return your analysis as JSON with this exact structure:
 async def review_yaml(request: YAMLReviewRequest):
     """Analyze Kubernetes YAML manifest for security issues, best practices, and production readiness."""
     try:
+        # Create cache key from YAML content
+        import hashlib
+        yaml_hash = hashlib.md5(request.yaml_content.encode()).hexdigest()
+        cache_key = f"yaml_review:{yaml_hash}"
+
+        # Check cache first (5 minute TTL)
+        cached_result = await cache_service.get(cache_key)
+        if cached_result:
+            logger.info(f"Returning cached YAML review for hash {yaml_hash[:8]}")
+            return YAMLReviewResponse(**cached_result)
+
         context = f"""
 # Kubernetes YAML Manifest Review
 
@@ -1973,7 +1992,7 @@ Analyze this YAML manifest thoroughly and return your findings as JSON.
                     suggestion=issue.get('suggestion')
                 ))
 
-            return YAMLReviewResponse(
+            response = YAMLReviewResponse(
                 score=result.get('score', 50),
                 issues=issues,
                 suggestions=result.get('suggestions', []),
@@ -1981,6 +2000,12 @@ Analyze this YAML manifest thoroughly and return your findings as JSON.
                 best_practice_score=result.get('best_practice_score', 50),
                 success=True
             )
+
+            # Cache the result for 5 minutes (300 seconds)
+            await cache_service.set(cache_key, response.dict(), ttl=300)
+            logger.info(f"Cached YAML review for hash {yaml_hash[:8]}")
+
+            return response
         except json.JSONDecodeError:
             return create_fallback_yaml_review(request.yaml_content)
 
@@ -1991,6 +2016,97 @@ Analyze this YAML manifest thoroughly and return your findings as JSON.
     except Exception as e:
         logger.error(f"Error reviewing YAML: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to review YAML: {str(e)}")
+
+
+# ============================================================================
+# YAML Auto-Fix Endpoint
+# ============================================================================
+
+class YAMLAutoFixRequest(BaseModel):
+    yaml_content: str
+    issues: List[Dict[str, Any]]
+    namespace: Optional[str] = None
+
+
+class YAMLAutoFixResponse(BaseModel):
+    fixed_yaml: str
+    changes_summary: str
+    success: bool
+
+
+YAML_AUTOFIX_PROMPT = """You are a Kubernetes expert tasked with automatically fixing issues in Kubernetes YAML manifests.
+
+You have been given a YAML manifest and a list of issues detected by our analysis system.
+
+**Original YAML:**
+```yaml
+{yaml_content}
+```
+
+**Issues to Fix:**
+{issues_list}
+
+Your task:
+1. Carefully apply fixes for ALL the issues listed above
+2. Preserve the structure and comments of the original YAML
+3. Only modify what's necessary to fix the issues
+4. Ensure the resulting YAML is valid and follows Kubernetes best practices
+
+Return ONLY the fixed YAML manifest without any explanations or markdown formatting.
+Do not include ```yaml code blocks - just return the raw YAML content.
+"""
+
+
+@router.post("/yaml-autofix", response_model=YAMLAutoFixResponse)
+async def autofix_yaml(request: YAMLAutoFixRequest):
+    """Automatically fix issues in Kubernetes YAML manifest using AI."""
+    try:
+        # Format issues list for the prompt
+        issues_text = []
+        for idx, issue in enumerate(request.issues, 1):
+            severity = issue.get('severity', 'unknown')
+            issue_type = issue.get('type', 'general')
+            message = issue.get('message', '')
+            suggestion = issue.get('suggestion', '')
+
+            issues_text.append(f"{idx}. [{severity.upper()}] {issue_type}: {message}")
+            if suggestion:
+                issues_text.append(f"   Suggested fix: {suggestion}")
+
+        issues_list_str = "\n".join(issues_text)
+
+        full_prompt = YAML_AUTOFIX_PROMPT.format(
+            yaml_content=request.yaml_content,
+            issues_list=issues_list_str
+        )
+
+        fixed_yaml = generate_ai_response(full_prompt)
+
+        # Clean up the response - remove markdown code blocks if present
+        import re
+        cleaned_yaml = re.sub(r'```yaml\s*', '', fixed_yaml)
+        cleaned_yaml = re.sub(r'```\s*$', '', cleaned_yaml)
+        cleaned_yaml = cleaned_yaml.strip()
+
+        # Generate a summary of changes
+        changes_summary = f"Applied fixes for {len(request.issues)} issue(s):\n"
+        for issue in request.issues[:5]:  # Show first 5
+            changes_summary += f"- Fixed {issue.get('type', 'issue')}: {issue.get('message', '')[:60]}...\n"
+        if len(request.issues) > 5:
+            changes_summary += f"- ... and {len(request.issues) - 5} more\n"
+
+        return YAMLAutoFixResponse(
+            fixed_yaml=cleaned_yaml,
+            changes_summary=changes_summary.strip(),
+            success=True
+        )
+
+    except ValueError as e:
+        logger.error(f"AI not configured: {e}")
+        raise HTTPException(status_code=503, detail="AI service not configured")
+    except Exception as e:
+        logger.error(f"Error auto-fixing YAML: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to auto-fix YAML: {str(e)}")
 
 
 # ============================================================================
