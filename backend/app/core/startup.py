@@ -109,6 +109,7 @@ class StartupValidator:
         """Ensure default admin password is changed in production."""
         admin_password = getattr(self.settings, "DEFAULT_ADMIN_PASSWORD", "admin123")
         debug = getattr(self.settings, "DEBUG", False)
+        demo_mode = getattr(self.settings, "DEMO_MODE", False)
 
         # Check for default/weak passwords
         weak_passwords = [
@@ -120,22 +121,31 @@ class StartupValidator:
         ]
 
         if admin_password.lower() in weak_passwords:
-            if debug:
+            if debug or demo_mode:
                 self._add_result(
                     "ADMIN_PASSWORD",
                     True,
                     ValidationSeverity.WARNING,
-                    "Using default admin password (acceptable in DEBUG mode)",
+                    "Using default admin password (acceptable in DEBUG/DEMO mode)",
                     "Set DEFAULT_ADMIN_PASSWORD env var for production",
                 )
             else:
+                # CRITICAL: Force strong password in production
                 self._add_result(
                     "ADMIN_PASSWORD",
                     False,
-                    ValidationSeverity.WARNING,
-                    "Using default/weak admin password",
+                    ValidationSeverity.CRITICAL,
+                    "Using default/weak admin password in production",
                     "Generate secure password: python -c \"import secrets; print(secrets.token_urlsafe(16))\"",
                 )
+        elif len(admin_password) < 8:
+            self._add_result(
+                "ADMIN_PASSWORD",
+                False,
+                ValidationSeverity.CRITICAL,
+                "Admin password is too short (minimum 8 characters)",
+                "Use a strong password with at least 8 characters",
+            )
         else:
             self._add_result(
                 "ADMIN_PASSWORD",
@@ -308,16 +318,55 @@ class StartupValidator:
 
     def _validate_oauth(self):
         """Validate OAuth configuration."""
+        oauth_enabled = getattr(self.settings, "OAUTH_ENABLED", False)
         oauth_providers = []
+        oauth_issues = []
 
-        if getattr(self.settings, "GOOGLE_CLIENT_ID", ""):
-            oauth_providers.append("Google")
-        if getattr(self.settings, "GITHUB_CLIENT_ID", ""):
-            oauth_providers.append("GitHub")
-        if getattr(self.settings, "GITLAB_CLIENT_ID", ""):
-            oauth_providers.append("GitLab")
+        # Check Google OAuth
+        google_id = getattr(self.settings, "GOOGLE_CLIENT_ID", "")
+        google_secret = getattr(self.settings, "GOOGLE_CLIENT_SECRET", "")
+        if google_id:
+            if not google_secret:
+                oauth_issues.append("Google OAuth enabled but GOOGLE_CLIENT_SECRET is empty")
+            else:
+                oauth_providers.append("Google")
 
-        if oauth_providers:
+        # Check GitHub OAuth
+        github_id = getattr(self.settings, "GITHUB_CLIENT_ID", "")
+        github_secret = getattr(self.settings, "GITHUB_CLIENT_SECRET", "")
+        if github_id:
+            if not github_secret:
+                oauth_issues.append("GitHub OAuth enabled but GITHUB_CLIENT_SECRET is empty")
+            else:
+                oauth_providers.append("GitHub")
+
+        # Check GitLab OAuth
+        gitlab_id = getattr(self.settings, "GITLAB_CLIENT_ID", "")
+        gitlab_secret = getattr(self.settings, "GITLAB_CLIENT_SECRET", "")
+        if gitlab_id:
+            if not gitlab_secret:
+                oauth_issues.append("GitLab OAuth enabled but GITLAB_CLIENT_SECRET is empty")
+            else:
+                oauth_providers.append("GitLab")
+
+        # Report OAuth issues
+        if oauth_issues:
+            self._add_result(
+                "OAUTH",
+                False,
+                ValidationSeverity.CRITICAL,
+                f"OAuth configuration errors: {'; '.join(oauth_issues)}",
+                "Set corresponding CLIENT_SECRET environment variables or remove CLIENT_ID",
+            )
+        elif oauth_enabled and not oauth_providers:
+            self._add_result(
+                "OAUTH",
+                True,
+                ValidationSeverity.WARNING,
+                "OAUTH_ENABLED is true but no OAuth providers are configured",
+                "Configure at least one OAuth provider or set OAUTH_ENABLED=false",
+            )
+        elif oauth_providers:
             self._add_result(
                 "OAUTH",
                 True,

@@ -268,16 +268,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add security headers to all responses."""
 
     # Content Security Policy
+    # Note: Removed 'unsafe-inline' and 'unsafe-eval' for security
+    # If frontend needs inline scripts, use nonce-based CSP instead
     CSP_POLICY = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self'; "
+        "style-src 'self'; "
         "img-src 'self' data: https:; "
         "font-src 'self' data:; "
-        "connect-src 'self' https:; "
+        "connect-src 'self' https: wss:; "
         "frame-ancestors 'none'; "
         "base-uri 'self'; "
-        "form-action 'self'"
+        "form-action 'self'; "
+        "object-src 'none'"
     )
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
