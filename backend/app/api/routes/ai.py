@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.cache import cache_service
@@ -24,8 +24,17 @@ router = APIRouter(prefix="/ai")
 
 
 class ChatRequest(BaseModel):
-    message: str
-    context: Optional[str] = None
+    message: str = Field(
+        ...,
+        min_length=1,
+        max_length=10000,
+        description="User message to the AI assistant"
+    )
+    context: Optional[str] = Field(
+        None,
+        max_length=50000,
+        description="Additional context for the AI (e.g., logs, resources)"
+    )
 
 
 class ChatResponse(BaseModel):
