@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from kubernetes.client.exceptions import ApiException
 
 from app.core.config import settings
 from app.core.cache import cache_service
@@ -55,7 +56,7 @@ def get_groq_client():
             raise ValueError("GROQ_API_KEY not configured")
         try:
             from groq import Groq
-        except Exception as e:
+        except ImportError as e:
             raise ValueError("groq package is not available. Install it with: pip install groq") from e
 
         _groq_client = Groq(api_key=settings.GROQ_API_KEY)
@@ -70,7 +71,7 @@ def get_gemini_model():
             raise ValueError("GEMINI_API_KEY not configured")
         try:
             import google.generativeai as genai  # type: ignore
-        except Exception as e:
+        except ImportError as e:
             raise ValueError("google.generativeai package is not available") from e
 
         genai.configure(api_key=settings.GEMINI_API_KEY)
@@ -255,7 +256,7 @@ async def fetch_context(query_types: list, specific_pod_name: Optional[str] = No
                                 pod_details += f"- [{event.type}] **{event.reason}**: {event.message}\n"
                         else:
                             pod_details += "\n### Recent Events:\nNo events found for this pod.\n"
-                    except Exception as e:
+                    except (ApiException, ValueError, KeyError) as e:
                         logger.warning(f"Could not fetch events for pod {pod.name}: {e}")
                         pod_details += f"\n### Recent Events:\nCould not fetch events: {e}\n"
 
@@ -273,7 +274,7 @@ async def fetch_context(query_types: list, specific_pod_name: Optional[str] = No
 No pods found matching "{specific_pod_name}". Please check the pod name and try again.
 You can list all pods with: `kubectl get pods -A`
 """)
-        except Exception as e:
+        except (ApiException, ValueError, AttributeError) as e:
             logger.error(f"Error fetching specific pod details: {e}")
             context_parts.append(f"## Error\nCould not fetch details for pod '{specific_pod_name}': {e}\n")
 
@@ -294,7 +295,7 @@ You can list all pods with: `kubectl get pods -A`
 - **Warnings**: {', '.join(health.warnings) if health.warnings else 'None'}
 """
                 )
-            except Exception as e:
+            except (ApiException, AttributeError) as e:
                 logger.warning(f"Could not fetch cluster health: {e}")
 
         if "pods" in query_types and not specific_pod_name:
@@ -332,7 +333,7 @@ You can list all pods with: `kubectl get pods -A`
                         ]
                     )
                 )
-            except Exception as e:
+            except (ApiException, AttributeError, ValueError) as e:
                 logger.warning(f"Could not fetch pods: {e}")
 
         # Fetch failing pods specifically when asked
@@ -432,7 +433,7 @@ kubectl get pod {pod.name} -n {pod.namespace} -o yaml
 ✅ Great news! No failing pods detected. All pods are either Running or Succeeded.
 """)
 
-            except Exception as e:
+            except (ApiException, AttributeError, ValueError) as e:
                 logger.error(f"Could not fetch failing pods: {e}")
                 context_parts.append(f"## Error\nCould not fetch failing pods: {e}\n")
 
@@ -462,7 +463,7 @@ kubectl get pod {pod.name} -n {pod.namespace} -o yaml
                         else "All deployments are healthy!"
                     )
                 )
-            except Exception as e:
+            except (ApiException, AttributeError) as e:
                 logger.warning(f"Could not fetch deployments: {e}")
 
         if "services" in query_types:
@@ -480,7 +481,7 @@ kubectl get pod {pod.name} -n {pod.namespace} -o yaml
 - **By Type**: {', '.join([f'{t}: {c}' for t, c in svc_types.items()])}
 """
                 )
-            except Exception as e:
+            except (ApiException, AttributeError) as e:
                 logger.warning(f"Could not fetch services: {e}")
 
         if "nodes" in query_types:
@@ -501,7 +502,7 @@ kubectl get pod {pod.name} -n {pod.namespace} -o yaml
                         [f"- **{n.name}**: {n.status}, Roles: {', '.join(n.roles)}, K8s: {n.version}" for n in nodes]
                     )
                 )
-            except Exception as e:
+            except (ApiException, AttributeError) as e:
                 logger.warning(f"Could not fetch nodes: {e}")
 
         if "namespaces" in query_types:
@@ -514,7 +515,7 @@ kubectl get pod {pod.name} -n {pod.namespace} -o yaml
 - **Namespaces**: {', '.join([ns.name for ns in namespaces])}
 """
                 )
-            except Exception as e:
+            except (ApiException, AttributeError) as e:
                 logger.warning(f"Could not fetch namespaces: {e}")
 
         if "resources" in query_types:
@@ -528,10 +529,10 @@ kubectl get pod {pod.name} -n {pod.namespace} -o yaml
 - **Memory**: {metrics.total_memory_usage} / {metrics.total_memory_capacity} ({metrics.memory_percent}%)
 """
                     )
-            except Exception as e:
+            except (ApiException, AttributeError) as e:
                 logger.warning(f"Could not fetch metrics: {e}")
 
-    except Exception as e:
+    except (ApiException, AttributeError, ValueError) as e:
         logger.error(f"Error fetching Kubernetes context: {e}")
 
     # ===== SECURITY CONTEXT =====
@@ -558,7 +559,7 @@ kubectl get pod {pod.name} -n {pod.namespace} -o yaml
 """
                         + "\n".join([f"- [{f.severity.upper()}] {f.title}" for f in dashboard.top_findings[:5]])
                     )
-                except Exception as e:
+                except (ApiException, AttributeError, ValueError) as e:
                     logger.warning(f"Could not fetch security dashboard: {e}")
 
             if "rbac" in query_types:
@@ -576,7 +577,7 @@ kubectl get pod {pod.name} -n {pod.namespace} -o yaml
 """
                         + "\n".join([f"- {r}" for r in rbac.recommendations[:3]])
                     )
-                except Exception as e:
+                except (ApiException, AttributeError) as e:
                     logger.warning(f"Could not fetch RBAC analysis: {e}")
 
             if "network_policy" in query_types:
