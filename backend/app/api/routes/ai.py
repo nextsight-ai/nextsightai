@@ -137,14 +137,20 @@ def generate_ai_response(prompt: str, fallback_providers: list = None) -> str:
                 logger.warning(f"Unknown AI provider: {provider}")
                 continue
 
-        except Exception as e:
+        except (ValueError, OSError) as e:
+            # OSError includes ConnectionError, TimeoutError, and network errors
             logger.warning(f"AI provider {provider} failed: {e}")
+            last_error = e
+            continue
+        except Exception as e:
+            # Catch any other API-specific exceptions (rate limits, auth errors, etc.)
+            logger.warning(f"AI provider {provider} failed with unexpected error: {e}")
             last_error = e
             continue
 
     # If we get here, all providers failed
     if last_error:
-        raise Exception(f"All AI providers failed. Last error: {last_error}")
+        raise RuntimeError(f"All AI providers failed. Last error: {last_error}")
     else:
         raise ValueError("No AI providers configured. Please set GROQ_API_KEY or GEMINI_API_KEY")
 
@@ -592,10 +598,10 @@ kubectl get pod {pod.name} -n {pod.namespace} -o yaml
 - **Pods Covered**: {np.covered_pods}/{np.total_pods}
 """
                     )
-                except Exception as e:
+                except (ApiException, AttributeError) as e:
                     logger.warning(f"Could not fetch network policies: {e}")
 
-        except Exception as e:
+        except (ApiException, AttributeError, ValueError) as e:
             logger.error(f"Error fetching security context: {e}")
 
     # ===== JENKINS CONTEXT =====
@@ -624,7 +630,7 @@ kubectl get pod {pod.name} -n {pod.namespace} -o yaml
                     else "No failed jobs!"
                 )
             )
-        except Exception as e:
+        except (OSError, ValueError, AttributeError) as e:
             logger.warning(f"Could not fetch Jenkins data: {e}")
 
     # ===== HELM CONTEXT =====
@@ -647,7 +653,7 @@ kubectl get pod {pod.name} -n {pod.namespace} -o yaml
                     [f"- **{r.name}** ({r.namespace}): {r.chart} v{r.app_version} - {r.status}" for r in releases[:10]]
                 )
             )
-        except Exception as e:
+        except (OSError, ValueError, AttributeError) as e:
             logger.warning(f"Could not fetch Helm data: {e}")
 
     # ===== COST CONTEXT ===== (Excluded from v1.4.0)
@@ -657,7 +663,7 @@ kubectl get pod {pod.name} -n {pod.namespace} -o yaml
             recommendations = await cost_service.get_recommendations()
 
             context_parts.append(f"\n## Cost Analysis\nDashboard Summary: {dashboard}\nOptimizations: {recommendations}\n")
-        except Exception as e:
+        except (OSError, ValueError, AttributeError) as e:
             logger.warning(f"Could not fetch cost data: {e}")
 
     # ===== TIMELINE CONTEXT =====
@@ -678,7 +684,7 @@ kubectl get pod {pod.name} -n {pod.namespace} -o yaml
 """
                 + "\n".join([f"- [{e.event_type}] {e.title}" for e in events[:5]])
             )
-        except Exception as e:
+        except (OSError, ValueError, AttributeError) as e:
             logger.warning(f"Could not fetch timeline data: {e}")
 
     return "\n".join(context_parts) if context_parts else ""
@@ -747,9 +753,13 @@ async def chat(request: ChatRequest):
     except ValueError as e:
         logger.error(f"Configuration error: {e}")
         raise HTTPException(status_code=503, detail="AI service not configured. Please set GROQ_API_KEY or GEMINI_API_KEY.")
-    except Exception as e:
+    except (RuntimeError, OSError, AttributeError) as e:
         logger.error(f"AI chat error: {e}")
         raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
+    except Exception as e:
+        # Catch-all for unexpected errors in the endpoint
+        logger.exception(f"Unexpected AI chat error: {e}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
 
 @router.get("/health")
@@ -765,25 +775,29 @@ async def ai_health():
         try:
             health = await kubernetes_service.get_cluster_health()
             services_status["kubernetes"] = "connected" if health else "disconnected"
-        except Exception:
+        except (ApiException, OSError, AttributeError):
             services_status["kubernetes"] = "disconnected"
 
         try:
             jenkins_health = await jenkins_service.get_health()
             services_status["jenkins"] = "connected" if jenkins_health.connected else "disconnected"
-        except Exception:
+        except (OSError, AttributeError):
             services_status["jenkins"] = "disconnected"
 
         try:
             await helm_service.list_releases()
             services_status["helm"] = "connected"
-        except Exception:
+        except (OSError, AttributeError):
             services_status["helm"] = "disconnected"
 
         return {"status": "available", "model": settings.GEMINI_MODEL, "services": services_status}
-    except Exception as e:
+    except (ValueError, AttributeError, OSError) as e:
         logger.error(f"AI health check error: {type(e).__name__}")
         return {"status": "error", "reason": "Internal service error"}
+    except Exception as e:
+        # Catch-all for health check endpoint
+        logger.exception(f"Unexpected health check error: {e}")
+        return {"status": "error", "reason": "Unexpected error"}
 
 
 class OptimizationAnalysisRequest(BaseModel):
