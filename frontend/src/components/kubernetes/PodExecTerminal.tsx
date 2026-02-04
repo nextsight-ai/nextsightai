@@ -236,7 +236,13 @@ export default function PodExecTerminal({ pod, onClose }: PodExecTerminalProps) 
         <div
           ref={terminalRef}
           className="flex-1 overflow-auto p-4 font-mono text-sm"
-          onClick={() => inputRef.current?.focus()}
+          onClick={() => {
+            // Only focus input if user is not selecting text
+            const selection = window.getSelection();
+            if (!selection || selection.toString().length === 0) {
+              inputRef.current?.focus();
+            }
+          }}
         >
           {history.map((line, index) => (
             <div

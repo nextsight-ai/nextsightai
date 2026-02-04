@@ -13,6 +13,8 @@ from kubernetes.client.rest import ApiException
 
 from app.core.config import settings
 from app.core.cache import cache_service, CacheConfig
+from app.services.prometheus_service import PrometheusService
+from app.schemas.prometheus import InstantQueryRequest
 from app.schemas.optimization import (
     ApplyOptimizationRequest,
     ApplyOptimizationResponse,
@@ -53,6 +55,9 @@ class OptimizationService:
         self._apps_v1 = None
         self._custom_api = None
         self._initialized = False
+        self._prometheus_service = None
+        if settings.OPTIMIZATION_METRICS_SOURCE == "prometheus":
+            self._prometheus_service = PrometheusService()
 
     def _initialize(self):
         """Initialize Kubernetes clients."""
@@ -172,7 +177,145 @@ class OptimizationService:
 
         return recommended_cpu, recommended_memory
 
-    async def get_pod_metrics(self) -> Dict[str, Dict]:
+    def _get_scaling_info(self, owner_kind: str, owner_name: str, namespace: str) -> Tuple[Optional[int], bool]:
+        """Get replica count and HPA status for a workload.
+
+        Returns:
+            Tuple of (replica_count, has_hpa)
+        """
+        self._initialize()
+        replica_count = None
+        has_hpa = False
+
+        try:
+            # Get replica count based on owner kind
+            if owner_kind == "Deployment":
+                deployment = self._apps_v1.read_namespaced_deployment(owner_name, namespace)
+                replica_count = deployment.spec.replicas
+            elif owner_kind == "StatefulSet":
+                statefulset = self._apps_v1.read_namespaced_stateful_set(owner_name, namespace)
+                replica_count = statefulset.spec.replicas
+            elif owner_kind == "DaemonSet":
+                # DaemonSets don't have replica count (one per node)
+                replica_count = None
+
+            # Check for HPA
+            if owner_kind in ["Deployment", "StatefulSet"]:
+                try:
+                    # Try to find HPA targeting this workload
+                    hpas = self._custom_api.list_namespaced_custom_object(
+                        group="autoscaling",
+                        version="v2",
+                        namespace=namespace,
+                        plural="horizontalpodautoscalers"
+                    )
+
+                    for hpa in hpas.get("items", []):
+                        scale_target = hpa.get("spec", {}).get("scaleTargetRef", {})
+                        if (scale_target.get("kind") == owner_kind and
+                            scale_target.get("name") == owner_name):
+                            has_hpa = True
+                            break
+                except Exception:
+                    # HPA API might not be available or v2 not supported
+                    try:
+                        # Fallback to v1
+                        hpas = self._custom_api.list_namespaced_custom_object(
+                            group="autoscaling",
+                            version="v1",
+                            namespace=namespace,
+                            plural="horizontalpodautoscalers"
+                        )
+
+                        for hpa in hpas.get("items", []):
+                            scale_target = hpa.get("spec", {}).get("scaleTargetRef", {})
+                            if (scale_target.get("kind") == owner_kind and
+                                scale_target.get("name") == owner_name):
+                                has_hpa = True
+                                break
+                    except Exception:
+                        pass  # HPA not available
+
+        except Exception as e:
+            logger.debug(f"Could not get scaling info for {owner_kind}/{owner_name}: {e}")
+
+        return replica_count, has_hpa
+
+    async def get_pod_metrics_from_prometheus(self) -> Dict[str, Dict]:
+        """Get pod metrics from Prometheus (5-minute average)."""
+        if not self._prometheus_service:
+            logger.error("Prometheus service not initialized")
+            return {}
+
+        metrics_map = {}
+
+        try:
+            # Query CPU usage (5-minute average rate)
+            cpu_query = 'rate(container_cpu_usage_seconds_total{container!="",container!="POD",image!=""}[5m]) * 1000'
+            cpu_result = await self._prometheus_service.query(
+                InstantQueryRequest(query=cpu_query),
+                namespace=settings.PROMETHEUS_NAMESPACE,
+                release_name=settings.PROMETHEUS_RELEASE_NAME
+            )
+
+            # Query memory usage (current working set)
+            mem_query = 'container_memory_working_set_bytes{container!="",container!="POD",image!=""}'
+            mem_result = await self._prometheus_service.query(
+                InstantQueryRequest(query=mem_query),
+                namespace=settings.PROMETHEUS_NAMESPACE,
+                release_name=settings.PROMETHEUS_RELEASE_NAME
+            )
+
+            # Process CPU metrics
+            if cpu_result.data.result_type == "vector":
+                for metric in cpu_result.data.result:
+                    labels = metric.metric
+                    pod_name = labels.get("pod")
+                    namespace = labels.get("namespace")
+                    container = labels.get("container")
+
+                    if not pod_name or not namespace or not container:
+                        continue
+
+                    key = f"{namespace}/{pod_name}"
+                    if key not in metrics_map:
+                        metrics_map[key] = {}
+                    if container not in metrics_map[key]:
+                        metrics_map[key][container] = {"cpu": 0, "memory": 0}
+
+                    # Get CPU value in millicores
+                    cpu_value = float(metric.value[1]) if len(metric.value) > 1 else 0
+                    metrics_map[key][container]["cpu"] = int(cpu_value)
+
+            # Process memory metrics
+            if mem_result.data.result_type == "vector":
+                for metric in mem_result.data.result:
+                    labels = metric.metric
+                    pod_name = labels.get("pod")
+                    namespace = labels.get("namespace")
+                    container = labels.get("container")
+
+                    if not pod_name or not namespace or not container:
+                        continue
+
+                    key = f"{namespace}/{pod_name}"
+                    if key not in metrics_map:
+                        metrics_map[key] = {}
+                    if container not in metrics_map[key]:
+                        metrics_map[key][container] = {"cpu": 0, "memory": 0}
+
+                    # Get memory value in bytes
+                    mem_value = float(metric.value[1]) if len(metric.value) > 1 else 0
+                    metrics_map[key][container]["memory"] = int(mem_value)
+
+            logger.info(f"Retrieved metrics for {len(metrics_map)} pods from Prometheus")
+
+        except Exception as e:
+            logger.error(f"Error getting pod metrics from Prometheus: {e}")
+
+        return metrics_map
+
+    async def get_pod_metrics_from_metrics_server(self) -> Dict[str, Dict]:
         """Get current pod metrics from metrics-server."""
         self._initialize()
         metrics_map = {}
@@ -198,6 +341,8 @@ class OptimizationService:
 
                 metrics_map[key] = containers
 
+            logger.info(f"Retrieved metrics for {len(metrics_map)} pods from metrics-server")
+
         except ApiException as e:
             if e.status == 404:
                 logger.warning("Metrics server not available")
@@ -205,6 +350,15 @@ class OptimizationService:
                 logger.error(f"Error getting pod metrics: {e}")
 
         return metrics_map
+
+    async def get_pod_metrics(self) -> Dict[str, Dict]:
+        """Get pod metrics from configured source (Prometheus or metrics-server)."""
+        if settings.OPTIMIZATION_METRICS_SOURCE == "prometheus":
+            logger.info("Using Prometheus for optimization metrics")
+            return await self.get_pod_metrics_from_prometheus()
+        else:
+            logger.info("Using metrics-server for optimization metrics")
+            return await self.get_pod_metrics_from_metrics_server()
 
     async def analyze_pod(
         self, pod: Any, metrics: Dict[str, Dict]
@@ -301,6 +455,7 @@ class OptimizationService:
         elif overall_efficiency > self.UNDER_PROVISIONED_THRESHOLD * 100:
             optimization_type = OptimizationType.UNDER_PROVISIONED
             severity = OptimizationSeverity.HIGH
+            # Default recommendation - will be enhanced with replica/HPA info below
             recommendations.append("Increase resource requests to prevent throttling/OOM")
 
         # Get owner reference - traverse to find Deployment/StatefulSet/DaemonSet
@@ -327,6 +482,41 @@ class OptimizationService:
                     if len(parts) == 2 and len(parts[1]) >= 8:
                         owner_kind = "Deployment"
                         owner_name = parts[0]
+
+        # Enhance under-provisioned recommendations with replica/HPA intelligence
+        if optimization_type == OptimizationType.UNDER_PROVISIONED and owner_kind and owner_name:
+            replica_count, has_hpa = self._get_scaling_info(owner_kind, owner_name, namespace)
+
+            if replica_count is not None:
+                # Smart scaling recommendation
+                if replica_count == 1 and not has_hpa:
+                    # Single replica with high usage → suggest horizontal scaling first
+                    recommendations.clear()
+                    recommendations.append(
+                        f"High resource usage detected with only 1 replica. "
+                        f"Recommend: Add HPA (scale 1→3 replicas) to distribute load before increasing CPU/memory"
+                    )
+                elif replica_count == 1 and has_hpa:
+                    # Has HPA but still 1 replica → increase CPU so HPA can scale
+                    recommendations.clear()
+                    recommendations.append(
+                        f"HPA configured but using 1 replica. Increase CPU/memory limits so HPA can scale out"
+                    )
+                elif replica_count >= 3 and overall_efficiency > 95:
+                    # Many replicas all at high usage → vertical scaling needed
+                    recommendations.clear()
+                    recommendations.append(
+                        f"All {replica_count} replicas at high usage ({overall_efficiency:.0f}%). "
+                        f"Increase CPU/memory per pod (vertical scaling)"
+                    )
+                elif not has_hpa and replica_count < 3:
+                    # Few replicas, no HPA → suggest both options
+                    recommendations.clear()
+                    recommendations.append(
+                        f"High usage with {replica_count} replica(s). "
+                        f"Option 1 (Recommended): Add HPA to auto-scale. "
+                        f"Option 2: Increase CPU/memory requests"
+                    )
 
         # Calculate costs
         current_cost = self._calculate_hourly_cost(total_cpu_request, total_memory_request)

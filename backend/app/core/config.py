@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     K8S_IN_CLUSTER: bool = False
     K8S_HOST_OVERRIDE: Optional[str] = None  # Use 'host.docker.internal' for Docker Desktop
 
+    # Optimization Metrics Source
+    OPTIMIZATION_METRICS_SOURCE: str = "metrics-server"  # Options: "metrics-server", "prometheus"
+    PROMETHEUS_NAMESPACE: str = "monitoring"  # Namespace where Prometheus is deployed
+    PROMETHEUS_RELEASE_NAME: str = "prometheus-stack"  # Helm release name
+
     # Jenkins
     JENKINS_URL: str = "http://localhost:8080"
     JENKINS_USERNAME: str = ""
