@@ -56,6 +56,17 @@ export default function PodExecTerminal({ pod, onClose }: PodExecTerminalProps) 
 
     const cmdParts = parseCommand(command);
 
+    // Validate pod name and namespace to prevent injection attacks
+    const k8sNameRegex = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$/;
+    if (!k8sNameRegex.test(pod.name) || !k8sNameRegex.test(pod.namespace)) {
+      setHistory(prev => [...prev, {
+        type: 'error',
+        content: 'Error: Invalid pod name or namespace format',
+        timestamp: new Date(),
+      }]);
+      return;
+    }
+
     // Add command to history
     setHistory(prev => [...prev, {
       type: 'input',
