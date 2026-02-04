@@ -78,20 +78,33 @@ interface LayoutProps {
 // NAVIGATION CONFIGURATION
 // ============================================================
 
+import { featureFlagService } from '../../services/featureFlags';
+
+// ... (imports)
+
+// ============================================================
+// NAVIGATION CONFIGURATION
+// ============================================================
+
 const level1Navigation: Level1Item[] = [
   { id: 'dashboard', name: 'Dashboard', icon: HomeIcon, href: '/' },
   // Modules WITH Level-2 sidebar (multiple sections)
   { id: 'kubernetes', name: 'Kubernetes', icon: ServerStackIcon },
   { id: 'deploy', name: 'Deploy', icon: RocketLaunchIcon },
-  // { id: 'pipelines', name: 'Pipelines', icon: BeakerIcon, badge: '3', badgeColor: 'blue' },  // Excluded from v1.4.0
+  { id: 'pipelines', name: 'Pipelines', icon: BeakerIcon, badge: '3', badgeColor: 'blue' },
   // Modules WITHOUT Level-2 sidebar (single page with tabs inside)
   { id: 'ai-optimizer', name: 'AI Optimizer', icon: SparklesIcon, badge: 'AI', badgeColor: 'purple', href: '/optimization' },
   { id: 'security', name: 'Security Center', icon: ShieldCheckIcon, href: '/security' },
   { id: 'monitoring', name: 'Monitoring & Logs', icon: ChartBarIcon, badge: '2', badgeColor: 'red', href: '/monitoring' },
-  // { id: 'cost', name: 'Cost Analyzer', icon: CurrencyDollarIcon, href: '/cost' },  // Excluded from v1.4.0
+  { id: 'cost', name: 'Cost Analyzer', icon: CurrencyDollarIcon, href: '/cost' },
   { id: 'integrations', name: 'Integrations', icon: LinkIcon, href: '/integrations' },
   { id: 'settings', name: 'Settings', icon: Cog6ToothIcon },
-];
+].filter(item => {
+  if (item.id === 'pipelines') return featureFlagService.isEnabled('enablePipelines');
+  if (item.id === 'cost') return featureFlagService.isEnabled('enableCostAnalysis');
+  if (item.id === 'integrations') return featureFlagService.isEnabled('enableArgoCd'); // Partial check, or just always show if any integration enabled? Assuming always show for now unless specific
+  return true;
+});
 
 // Only modules with multiple SECTIONS get Level-2 sidebar
 const level2Configurations: Record<string, Level2Config> = {
@@ -178,27 +191,25 @@ function Level1NavItem({
     <motion.div
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
-      className={`relative flex flex-col items-center justify-center w-12 h-12 rounded-xl cursor-pointer transition-all duration-200 group ${
-        isActive
+      className={`relative flex flex-col items-center justify-center w-12 h-12 rounded-xl cursor-pointer transition-all duration-200 group ${isActive
           ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30'
           : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-700 dark:hover:text-gray-200'
-      }`}
+        }`}
       onClick={onClick}
     >
       <item.icon className="h-5 w-5" />
       {item.badge && (
         <span
-          className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full ${
-            item.badgeColor === 'red'
+          className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold rounded-full ${item.badgeColor === 'red'
               ? 'bg-red-500 text-white'
               : item.badgeColor === 'purple'
-              ? 'bg-purple-500 text-white'
-              : item.badgeColor === 'amber'
-              ? 'bg-amber-500 text-white'
-              : item.badgeColor === 'green'
-              ? 'bg-emerald-500 text-white'
-              : 'bg-blue-500 text-white'
-          }`}
+                ? 'bg-purple-500 text-white'
+                : item.badgeColor === 'amber'
+                  ? 'bg-amber-500 text-white'
+                  : item.badgeColor === 'green'
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-blue-500 text-white'
+            }`}
         >
           {item.badge}
         </span>
@@ -240,11 +251,10 @@ function Level2CollapsibleGroup({
       <motion.button
         whileHover={{ x: 2 }}
         onClick={onToggle}
-        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 ${
-          hasActiveChild
+        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 ${hasActiveChild
             ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'
             : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800/50'
-        }`}
+          }`}
       >
         <div className="flex items-center gap-2.5">
           <group.icon className="h-4 w-4" />
@@ -274,11 +284,10 @@ function Level2CollapsibleGroup({
                   <Link
                     key={item.href}
                     to={item.href}
-                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm transition-all duration-200 ${
-                      isActive
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm transition-all duration-200 ${isActive
                         ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium'
                         : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-800/50 hover:text-gray-700 dark:hover:text-gray-200'
-                    }`}
+                      }`}
                   >
                     <item.icon className="h-3.5 w-3.5" />
                     <span>{item.name}</span>
@@ -306,11 +315,10 @@ function Level2SimpleItem({
   return (
     <Link
       to={item.href}
-      className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all duration-200 mb-0.5 ${
-        isActive
+      className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all duration-200 mb-0.5 ${isActive
           ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium'
           : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800/50'
-      }`}
+        }`}
     >
       <div className="flex items-center gap-2.5">
         <item.icon className="h-4 w-4" />
@@ -336,11 +344,10 @@ function Breadcrumbs({ items }: { items: { label: string; href: string }[] }) {
           )}
           <Link
             to={item.href}
-            className={`transition-colors ${
-              index === items.length - 1
+            className={`transition-colors ${index === items.length - 1
                 ? 'text-gray-900 dark:text-white font-medium'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-            }`}
+              }`}
           >
             {item.label}
           </Link>
@@ -593,9 +600,8 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
       {/* MAIN CONTENT AREA */}
       {/* ============================================================ */}
       <div
-        className={`min-h-screen flex flex-col transition-all duration-300 ${
-          level2Config && activeModule !== 'dashboard' ? 'ml-[304px]' : 'ml-16'
-        }`}
+        className={`min-h-screen flex flex-col transition-all duration-300 ${level2Config && activeModule !== 'dashboard' ? 'ml-[304px]' : 'ml-16'
+          }`}
       >
         {/* ============================================================ */}
         {/* TOP HEADER */}
@@ -741,11 +747,10 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
                             setMobileMenuOpen(false);
                           }
                         }}
-                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors ${
-                          isActive
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors ${isActive
                             ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
                             : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-3">
                           <item.icon className="h-5 w-5" />
@@ -753,9 +758,8 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
                         </div>
                         {config && !item.href && (
                           <ChevronDownIcon
-                            className={`h-4 w-4 transition-transform ${
-                              isActive ? 'rotate-180' : ''
-                            }`}
+                            className={`h-4 w-4 transition-transform ${isActive ? 'rotate-180' : ''
+                              }`}
                           />
                         )}
                       </button>

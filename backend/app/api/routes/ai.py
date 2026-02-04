@@ -14,7 +14,7 @@ from app.services.kubernetes_service import kubernetes_service
 from app.services.security_service import get_security_service
 from app.services.jenkins_service import jenkins_service
 from app.services.helm_service import helm_service
-# from app.services.cost_service import cost_service  # Excluded from v1.4.0
+from app.services.cost_service import cost_service
 from app.services.timeline_service import timeline_service
 from app.services.optimization_service import optimization_service
 
@@ -161,7 +161,7 @@ QUERY_KEYWORDS = {
     # Helm
     "helm": ["helm", "chart", "charts", "release", "releases", "helm install", "helm upgrade"],
     # Cost - Excluded from v1.4.0
-    # "cost": ["cost", "costs", "spending", "expensive", "billing", "price", "budget", "savings"],
+    "cost": ["cost", "costs", "spending", "expensive", "billing", "price", "budget", "savings"],
     # Timeline / Events
     "timeline": ["timeline", "history", "activity", "recent events", "what happened"],
     # Incidents
@@ -641,13 +641,14 @@ kubectl get pod {pod.name} -n {pod.namespace} -o yaml
             logger.warning(f"Could not fetch Helm data: {e}")
 
     # ===== COST CONTEXT ===== (Excluded from v1.4.0)
-    # if "cost" in query_types:
-    #     try:
-    #         dashboard = await cost_service.get_cost_dashboard()
-    #         recommendations = await cost_service.get_recommendations()
-    #         context_parts.append(...)
-    #     except Exception as e:
-    #         logger.warning(f"Could not fetch cost data: {e}")
+    if "cost" in query_types:
+        try:
+            dashboard = await cost_service.get_cost_dashboard()
+            recommendations = await cost_service.get_recommendations()
+
+            context_parts.append(f"\n## Cost Analysis\nDashboard Summary: {dashboard}\nOptimizations: {recommendations}\n")
+        except Exception as e:
+            logger.warning(f"Could not fetch cost data: {e}")
 
     # ===== TIMELINE CONTEXT =====
     if "timeline" in query_types:

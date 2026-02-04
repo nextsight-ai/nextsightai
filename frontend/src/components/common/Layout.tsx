@@ -2,46 +2,17 @@ import { useState, useRef, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  HomeIcon,
-  ServerStackIcon,
   Bars3Icon,
   XMarkIcon,
-  CpuChipIcon,
-  ServerIcon,
   SunIcon,
   MoonIcon,
   ArrowLeftStartOnRectangleIcon,
-  CloudIcon,
-  ShieldCheckIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   SparklesIcon,
   ArrowPathIcon,
-  RocketLaunchIcon,
-  UserGroupIcon,
   UserCircleIcon,
-  GlobeAltIcon,
-  CurrencyDollarIcon,
-  Square3Stack3DIcon,
-  ArrowsRightLeftIcon,
-  DocumentTextIcon,
-  CubeIcon,
-  CircleStackIcon,
-  ChatBubbleLeftRightIcon,
-  CubeTransparentIcon,
-  LinkIcon,
-  FolderIcon,
-  PlayIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  ShieldExclamationIcon,
-  PhotoIcon,
-  LockClosedIcon,
-  ScaleIcon,
-  SignalIcon,
-  BeakerIcon,
-  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -55,140 +26,10 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-interface NavItem {
-  name: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  children?: { name: string; href: string; icon: React.ComponentType<{ className?: string }>; badge?: string }[];
-  badge?: string;
-  badgeColor?: string;
-  statusDot?: boolean;
-}
+import { getNavigationSections, NavItem, NavSection } from '../../config/navigation';
 
-interface NavSection {
-  title: string;
-  items: NavItem[];
-}
 
-// Navigation sections based on NextSight AI UI Framework - Updated Design Spec
-const navigationSections: NavSection[] = [
-  {
-    title: 'OVERVIEW',
-    items: [
-      { name: 'Dashboard', href: '/', icon: HomeIcon },
-    ]
-  },
-  {
-    title: 'KUBERNETES',
-    items: [
-      { name: 'Cluster Overview', href: '/cluster-overview', icon: CloudIcon },
-      { name: 'Nodes', href: '/kubernetes/nodes', icon: ServerIcon },
-      { name: 'Namespaces', href: '/namespaces', icon: FolderIcon },
-      {
-        name: 'Workloads',
-        href: '/kubernetes',
-        icon: CubeTransparentIcon,
-        children: [
-          { name: 'Deployments', href: '/kubernetes?tab=deployments', icon: ServerStackIcon },
-          { name: 'StatefulSets', href: '/kubernetes?tab=statefulsets', icon: Square3Stack3DIcon },
-          { name: 'DaemonSets', href: '/kubernetes?tab=daemonsets', icon: CpuChipIcon },
-          { name: 'Pods', href: '/kubernetes?tab=pods', icon: CubeIcon, badge: 'live' },
-          { name: 'Jobs', href: '/kubernetes?tab=jobs', icon: PlayIcon },
-          { name: 'CronJobs', href: '/kubernetes?tab=cronjobs', icon: ClockIcon },
-        ]
-      },
-      {
-        name: 'Networking',
-        href: '/networking',
-        icon: GlobeAltIcon,
-        children: [
-          { name: 'Services', href: '/networking?tab=services', icon: SignalIcon },
-          { name: 'Ingress', href: '/networking?tab=ingress', icon: ArrowsRightLeftIcon },
-          { name: 'Network Policies', href: '/networking?tab=policies', icon: ShieldCheckIcon },
-        ]
-      },
-      {
-        name: 'Storage',
-        href: '/storage',
-        icon: CircleStackIcon,
-        children: [
-          { name: 'Persistent Volumes', href: '/storage?tab=pv', icon: CircleStackIcon },
-          { name: 'PV Claims', href: '/storage?tab=pvc', icon: DocumentTextIcon },
-          { name: 'Storage Classes', href: '/storage?tab=classes', icon: FolderIcon },
-        ]
-      },
-    ]
-  },
-  {
-    title: 'DEPLOY',
-    items: [
-      { name: 'GitOps', href: '/deploy', icon: RocketLaunchIcon },
-      { name: 'Helm Releases', href: '/deploy?tab=helm', icon: CubeIcon },
-    ]
-  },
-  {
-    title: 'PIPELINES',
-    items: [
-      { name: 'Pipeline Builder', href: '/pipelines/builder', icon: BeakerIcon, badge: 'New', badgeColor: 'blue' },
-      { name: 'Templates', href: '/pipelines/templates', icon: DocumentTextIcon },
-      { name: 'Runs', href: '/pipelines/runs', icon: PlayIcon, statusDot: true },
-      { name: 'Approvals', href: '/pipelines/approvals', icon: CheckCircleIcon },
-    ]
-  },
-  {
-    title: 'AI OPTIMIZER',
-    items: [
-      { name: 'Resource Optimizer', href: '/optimization?tab=resource', icon: CpuChipIcon, badge: 'AI', badgeColor: 'purple' },
-      { name: 'Cost Optimizer', href: '/optimization?tab=cost', icon: CurrencyDollarIcon, badge: 'AI', badgeColor: 'purple' },
-      { name: 'Scaling Advisor', href: '/optimization?tab=scaling', icon: ScaleIcon, badge: 'AI', badgeColor: 'purple' },
-      { name: 'Security Advisor', href: '/optimization?tab=security', icon: ShieldCheckIcon, badge: 'AI', badgeColor: 'purple' },
-      { name: 'AI ChatOps', href: '#ai-chat', icon: ChatBubbleLeftRightIcon, badge: 'Beta', badgeColor: 'blue' },
-    ]
-  },
-  {
-    title: 'SECURITY CENTER',
-    items: [
-      { name: 'Security Dashboard', href: '/security', icon: ShieldExclamationIcon },
-      { name: 'RBAC Analyzer', href: '/security?tab=rbac', icon: LockClosedIcon },
-      { name: 'Image Scanning', href: '/security?tab=scanning', icon: PhotoIcon },
-      { name: 'Policy Engine', href: '/security?tab=policies', icon: DocumentTextIcon },
-    ]
-  },
-  {
-    title: 'MONITORING',
-    items: [
-      { name: 'Metrics Dashboard', href: '/monitoring', icon: SignalIcon },
-      { name: 'Alerts', href: '/monitoring/alerts', icon: ShieldExclamationIcon, badge: '3', badgeColor: 'red' },
-      { name: 'Events', href: '/events', icon: DocumentTextIcon },
-      { name: 'Logs', href: '/monitoring/logs', icon: DocumentTextIcon },
-    ]
-  },
-  {
-    title: 'COST ANALYZER',
-    items: [
-      { name: 'Cost Dashboard', href: '/cost', icon: CurrencyDollarIcon },
-      { name: 'Reports', href: '/cost/reports', icon: DocumentTextIcon },
-    ]
-  },
-  {
-    title: 'INTEGRATIONS',
-    items: [
-      { name: 'All Integrations', href: '/settings/integrations', icon: LinkIcon },
-      { name: 'Prometheus', href: '/integrations/prometheus', icon: SignalIcon },
-      { name: 'ArgoCD', href: '/integrations/argocd', icon: ArrowPathIcon },
-    ]
-  },
-  {
-    title: 'SETTINGS',
-    items: [
-      { name: 'General Settings', href: '/settings', icon: Cog6ToothIcon },
-      { name: 'Profile', href: '/profile', icon: UserCircleIcon },
-      { name: 'Cluster Connections', href: '/clusters', icon: CloudIcon },
-      { name: 'User Management', href: '/admin/users', icon: UserGroupIcon },
-      { name: 'API Keys', href: '/admin/api-keys', icon: LockClosedIcon },
-    ]
-  },
-];
+
 
 // Animation variants
 const sidebarVariants = {
@@ -233,19 +74,22 @@ export default function Layout({ children }: LayoutProps) {
 
   const isAdmin = user?.role === 'admin';
 
-  // Filter sections and items based on user role
+  // Get navigation sections from config
+  const navigationSections = getNavigationSections();
+
+  // Filter sections and items based on user role and feature flags
   const filteredSections = navigationSections.map(section => {
-    if (section.title === 'SETTINGS') {
-      return {
-        ...section,
-        items: section.items.filter(item => {
-          if (item.name === 'User Management') return isAdmin;
-          return true;
-        })
-      };
-    }
-    return section;
-  });
+    // Filter items based on admin role
+    const filteredItems = section.items.filter(item => {
+      if (item.adminOnly) return isAdmin;
+      return true;
+    });
+
+    return {
+      ...section,
+      items: filteredItems
+    };
+  }).filter(section => section.items.length > 0);
 
   const scrollToItem = useCallback((itemName: string, navElement: HTMLElement | null) => {
     if (!navElement) return;
@@ -335,11 +179,10 @@ export default function Layout({ children }: LayoutProps) {
             </div>
             <span className="text-sm font-medium">{item.name}</span>
             {item.badge && (
-              <span className={`ml-auto px-1.5 py-0.5 text-[10px] rounded-full font-semibold ${
-                item.badgeColor === 'blue'
-                  ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400'
-                  : 'bg-primary-500/20 text-primary-600 dark:text-primary-400'
-              }`}>
+              <span className={`ml-auto px-1.5 py-0.5 text-[10px] rounded-full font-semibold ${item.badgeColor === 'blue'
+                ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                : 'bg-primary-500/20 text-primary-600 dark:text-primary-400'
+                }`}>
                 {item.badge}
               </span>
             )}
@@ -362,11 +205,10 @@ export default function Layout({ children }: LayoutProps) {
               }}
               onMouseEnter={() => setHoveredItem(item.name)}
               onMouseLeave={() => setHoveredItem(null)}
-              className={`w-full relative flex items-center justify-center p-3 rounded-xl transition-all duration-200 group ${
-                isActive
-                  ? 'bg-gradient-to-r from-primary-500/20 to-primary-600/10 text-primary-600 dark:text-primary-400'
-                  : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-white/5'
-              }`}
+              className={`w-full relative flex items-center justify-center p-3 rounded-xl transition-all duration-200 group ${isActive
+                ? 'bg-gradient-to-r from-primary-500/20 to-primary-600/10 text-primary-600 dark:text-primary-400'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-white/5'
+                }`}
             >
               <item.icon className="h-5 w-5" />
               <span className="absolute -right-0.5 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-primary-500" />
@@ -381,9 +223,8 @@ export default function Layout({ children }: LayoutProps) {
                     <div className="flex items-center gap-2">
                       {item.name}
                       {item.badge && (
-                        <span className={`px-1.5 py-0.5 text-[10px] rounded-full ${
-                          item.badgeColor === 'purple' ? 'bg-purple-500/20 text-purple-400' : 'bg-primary-500/20 text-primary-400'
-                        }`}>
+                        <span className={`px-1.5 py-0.5 text-[10px] rounded-full ${item.badgeColor === 'purple' ? 'bg-purple-500/20 text-purple-400' : 'bg-primary-500/20 text-primary-400'
+                          }`}>
                           {item.badge}
                         </span>
                       )}
@@ -402,11 +243,10 @@ export default function Layout({ children }: LayoutProps) {
             to={item.href}
             onMouseEnter={() => setHoveredItem(item.name)}
             onMouseLeave={() => setHoveredItem(null)}
-            className={`relative flex items-center justify-center p-3 rounded-xl transition-all duration-200 group ${
-              isActive
-                ? 'bg-gradient-to-r from-primary-500/20 to-primary-600/10 text-primary-600 dark:text-primary-400'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-white/5'
-            }`}
+            className={`relative flex items-center justify-center p-3 rounded-xl transition-all duration-200 group ${isActive
+              ? 'bg-gradient-to-r from-primary-500/20 to-primary-600/10 text-primary-600 dark:text-primary-400'
+              : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-white/5'
+              }`}
           >
             <item.icon className="h-5 w-5" />
             {item.statusDot && (
@@ -423,11 +263,10 @@ export default function Layout({ children }: LayoutProps) {
                   <div className="flex items-center gap-2">
                     {item.name}
                     {item.badge && (
-                      <span className={`px-1.5 py-0.5 text-[10px] rounded-full ${
-                        item.badgeColor === 'purple' ? 'bg-purple-500/20 text-purple-400' :
+                      <span className={`px-1.5 py-0.5 text-[10px] rounded-full ${item.badgeColor === 'purple' ? 'bg-purple-500/20 text-purple-400' :
                         item.badgeColor === 'blue' ? 'bg-blue-500/20 text-blue-400' :
-                        'bg-primary-500/20 text-primary-400'
-                      }`}>
+                          'bg-primary-500/20 text-primary-400'
+                        }`}>
                         {item.badge}
                       </span>
                     )}
@@ -447,11 +286,10 @@ export default function Layout({ children }: LayoutProps) {
           <motion.button
             whileHover={{ x: 2 }}
             onClick={() => toggleExpand(item.name, mobile)}
-            className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-              isActive
-                ? 'bg-gradient-to-r from-primary-500/20 to-primary-600/10 text-primary-600 dark:text-primary-400 font-medium'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-white/5'
-            }`}
+            className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isActive
+              ? 'bg-gradient-to-r from-primary-500/20 to-primary-600/10 text-primary-600 dark:text-primary-400 font-medium'
+              : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-white/5'
+              }`}
           >
             <div className="flex items-center gap-3">
               <div className={`p-1.5 rounded-lg transition-colors ${isActive ? 'bg-primary-500/20' : 'bg-gray-100 dark:bg-slate-700/50'}`}>
@@ -459,11 +297,10 @@ export default function Layout({ children }: LayoutProps) {
               </div>
               <span className="text-sm font-medium">{item.name}</span>
               {item.badge && (
-                <span className={`px-1.5 py-0.5 text-[10px] rounded-full font-semibold ${
-                  item.badgeColor === 'purple'
-                    ? 'bg-purple-500/20 text-purple-600 dark:text-purple-400'
-                    : 'bg-primary-500/20 text-primary-600 dark:text-primary-400'
-                }`}>
+                <span className={`px-1.5 py-0.5 text-[10px] rounded-full font-semibold ${item.badgeColor === 'purple'
+                  ? 'bg-purple-500/20 text-purple-600 dark:text-purple-400'
+                  : 'bg-primary-500/20 text-primary-600 dark:text-primary-400'
+                  }`}>
                   {item.badge}
                 </span>
               )}
@@ -497,11 +334,10 @@ export default function Layout({ children }: LayoutProps) {
                       <Link
                         to={child.href}
                         onClick={mobile ? () => setSidebarOpen(false) : undefined}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${
-                          childActive
-                            ? 'bg-primary-500/10 text-primary-600 dark:text-primary-400 font-medium border-l-2 border-primary-500'
-                            : 'text-gray-500 dark:text-gray-400 hover:bg-white/30 dark:hover:bg-white/5 hover:text-gray-700 dark:hover:text-gray-200'
-                        }`}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm ${childActive
+                          ? 'bg-primary-500/10 text-primary-600 dark:text-primary-400 font-medium border-l-2 border-primary-500'
+                          : 'text-gray-500 dark:text-gray-400 hover:bg-white/30 dark:hover:bg-white/5 hover:text-gray-700 dark:hover:text-gray-200'
+                          }`}
                       >
                         <child.icon className="h-4 w-4" />
                         <span className="flex-1">{child.name}</span>
@@ -526,11 +362,10 @@ export default function Layout({ children }: LayoutProps) {
         <Link
           to={item.href}
           onClick={mobile ? () => setSidebarOpen(false) : undefined}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-            isActive
-              ? 'bg-gradient-to-r from-primary-500/20 to-primary-600/10 text-primary-600 dark:text-primary-400 font-medium'
-              : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-white/5'
-          }`}
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${isActive
+            ? 'bg-gradient-to-r from-primary-500/20 to-primary-600/10 text-primary-600 dark:text-primary-400 font-medium'
+            : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-white/5'
+            }`}
         >
           <div className={`relative p-1.5 rounded-lg transition-colors ${isActive ? 'bg-primary-500/20' : 'bg-gray-100 dark:bg-slate-700/50'}`}>
             <item.icon className="h-4 w-4" />
@@ -540,13 +375,12 @@ export default function Layout({ children }: LayoutProps) {
           </div>
           <span className="text-sm font-medium">{item.name}</span>
           {item.badge && (
-            <span className={`ml-auto px-1.5 py-0.5 text-[10px] rounded-full font-semibold ${
-              item.badgeColor === 'purple'
-                ? 'bg-purple-500/20 text-purple-600 dark:text-purple-400'
-                : item.badgeColor === 'blue'
+            <span className={`ml-auto px-1.5 py-0.5 text-[10px] rounded-full font-semibold ${item.badgeColor === 'purple'
+              ? 'bg-purple-500/20 text-purple-600 dark:text-purple-400'
+              : item.badgeColor === 'blue'
                 ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400'
                 : 'bg-primary-500/20 text-primary-600 dark:text-primary-400'
-            }`}>
+              }`}>
               {item.badge}
             </span>
           )}
