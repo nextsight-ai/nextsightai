@@ -390,7 +390,13 @@ Note: Some dangerous commands are blocked for security.`;
         <div
           ref={terminalRef}
           className="h-[500px] overflow-y-auto p-4 font-mono text-sm"
-          onClick={() => inputRef.current?.focus()}
+          onClick={() => {
+            // Only focus input if user is not selecting text
+            const selection = window.getSelection();
+            if (!selection || selection.toString().length === 0) {
+              inputRef.current?.focus();
+            }
+          }}
         >
           {history.map((entry, index) => (
             <div key={index} className="mb-2">

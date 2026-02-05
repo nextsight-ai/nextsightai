@@ -2329,8 +2329,9 @@ class KubernetesService:
 
         start_time = time.time()
 
-        # Security: Block dangerous commands
+        # Security: Block dangerous commands and command injection
         dangerous_patterns = [
+            # Destructive operations
             "delete --all",
             "delete namespace",
             "delete ns",
@@ -2339,17 +2340,45 @@ class KubernetesService:
             "cordon",
             "uncordon",
             "taint",
+            # Command execution
+            "exec",
+            "run ",
+            "attach",
+            # Cluster modification
+            "apply",
+            "create",
+            "patch",
+            "replace",
+            "edit",
+            "set ",
+            "scale",
+            "rollout undo",
+            "rollout restart",
+            # Network/Security risks
             "cluster-info dump",
             "proxy",
             "port-forward",
-            "attach",
             "cp ",  # file copy
+            # Authentication/Authorization
             "auth can-i",
+            "auth reconcile",
             "certificate",
             "token",
+            # Command injection patterns
+            ";",
+            "&&",
+            "||",
+            "|",
+            "$(",
+            "`",
+            "$()",
+            "../",
+            "..\\",
         ]
 
-        command_lower = command.lower()
+        command_lower = command.lower().strip()
+
+        # Check for dangerous patterns
         for pattern in dangerous_patterns:
             if pattern in command_lower:
                 return KubectlResponse(
@@ -2360,6 +2389,20 @@ class KubernetesService:
                     exit_code=1,
                     execution_time=0.0,
                 )
+
+        # Whitelist approach: Only allow safe read-only commands
+        safe_commands = ["get", "describe", "logs", "top", "version", "api-resources", "api-versions", "explain"]
+        first_word = command_lower.split()[0] if command_lower else ""
+
+        if first_word not in safe_commands:
+            return KubectlResponse(
+                success=False,
+                command=f"kubectl {command}",
+                stdout="",
+                stderr=f"Command blocked: Only read-only commands are allowed ({', '.join(safe_commands)})",
+                exit_code=1,
+                execution_time=0.0,
+            )
 
         # Build the full kubectl command
         # Use kubeconfig from settings if available

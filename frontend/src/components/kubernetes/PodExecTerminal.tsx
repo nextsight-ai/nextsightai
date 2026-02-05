@@ -56,6 +56,17 @@ export default function PodExecTerminal({ pod, onClose }: PodExecTerminalProps) 
 
     const cmdParts = parseCommand(command);
 
+    // Validate pod name and namespace to prevent injection attacks
+    const k8sNameRegex = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$/;
+    if (!k8sNameRegex.test(pod.name) || !k8sNameRegex.test(pod.namespace)) {
+      setHistory(prev => [...prev, {
+        type: 'error',
+        content: 'Error: Invalid pod name or namespace format',
+        timestamp: new Date(),
+      }]);
+      return;
+    }
+
     // Add command to history
     setHistory(prev => [...prev, {
       type: 'input',
@@ -236,7 +247,13 @@ export default function PodExecTerminal({ pod, onClose }: PodExecTerminalProps) 
         <div
           ref={terminalRef}
           className="flex-1 overflow-auto p-4 font-mono text-sm"
-          onClick={() => inputRef.current?.focus()}
+          onClick={() => {
+            // Only focus input if user is not selecting text
+            const selection = window.getSelection();
+            if (!selection || selection.toString().length === 0) {
+              inputRef.current?.focus();
+            }
+          }}
         >
           {history.map((line, index) => (
             <div

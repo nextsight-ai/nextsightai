@@ -10,13 +10,13 @@ google-generativeai==0.8.5
 groq==0.37.1
 python-dateutil==2.8.2
 redis==7.1.0
-authlib>=1.6.5  # CVE-2025-62706, CVE-2025-61920, CVE-2025-59420, PYSEC-2024-52
+authlib>=1.6.6  # CVE-2025-62706 fixed in 1.6.5, updated to 1.6.6 (latest)
 itsdangerous==2.1.2
 sqlalchemy==2.0.44
 alembic==1.13.1
 asyncpg==0.31.0
 psycopg2-binary==2.9.9  # Sync driver for Alembic migrations
-python-multipart>=0.0.18  # CVE-2024-53981, CVE-2024-24762
+python-multipart>=0.0.22  # CVE-2024-53981 fixed in 0.0.18, updated to 0.0.22 (latest)
 python-jose[cryptography]==3.5.0
 passlib[bcrypt]==1.7.4
 websockets==15.0.1

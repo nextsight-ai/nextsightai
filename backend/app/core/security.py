@@ -24,24 +24,40 @@ security = HTTPBearer()
 security_optional = HTTPBearer(auto_error=False)
 
 # Token blacklist - uses Redis when available, falls back to in-memory
+# WARNING: In-memory fallback is NOT production-safe - blacklisted tokens are lost on restart
 _token_blacklist_memory: Set[str] = set()
 _blacklist_cleanup_time: Optional[datetime] = None
 _redis_client = None
+_redis_unavailable_logged = False
 
 
 def _get_redis_client():
     """Get or create Redis client for token blacklist."""
-    global _redis_client
+    global _redis_client, _redis_unavailable_logged
     if _redis_client is None and settings.REDIS_ENABLED:
         try:
             import redis
             _redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
             # Test connection
             _redis_client.ping()
-            logger.info("Token blacklist using Redis")
+            logger.info("Token blacklist using Redis (production-ready)")
+            return _redis_client
         except Exception as e:
-            logger.warning(f"Redis unavailable for token blacklist, using in-memory: {e}")
+            if not _redis_unavailable_logged:
+                logger.critical(
+                    f"SECURITY WARNING: Redis unavailable for token blacklist, using in-memory fallback. "
+                    f"Blacklisted tokens will be forgotten on restart! Error: {e}"
+                )
+                _redis_unavailable_logged = True
             _redis_client = False  # Mark as unavailable
+    elif _redis_client is None and not settings.REDIS_ENABLED:
+        if not _redis_unavailable_logged:
+            logger.critical(
+                "SECURITY WARNING: Redis is disabled. Token blacklist using in-memory storage. "
+                "Blacklisted tokens will be forgotten on restart! Enable Redis for production."
+            )
+            _redis_unavailable_logged = True
+        _redis_client = False
     return _redis_client if _redis_client else None
 
 
@@ -124,7 +140,12 @@ def decode_refresh_token(token: str) -> Optional[dict]:
 
 
 def blacklist_token(jti: str, ttl_seconds: int = None) -> None:
-    """Add a token to the blacklist (uses Redis when available)."""
+    """
+    Add a token to the blacklist (uses Redis when available).
+
+    WARNING: If Redis is unavailable, tokens are stored in-memory only and will
+    be forgotten on application restart, potentially allowing revoked tokens to be reused.
+    """
     global _blacklist_cleanup_time
 
     # Default TTL is refresh token expiry (7 days)
@@ -137,12 +158,17 @@ def blacklist_token(jti: str, ttl_seconds: int = None) -> None:
             # Use Redis with TTL for automatic expiration
             redis_key = f"token_blacklist:{jti}"
             redis_client.setex(redis_key, ttl_seconds, "1")
+            logger.info(f"Token blacklisted in Redis (secure)")
             return
         except Exception as e:
-            logger.warning(f"Redis blacklist failed, using in-memory: {e}")
+            logger.error(f"SECURITY WARNING: Redis blacklist failed, using in-memory fallback: {e}")
 
-    # Fallback to in-memory
+    # Fallback to in-memory (NOT production-safe)
     _token_blacklist_memory.add(jti)
+    logger.warning(
+        f"Token blacklisted in-memory only (NOT persistent). "
+        f"Current blacklist size: {len(_token_blacklist_memory)}"
+    )
 
     # Periodic cleanup of old entries
     now = datetime.now(timezone.utc)
