@@ -15,6 +15,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 
 // Lazy load heavy components
 const Dashboard = lazy(() => import('./components/dashboard/Dashboard'));
+const ComponentShowcase = lazy(() => import('./pages/ComponentShowcase'));
 const NodesView = lazy(() => import('./components/kubernetes/NodesView'));
 const ClusterMetrics = lazy(() => import('./components/kubernetes/ClusterMetrics'));
 const KubernetesResourcesView = lazy(() => import('./components/kubernetes/KubernetesResourcesView'));
@@ -172,6 +173,9 @@ function AppContent() {
                     <Routes>
                       {/* Dashboard */}
                       <Route path="/" element={<Dashboard />} />
+
+                      {/* UI Component Showcase (v2.0) */}
+                      <Route path="/components" element={<ComponentShowcase />} />
 
                       {/* KUBERNETES MODULE */}
                       <Route path="/cluster-overview" element={<ClusterOverview />} />
