@@ -47,33 +47,33 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
     },
     ref
   ) => {
-    // Base styles
-    const baseStyles = 'bg-white dark:bg-gray-800 rounded-lg transition-all duration-normal';
+    // Base styles - clean and professional
+    const baseStyles = 'bg-white dark:bg-gray-900 rounded-lg transition-all duration-200';
 
     // Padding styles
     const paddingStyles = {
       none: '',
-      sm: 'p-3',
+      sm: 'p-4',
       md: 'p-6',
       lg: 'p-8',
     };
 
-    // Border styles
+    // Border styles - subtle
     const borderStyles = bordered
-      ? 'border border-gray-200 dark:border-gray-700'
+      ? 'border border-gray-200 dark:border-gray-800'
       : '';
 
-    // Shadow styles
+    // Shadow styles - soft and professional
     const shadowStyles = {
       none: '',
       sm: 'shadow-sm',
-      md: 'shadow-md',
-      lg: 'shadow-lg',
+      md: 'shadow',
+      lg: 'shadow-md',
     };
 
-    // Hoverable styles
+    // Hoverable styles - subtle effect
     const hoverStyles = hoverable
-      ? 'hover:shadow-lg hover:scale-[1.02] cursor-pointer'
+      ? 'hover:shadow-md hover:border-gray-300 cursor-pointer dark:hover:border-gray-700'
       : '';
 
     // Combine all styles

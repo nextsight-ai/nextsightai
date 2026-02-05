@@ -25,26 +25,26 @@ export const ComponentShowcase: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-8 max-w-7xl mx-auto">
+    <div className="p-8 space-y-6 max-w-6xl mx-auto bg-gray-50 dark:bg-gray-950 min-h-screen">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
-          NextSight v2.0 Design System
+        <h1 className="text-3xl font-semibold text-gray-900 dark:text-white mb-2">
+          Design System
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
-          Component showcase for the new UI modernization
+          Clean, professional UI components for NextSight v2.0
         </p>
       </div>
 
       {/* Buttons Section */}
-      <Card>
-        <CardHeader bordered>
-          <h2 className="text-2xl font-semibold">Buttons</h2>
-          <p className="text-sm text-gray-600 mt-1">Various button variants and sizes</p>
+      <Card shadow="sm">
+        <CardHeader>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Buttons</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Clean button variants for actions</p>
         </CardHeader>
         <CardBody className="space-y-6">
           {/* Variants */}
           <div>
-            <h3 className="text-lg font-medium mb-3">Variants</h3>
+            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">Variants</h3>
             <div className="flex flex-wrap gap-3">
               <Button variant="primary">Primary</Button>
               <Button variant="secondary">Secondary</Button>
@@ -56,7 +56,7 @@ export const ComponentShowcase: React.FC = () => {
 
           {/* Sizes */}
           <div>
-            <h3 className="text-lg font-medium mb-3">Sizes</h3>
+            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">Sizes</h3>
             <div className="flex flex-wrap items-center gap-3">
               <Button size="sm">Small</Button>
               <Button size="md">Medium</Button>
@@ -66,7 +66,7 @@ export const ComponentShowcase: React.FC = () => {
 
           {/* States */}
           <div>
-            <h3 className="text-lg font-medium mb-3">States</h3>
+            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">States</h3>
             <div className="flex flex-wrap gap-3">
               <Button loading={loading} onClick={handleLoadingDemo}>
                 {loading ? 'Loading...' : 'Click to Load'}
@@ -134,7 +134,7 @@ export const ComponentShowcase: React.FC = () => {
         <CardBody className="space-y-6">
           {/* Variants */}
           <div>
-            <h3 className="text-lg font-medium mb-3">Variants</h3>
+            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">Variants</h3>
             <div className="flex flex-wrap gap-2">
               <Badge variant="success">Success</Badge>
               <Badge variant="warning">Warning</Badge>
@@ -147,7 +147,7 @@ export const ComponentShowcase: React.FC = () => {
 
           {/* With Dots */}
           <div>
-            <h3 className="text-lg font-medium mb-3">With Status Dots</h3>
+            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">With Status Dots</h3>
             <div className="flex flex-wrap gap-2">
               <Badge variant="success" dot>Active</Badge>
               <Badge variant="warning" dot>Pending</Badge>
@@ -157,7 +157,7 @@ export const ComponentShowcase: React.FC = () => {
 
           {/* Sizes */}
           <div>
-            <h3 className="text-lg font-medium mb-3">Sizes</h3>
+            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">Sizes</h3>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="primary" size="sm">Small</Badge>
               <Badge variant="primary" size="md">Medium</Badge>
@@ -167,7 +167,7 @@ export const ComponentShowcase: React.FC = () => {
 
           {/* Kubernetes Status Badges */}
           <div>
-            <h3 className="text-lg font-medium mb-3">Kubernetes Status Badges</h3>
+            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">Kubernetes Status Badges</h3>
             <div className="flex flex-wrap gap-2">
               <StatusBadge status="Running" />
               <StatusBadge status="Pending" />
@@ -274,7 +274,7 @@ export const ComponentShowcase: React.FC = () => {
         <CardBody className="space-y-6">
           {/* Primary Colors */}
           <div>
-            <h3 className="text-lg font-medium mb-3">Primary Blue</h3>
+            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">Primary Blue</h3>
             <div className="flex gap-2">
               {[50, 100, 200, 300, 400, 500, 600, 700, 800, 900].map((shade) => (
                 <div

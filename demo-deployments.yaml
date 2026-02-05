@@ -1,0 +1,284 @@
+---
+# Namespace for demo
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nextsight-demo
+  labels:
+    purpose: optimization-demo
+
+---
+# 1. OVER-PROVISIONED: High resource requests but low actual usage
+# This will trigger: Over-provisioned alert, Cost savings opportunity
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wasteful-app
+  namespace: nextsight-demo
+  labels:
+    app: wasteful-app
+    scenario: over-provisioned
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: wasteful-app
+  template:
+    metadata:
+      labels:
+        app: wasteful-app
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        resources:
+          requests:
+            cpu: 1000m      # Requesting 1 CPU
+            memory: 2Gi     # Requesting 2GB
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        ports:
+        - containerPort: 80
+        # Will use very little resources (nginx idle)
+
+---
+# 2. UNDER-PROVISIONED: Low resource requests, will be stressed
+# This will trigger: Under-provisioned alert, CPU throttling risk, Performance risk
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stressed-app
+  namespace: nextsight-demo
+  labels:
+    app: stressed-app
+    scenario: under-provisioned
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stressed-app
+  template:
+    metadata:
+      labels:
+        app: stressed-app
+    spec:
+      containers:
+      - name: stress
+        image: polinux/stress
+        resources:
+          requests:
+            cpu: 100m       # Only 100m CPU
+            memory: 128Mi   # Only 128Mi memory
+          limits:
+            cpu: 100m       # Will hit this limit and throttle
+            memory: 256Mi
+        command: ["stress"]
+        args:
+        - "--cpu"
+        - "1"              # Stress 1 CPU core
+        - "--vm"
+        - "1"              # Stress memory
+        - "--vm-bytes"
+        - "110M"           # Use 110Mi of 128Mi (86% memory)
+        - "--vm-keep"      # Keep memory allocated
+
+---
+# 3. SINGLE REPLICA: Reliability risk - Single Point of Failure
+# This will trigger: Single replica alert, High reliability risk
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: critical-payment-service
+  namespace: nextsight-demo
+  labels:
+    app: payment-service
+    scenario: single-replica
+    criticality: high
+spec:
+  replicas: 1              # ONLY 1 REPLICA - SPOF!
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+      - name: app
+        image: nginx:alpine
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        ports:
+        - containerPort: 80
+
+---
+# 4. NO HEALTH PROBES: Missing liveness and readiness probes
+# This will trigger: Missing probes alert, Reliability risk
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unhealthy-app
+  namespace: nextsight-demo
+  labels:
+    app: unhealthy-app
+    scenario: no-probes
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: unhealthy-app
+  template:
+    metadata:
+      labels:
+        app: unhealthy-app
+    spec:
+      containers:
+      - name: app
+        image: nginx:alpine
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 400m
+            memory: 512Mi
+        ports:
+        - containerPort: 80
+        # NO LIVENESS PROBE!
+        # NO READINESS PROBE!
+
+---
+# 5. IDLE RESOURCES: Deployed but not used
+# This will trigger: Idle resources alert, Cost waste
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forgotten-app
+  namespace: nextsight-demo
+  labels:
+    app: forgotten-app
+    scenario: idle
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: forgotten-app
+  template:
+    metadata:
+      labels:
+        app: forgotten-app
+    spec:
+      containers:
+      - name: app
+        image: busybox
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        command: ["sleep"]
+        args: ["infinity"]   # Just sleeping, using minimal resources
+
+---
+# 6. NO RESOURCE REQUESTS/LIMITS: Scheduler can't optimize
+# This will trigger: Missing requests/limits alert
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unoptimized-app
+  namespace: nextsight-demo
+  labels:
+    app: unoptimized-app
+    scenario: no-limits
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: unoptimized-app
+  template:
+    metadata:
+      labels:
+        app: unoptimized-app
+    spec:
+      containers:
+      - name: app
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        # NO RESOURCES DEFINED AT ALL!
+
+---
+# 7. HIGH MEMORY USAGE: Will approach memory limits
+# This will trigger: Memory pressure alert, OOMKill risk
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memory-hungry-app
+  namespace: nextsight-demo
+  labels:
+    app: memory-hungry
+    scenario: memory-pressure
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: memory-hungry
+  template:
+    metadata:
+      labels:
+        app: memory-hungry
+    spec:
+      containers:
+      - name: stress
+        image: polinux/stress
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi    # Will approach this limit
+        command: ["stress"]
+        args:
+        - "--vm"
+        - "1"
+        - "--vm-bytes"
+        - "220M"            # Use 220Mi of 256Mi limit (~86%)
+        - "--vm-keep"
+
+---
+# Service for wasteful-app (for demo purposes)
+apiVersion: v1
+kind: Service
+metadata:
+  name: wasteful-app-svc
+  namespace: nextsight-demo
+spec:
+  selector:
+    app: wasteful-app
+  ports:
+  - port: 80
+    targetPort: 80
+
+---
+# Service for payment-service (for demo purposes)
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service-svc
+  namespace: nextsight-demo
+spec:
+  selector:
+    app: payment-service
+  ports:
+  - port: 80
+    targetPort: 80
