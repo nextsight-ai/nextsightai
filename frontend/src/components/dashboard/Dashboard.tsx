@@ -86,24 +86,24 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fafafa', display: 'flex', flexDirection: 'column' }}>
-      {/* Header - Improved */}
-      <header style={{ padding: '24px 40px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+    <div style={{ height: '100vh', background: '#0a0a0a', color: '#fafafa', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Header - Compact */}
+      <header style={{ padding: '16px 32px', borderBottom: '1px solid rgba(255,255,255,0.04)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h1 style={{ fontSize: 28, fontWeight: 600, margin: 0, letterSpacing: -0.5, marginBottom: 4 }}>
+            <h1 style={{ fontSize: 20, fontWeight: 600, margin: 0, letterSpacing: -0.5, marginBottom: 2 }}>
               Platform Overview
             </h1>
-            <p style={{ color: '#525252', fontSize: 13, margin: 0 }}>
+            <p style={{ color: '#525252', fontSize: 11, margin: 0 }}>
               {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} ·
               <span style={{ color: '#22c55e', marginLeft: 6 }}>All systems operational</span>
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             {/* Cluster Selector */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <CloudIcon style={{ width: 16, height: 16, color: '#525252' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CloudIcon style={{ width: 14, height: 14, color: '#525252' }} />
               <select
                 value={activeCluster?.id || ''}
                 onChange={(e) => {
@@ -114,8 +114,8 @@ export default function Dashboard() {
                   background: 'transparent',
                   border: 'none',
                   borderBottom: '1px solid rgba(255,255,255,0.1)',
-                  padding: '4px 0',
-                  fontSize: 13,
+                  padding: '2px 0',
+                  fontSize: 12,
                   color: '#fafafa',
                   outline: 'none',
                   cursor: 'pointer',
@@ -137,80 +137,80 @@ export default function Dashboard() {
                 border: 'none',
                 color: '#525252',
                 cursor: isRefetching ? 'wait' : 'pointer',
-                fontSize: 12,
+                fontSize: 11,
                 padding: 0,
                 display: 'flex',
                 alignItems: 'center',
-                gap: 6,
+                gap: 4,
               }}
             >
-              <ArrowPathIcon style={{ width: 14, height: 14 }} />
+              <ArrowPathIcon style={{ width: 12, height: 12 }} />
               {isRefetching ? 'Refreshing...' : 'Refresh'}
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main Content - Fits screen */}
-      <main style={{ flex: 1, padding: '32px 40px', overflow: 'auto' }}>
-        {/* Key Metrics */}
-        <section style={{ marginBottom: 40 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 32 }}>
+      {/* Main Content - No scroll, fits viewport */}
+      <main style={{ flex: 1, padding: '20px 32px', display: 'flex', flexDirection: 'column', gap: 24, overflow: 'hidden' }}>
+        {/* Key Metrics - Compact */}
+        <section style={{ flexShrink: 0 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 20 }}>
             <div>
-              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -2, color: '#22c55e', ...mono }}>
+              <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1.5, color: '#22c55e', ...mono }}>
                 {clusterHealth?.total_pods || 0}
               </div>
-              <div style={{ fontSize: 11, color: '#525252', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Pods</div>
+              <div style={{ fontSize: 10, color: '#525252', marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>Pods</div>
             </div>
             <div>
-              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -2, color: '#3b82f6', ...mono }}>
+              <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1.5, color: '#3b82f6', ...mono }}>
                 {metrics?.cpu_percent ? `${metrics.cpu_percent.toFixed(0)}%` : '-'}
               </div>
-              <div style={{ fontSize: 11, color: '#525252', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>CPU</div>
+              <div style={{ fontSize: 10, color: '#525252', marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>CPU</div>
             </div>
             <div>
-              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -2, color: '#8b5cf6', ...mono }}>
+              <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1.5, color: '#8b5cf6', ...mono }}>
                 {metrics?.memory_percent ? `${metrics.memory_percent.toFixed(0)}%` : '-'}
               </div>
-              <div style={{ fontSize: 11, color: '#525252', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Memory</div>
+              <div style={{ fontSize: 10, color: '#525252', marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>Memory</div>
             </div>
             <div>
-              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -2, color: '#ef4444', ...mono }}>
+              <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1.5, color: '#ef4444', ...mono }}>
                 {recentEvents.filter((e) => e.severity === 'critical').length}
               </div>
-              <div style={{ fontSize: 11, color: '#525252', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Alerts</div>
+              <div style={{ fontSize: 10, color: '#525252', marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>Alerts</div>
             </div>
             <div>
-              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -2, color: '#eab308', ...mono }}>
+              <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1.5, color: '#eab308', ...mono }}>
                 {deployments.length}
               </div>
-              <div style={{ fontSize: 11, color: '#525252', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Deploys</div>
+              <div style={{ fontSize: 10, color: '#525252', marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>Deploys</div>
             </div>
             <div>
-              <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: -2, color: '#10b981', ...mono }}>
+              <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1.5, color: '#10b981', ...mono }}>
                 ${costData?.total_monthly_estimate ? costData.total_monthly_estimate.toFixed(0) : '0'}
               </div>
-              <div style={{ fontSize: 11, color: '#525252', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Cost/Mo</div>
+              <div style={{ fontSize: 10, color: '#525252', marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>Cost/Mo</div>
             </div>
           </div>
         </section>
 
-        {/* Platform Sections Summary */}
-        <section style={{ marginBottom: 40 }}>
-          <h2 style={{ fontSize: 11, fontWeight: 500, color: '#525252', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 20 }}>
+        {/* Platform Sections Summary - Compact */}
+        <section style={{ flexShrink: 0 }}>
+          <h2 style={{ fontSize: 10, fontWeight: 500, color: '#525252', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
             Platform Status
           </h2>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
             {/* Kubernetes */}
             <Link to="/kubernetes" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div style={{ padding: '16px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <ServerStackIcon style={{ width: 16, height: 16, color: '#3b82f6' }} />
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>Kubernetes</span>
-                  <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
+              <div style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <ServerStackIcon style={{ width: 14, height: 14, color: '#3b82f6' }} />
+                  <span style={{ fontSize: 12, fontWeight: 500 }}>Kubernetes</span>
+                  <span style={{ marginLeft: 'auto', width: 5, height: 5, borderRadius: '50%', background: '#22c55e' }} />
                 </div>
-                <div style={{ fontSize: 11, color: '#525252', ...mono }}>
+                <div style={{ fontSize: 10, color: '#525252', ...mono }}>
                   {clusterHealth?.node_count || 0} nodes · {clusterHealth?.total_pods || 0} pods
                 </div>
               </div>
@@ -218,13 +218,13 @@ export default function Dashboard() {
 
             {/* Security */}
             <Link to="/security" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div style={{ padding: '16px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <ShieldCheckIcon style={{ width: 16, height: 16, color: '#10b981' }} />
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>Security</span>
-                  <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
+              <div style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <ShieldCheckIcon style={{ width: 14, height: 14, color: '#10b981' }} />
+                  <span style={{ fontSize: 12, fontWeight: 500 }}>Security</span>
+                  <span style={{ marginLeft: 'auto', width: 5, height: 5, borderRadius: '50%', background: '#22c55e' }} />
                 </div>
-                <div style={{ fontSize: 11, color: '#525252', ...mono }}>
+                <div style={{ fontSize: 10, color: '#525252', ...mono }}>
                   0 critical · Last scan 2h ago
                 </div>
               </div>
@@ -232,13 +232,13 @@ export default function Dashboard() {
 
             {/* Deployments */}
             <Link to="/deploy" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div style={{ padding: '16px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <RocketLaunchIcon style={{ width: 16, height: 16, color: '#8b5cf6' }} />
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>Deploy</span>
-                  <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
+              <div style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <RocketLaunchIcon style={{ width: 14, height: 14, color: '#8b5cf6' }} />
+                  <span style={{ fontSize: 12, fontWeight: 500 }}>Deploy</span>
+                  <span style={{ marginLeft: 'auto', width: 5, height: 5, borderRadius: '50%', background: '#22c55e' }} />
                 </div>
-                <div style={{ fontSize: 11, color: '#525252', ...mono }}>
+                <div style={{ fontSize: 10, color: '#525252', ...mono }}>
                   {deployments.length} apps · 3 helm releases
                 </div>
               </div>
@@ -246,13 +246,13 @@ export default function Dashboard() {
 
             {/* Monitoring */}
             <Link to="/monitoring" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div style={{ padding: '16px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <ChartBarIcon style={{ width: 16, height: 16, color: '#f59e0b' }} />
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>Monitoring</span>
-                  <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
+              <div style={{ padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <ChartBarIcon style={{ width: 14, height: 14, color: '#f59e0b' }} />
+                  <span style={{ fontSize: 12, fontWeight: 500 }}>Monitoring</span>
+                  <span style={{ marginLeft: 'auto', width: 5, height: 5, borderRadius: '50%', background: '#22c55e' }} />
                 </div>
-                <div style={{ fontSize: 11, color: '#525252', ...mono }}>
+                <div style={{ fontSize: 10, color: '#525252', ...mono }}>
                   Prometheus · {recentEvents.length} alerts
                 </div>
               </div>
@@ -260,70 +260,70 @@ export default function Dashboard() {
           </div>
         </section>
 
-        {/* Bottom Grid - Alerts & Activity */}
-        <section>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 40 }}>
+        {/* Bottom Grid - Alerts & Activity - Flex with overflow */}
+        <section style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24, flex: 1, minHeight: 0 }}>
             {/* Recent Alerts */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'between', marginBottom: 16 }}>
-                <h2 style={{ fontSize: 11, fontWeight: 500, color: '#525252', textTransform: 'uppercase', letterSpacing: 1, margin: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'between', marginBottom: 12, flexShrink: 0 }}>
+                <h2 style={{ fontSize: 10, fontWeight: 500, color: '#525252', textTransform: 'uppercase', letterSpacing: 1, margin: 0 }}>
                   Recent Alerts
                 </h2>
-                <Link to="/events" style={{ marginLeft: 'auto', fontSize: 11, color: '#3b82f6', textDecoration: 'none' }}>
+                <Link to="/events" style={{ marginLeft: 'auto', fontSize: 10, color: '#3b82f6', textDecoration: 'none' }}>
                   View all →
                 </Link>
               </div>
 
               {recentEvents.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflow: 'auto', flex: 1, minHeight: 0 }}>
                   {recentEvents.map((alert, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 0', borderBottom: i < recentEvents.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: i < recentEvents.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', flexShrink: 0 }}>
                       <span
                         style={{
-                          width: 6,
-                          height: 6,
+                          width: 5,
+                          height: 5,
                           borderRadius: '50%',
                           background: alert.severity === 'critical' ? '#ef4444' : '#eab308',
-                          boxShadow: alert.severity === 'critical' ? '0 0 8px #ef4444' : 'none',
+                          boxShadow: alert.severity === 'critical' ? '0 0 6px #ef4444' : 'none',
                           flexShrink: 0,
                         }}
                       />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, color: '#fafafa' }}>{alert.message}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, color: '#fafafa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{alert.message}</div>
                       </div>
-                      <div style={{ fontSize: 11, color: '#404040', ...mono }}>{alert.time}</div>
+                      <div style={{ fontSize: 10, color: '#404040', ...mono, flexShrink: 0 }}>{alert.time}</div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{ padding: '32px 0', textAlign: 'center', color: '#404040', fontSize: 12 }}>
+                <div style={{ padding: '24px 0', textAlign: 'center', color: '#404040', fontSize: 11 }}>
                   No recent alerts
                 </div>
               )}
             </div>
 
             {/* Activity Timeline */}
-            <div>
-              <h2 style={{ fontSize: 11, fontWeight: 500, color: '#525252', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <h2 style={{ fontSize: 10, fontWeight: 500, color: '#525252', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, flexShrink: 0 }}>
                 Activity
               </h2>
-              <div style={{ position: 'relative', paddingLeft: 20 }}>
+              <div style={{ position: 'relative', paddingLeft: 16, overflow: 'auto', flex: 1, minHeight: 0 }}>
                 <div style={{ position: 'absolute', left: 3, top: 6, bottom: 6, width: 1, background: 'rgba(255,255,255,0.06)' }} />
 
                 {activity.map((item, i) => (
-                  <div key={i} style={{ position: 'relative', paddingBottom: i < activity.length - 1 ? 16 : 0 }}>
+                  <div key={i} style={{ position: 'relative', paddingBottom: i < activity.length - 1 ? 12 : 0, flexShrink: 0 }}>
                     <span style={{
                       position: 'absolute',
-                      left: -20,
-                      top: 6,
-                      width: 7,
-                      height: 7,
+                      left: -16,
+                      top: 5,
+                      width: 6,
+                      height: 6,
                       borderRadius: '50%',
                       background: '#0a0a0a',
                       border: '2px solid #404040',
                     }} />
-                    <div style={{ fontSize: 12, color: '#fafafa' }}>{item.text}</div>
-                    <div style={{ fontSize: 11, color: '#404040', marginTop: 2, ...mono }}>{item.time}</div>
+                    <div style={{ fontSize: 11, color: '#fafafa' }}>{item.text}</div>
+                    <div style={{ fontSize: 10, color: '#404040', marginTop: 2, ...mono }}>{item.time}</div>
                   </div>
                 ))}
               </div>
@@ -332,25 +332,25 @@ export default function Dashboard() {
         </section>
       </main>
 
-      {/* Footer - No boxes */}
-      <footer style={{ padding: '20px 40px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+      {/* Footer - Compact */}
+      <footer style={{ padding: '12px 32px', borderTop: '1px solid rgba(255,255,255,0.04)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 24, fontSize: 11, color: '#404040' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <SparklesIcon style={{ width: 14, height: 14 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 10, color: '#404040' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <SparklesIcon style={{ width: 12, height: 12 }} />
               <span>NextSight v2.0</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <ClockIcon style={{ width: 14, height: 14 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <ClockIcon style={{ width: 12, height: 12 }} />
               <span>Auto-refresh: 30s</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <CodeBracketIcon style={{ width: 14, height: 14 }} />
-              <span>Press <kbd style={{ padding: '2px 6px', background: 'rgba(255,255,255,0.05)', borderRadius: 3, ...mono }}>⌘K</kbd> for commands</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <CodeBracketIcon style={{ width: 12, height: 12 }} />
+              <span>Press <kbd style={{ padding: '1px 4px', background: 'rgba(255,255,255,0.05)', borderRadius: 2, fontSize: 9, ...mono }}>⌘K</kbd> for commands</span>
             </div>
           </div>
 
-          <div style={{ fontSize: 11, color: '#404040' }}>
+          <div style={{ fontSize: 10, color: '#404040' }}>
             Last updated: {new Date().toLocaleTimeString()}
           </div>
         </div>
