@@ -9,6 +9,10 @@ import {
   StatusBadge,
   Input,
   Textarea,
+  Select,
+  Modal,
+  Alert,
+  Spinner,
 } from '../components/common';
 
 /**
@@ -18,6 +22,8 @@ import {
 export const ComponentShowcase: React.FC = () => {
   const [inputValue, setInputValue] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const [selectValue, setSelectValue] = React.useState('');
 
   const handleLoadingDemo = () => {
     setLoading(true);
@@ -25,26 +31,26 @@ export const ComponentShowcase: React.FC = () => {
   };
 
   return (
-    <div className="p-8 space-y-6 max-w-6xl mx-auto bg-gray-50 dark:bg-gray-950 min-h-screen">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-gray-900 dark:text-white mb-2">
-          Design System
+    <div className="p-8 space-y-6 max-w-6xl mx-auto bg-gradient-to-br from-gray-800 via-gray-900 to-gray-800 min-h-screen">
+      <div className="mb-8 text-center">
+        <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">
+          NextSight v2.0
         </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Clean, professional UI components for NextSight v2.0
+        <p className="text-gray-400 text-lg">
+          Glassy Black Design System - Dark Glassmorphism
         </p>
       </div>
 
       {/* Buttons Section */}
       <Card shadow="sm">
         <CardHeader>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Buttons</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Clean button variants for actions</p>
+          <h2 className="text-2xl font-semibold text-white">Buttons</h2>
+          <p className="text-sm text-gray-400 mt-1">Glass buttons with minimal colors</p>
         </CardHeader>
         <CardBody className="space-y-6">
           {/* Variants */}
           <div>
-            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">Variants</h3>
+            <h3 className="text-base font-medium text-gray-300 mb-3">Variants</h3>
             <div className="flex flex-wrap gap-3">
               <Button variant="primary">Primary</Button>
               <Button variant="secondary">Secondary</Button>
@@ -56,7 +62,7 @@ export const ComponentShowcase: React.FC = () => {
 
           {/* Sizes */}
           <div>
-            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">Sizes</h3>
+            <h3 className="text-base font-medium text-gray-300 mb-3">Sizes</h3>
             <div className="flex flex-wrap items-center gap-3">
               <Button size="sm">Small</Button>
               <Button size="md">Medium</Button>
@@ -66,7 +72,7 @@ export const ComponentShowcase: React.FC = () => {
 
           {/* States */}
           <div>
-            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">States</h3>
+            <h3 className="text-base font-medium text-gray-300 mb-3">States</h3>
             <div className="flex flex-wrap gap-3">
               <Button loading={loading} onClick={handleLoadingDemo}>
                 {loading ? 'Loading...' : 'Click to Load'}
@@ -134,7 +140,7 @@ export const ComponentShowcase: React.FC = () => {
         <CardBody className="space-y-6">
           {/* Variants */}
           <div>
-            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">Variants</h3>
+            <h3 className="text-base font-medium text-gray-300 mb-3">Variants</h3>
             <div className="flex flex-wrap gap-2">
               <Badge variant="success">Success</Badge>
               <Badge variant="warning">Warning</Badge>
@@ -147,7 +153,7 @@ export const ComponentShowcase: React.FC = () => {
 
           {/* With Dots */}
           <div>
-            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">With Status Dots</h3>
+            <h3 className="text-base font-medium text-gray-300 mb-3">With Status Dots</h3>
             <div className="flex flex-wrap gap-2">
               <Badge variant="success" dot>Active</Badge>
               <Badge variant="warning" dot>Pending</Badge>
@@ -157,7 +163,7 @@ export const ComponentShowcase: React.FC = () => {
 
           {/* Sizes */}
           <div>
-            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">Sizes</h3>
+            <h3 className="text-base font-medium text-gray-300 mb-3">Sizes</h3>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="primary" size="sm">Small</Badge>
               <Badge variant="primary" size="md">Medium</Badge>
@@ -167,7 +173,7 @@ export const ComponentShowcase: React.FC = () => {
 
           {/* Kubernetes Status Badges */}
           <div>
-            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">Kubernetes Status Badges</h3>
+            <h3 className="text-base font-medium text-gray-300 mb-3">Kubernetes Status Badges</h3>
             <div className="flex flex-wrap gap-2">
               <StatusBadge status="Running" />
               <StatusBadge status="Pending" />
@@ -265,6 +271,176 @@ export const ComponentShowcase: React.FC = () => {
         </CardBody>
       </Card>
 
+      {/* Select Section */}
+      <Card>
+        <CardHeader bordered>
+          <h2 className="text-2xl font-semibold">Select Dropdown</h2>
+          <p className="text-sm text-gray-600 mt-1">Dropdown components with options</p>
+        </CardHeader>
+        <CardBody className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Select
+              label="Environment"
+              placeholder="Select environment"
+              options={[
+                { value: 'dev', label: 'Development' },
+                { value: 'staging', label: 'Staging' },
+                { value: 'prod', label: 'Production' },
+              ]}
+              value={selectValue}
+              onChange={(e) => setSelectValue(e.target.value)}
+            />
+            <Select
+              label="Namespace"
+              options={[
+                { value: 'default', label: 'default' },
+                { value: 'kube-system', label: 'kube-system' },
+                { value: 'monitoring', label: 'monitoring' },
+              ]}
+              helperText="Select the Kubernetes namespace"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Select
+              label="Disabled Select"
+              disabled
+              options={[
+                { value: 'option1', label: 'Option 1' },
+              ]}
+              value="option1"
+            />
+            <Select
+              label="Error State"
+              isError
+              error="Please select a valid option"
+              options={[
+                { value: 'option1', label: 'Option 1' },
+                { value: 'option2', label: 'Option 2' },
+              ]}
+            />
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* Modal Section */}
+      <Card>
+        <CardHeader bordered>
+          <h2 className="text-2xl font-semibold">Modal</h2>
+          <p className="text-sm text-gray-600 mt-1">Dialog overlays for focused interactions</p>
+        </CardHeader>
+        <CardBody>
+          <div className="flex flex-wrap gap-3">
+            <Button onClick={() => setIsModalOpen(true)}>
+              Open Modal
+            </Button>
+          </div>
+
+          <Modal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            title="Example Modal"
+            footer={
+              <>
+                <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button variant="primary" onClick={() => setIsModalOpen(false)}>
+                  Confirm
+                </Button>
+              </>
+            }
+          >
+            <p className="text-gray-400">
+              This is an example modal dialog. It includes a header, body content, and footer with action buttons.
+            </p>
+            <p className="text-gray-400 mt-3">
+              Press ESC to close or click outside the modal.
+            </p>
+          </Modal>
+        </CardBody>
+      </Card>
+
+      {/* Alert Section */}
+      <Card>
+        <CardHeader bordered>
+          <h2 className="text-2xl font-semibold">Alerts</h2>
+          <p className="text-sm text-gray-600 mt-1">Notification messages with contextual styling</p>
+        </CardHeader>
+        <CardBody className="space-y-4">
+          <Alert variant="success" title="Success!">
+            Your deployment has been successfully updated.
+          </Alert>
+
+          <Alert variant="info" title="Info">
+            New version v2.0 is now available for upgrade.
+          </Alert>
+
+          <Alert variant="warning" title="Warning">
+            This pod has been running for more than 30 days without restart.
+          </Alert>
+
+          <Alert variant="error" title="Error">
+            Failed to connect to the Kubernetes cluster. Please check your credentials.
+          </Alert>
+
+          <Alert variant="success" dismissible onDismiss={() => console.log('Dismissed')}>
+            This alert can be dismissed by clicking the X button.
+          </Alert>
+        </CardBody>
+      </Card>
+
+      {/* Spinner Section */}
+      <Card>
+        <CardHeader bordered>
+          <h2 className="text-2xl font-semibold">Spinners</h2>
+          <p className="text-sm text-gray-600 mt-1">Loading indicators</p>
+        </CardHeader>
+        <CardBody className="space-y-6">
+          {/* Sizes */}
+          <div>
+            <h3 className="text-base font-medium text-gray-300 mb-3">Sizes</h3>
+            <div className="flex flex-wrap items-center gap-6">
+              <div className="flex flex-col items-center gap-2">
+                <Spinner size="sm" />
+                <span className="text-xs text-gray-500">Small</span>
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <Spinner size="md" />
+                <span className="text-xs text-gray-500">Medium</span>
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <Spinner size="lg" />
+                <span className="text-xs text-gray-500">Large</span>
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <Spinner size="xl" />
+                <span className="text-xs text-gray-500">Extra Large</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Variants */}
+          <div>
+            <h3 className="text-base font-medium text-gray-300 mb-3">Variants</h3>
+            <div className="flex flex-wrap items-center gap-6">
+              <div className="flex flex-col items-center gap-2">
+                <Spinner variant="primary" />
+                <span className="text-xs text-gray-500">Primary</span>
+              </div>
+              <div className="flex flex-col items-center gap-2 bg-gray-800 p-4 rounded">
+                <Spinner variant="white" />
+                <span className="text-xs text-gray-300">White</span>
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <Spinner variant="gray" />
+                <span className="text-xs text-gray-500">Gray</span>
+              </div>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
       {/* Color Palette */}
       <Card>
         <CardHeader bordered>
@@ -274,7 +450,7 @@ export const ComponentShowcase: React.FC = () => {
         <CardBody className="space-y-6">
           {/* Primary Colors */}
           <div>
-            <h3 className="text-base font-medium text-gray-700 dark:text-gray-300 mb-3">Primary Blue</h3>
+            <h3 className="text-base font-medium text-gray-300 mb-3">Primary Blue</h3>
             <div className="flex gap-2">
               {[50, 100, 200, 300, 400, 500, 600, 700, 800, 900].map((shade) => (
                 <div

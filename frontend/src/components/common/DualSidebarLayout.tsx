@@ -192,8 +192,8 @@ function Level1NavItem({
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       className={`relative flex flex-col items-center justify-center w-12 h-12 rounded-xl cursor-pointer transition-all duration-200 group ${isActive
-          ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30'
-          : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-700 dark:hover:text-gray-200'
+          ? 'bg-white/20 text-white shadow-glass border border-white/30'
+          : 'text-gray-400 hover:bg-white/10 hover:text-gray-200 border border-transparent'
         }`}
       onClick={onClick}
     >
@@ -252,8 +252,8 @@ function Level2CollapsibleGroup({
         whileHover={{ x: 2 }}
         onClick={onToggle}
         className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 ${hasActiveChild
-            ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'
-            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800/50'
+            ? 'bg-white/10 text-white border border-white/20'
+            : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
           }`}
       >
         <div className="flex items-center gap-2.5">
@@ -277,7 +277,7 @@ function Level2CollapsibleGroup({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-gray-200 dark:border-slate-700 pl-3">
+            <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-white/10 pl-3">
               {group.items.map((item) => {
                 const isActive = item.href.split('?')[0] === activeHref.split('?')[0];
                 return (
@@ -285,8 +285,8 @@ function Level2CollapsibleGroup({
                     key={item.href}
                     to={item.href}
                     className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-sm transition-all duration-200 ${isActive
-                        ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium'
-                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-slate-800/50 hover:text-gray-700 dark:hover:text-gray-200'
+                        ? 'bg-white/10 text-white font-medium'
+                        : 'text-gray-500 hover:bg-white/5 hover:text-gray-300'
                       }`}
                   >
                     <item.icon className="h-3.5 w-3.5" />
@@ -316,8 +316,8 @@ function Level2SimpleItem({
     <Link
       to={item.href}
       className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all duration-200 mb-0.5 ${isActive
-          ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium'
-          : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800/50'
+          ? 'bg-white/10 text-white font-medium border border-white/20'
+          : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
         }`}
     >
       <div className="flex items-center gap-2.5">
@@ -325,7 +325,7 @@ function Level2SimpleItem({
         <span>{item.name}</span>
       </div>
       {item.badge && (
-        <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
+        <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-blue-500/20 text-blue-400">
           {item.badge}
         </span>
       )}
@@ -340,13 +340,13 @@ function Breadcrumbs({ items }: { items: { label: string; href: string }[] }) {
       {items.map((item, index) => (
         <div key={item.href} className="flex items-center gap-1">
           {index > 0 && (
-            <ChevronRightIcon className="h-3.5 w-3.5 text-gray-400" />
+            <ChevronRightIcon className="h-3.5 w-3.5 text-gray-600" />
           )}
           <Link
             to={item.href}
             className={`transition-colors ${index === items.length - 1
-                ? 'text-gray-900 dark:text-white font-medium'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                ? 'text-white font-medium'
+                : 'text-gray-500 hover:text-gray-300'
               }`}
           >
             {item.label}
@@ -455,23 +455,22 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0F172A] transition-colors duration-300">
-      {/* Background Effects */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-400/5 dark:bg-blue-500/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 left-1/4 w-96 h-96 bg-purple-400/5 dark:bg-purple-500/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 right-1/4 w-64 h-64 bg-cyan-400/5 dark:bg-cyan-500/10 rounded-full blur-3xl" />
+    <div className="min-h-screen bg-gradient-to-br from-gray-800 via-gray-900 to-gray-800 transition-colors duration-300">
+      {/* Subtle background glow effects */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-30">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 left-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl" />
       </div>
 
       {/* ============================================================ */}
       {/* LEVEL-1 SIDEBAR (Main Navigation) */}
       {/* ============================================================ */}
-      <aside className="fixed left-0 top-0 bottom-0 w-16 bg-white dark:bg-[#1E293B] border-r border-[#E2E8F0] dark:border-[#334155] z-50 flex flex-col shadow-lg dark:shadow-slate-900/50">
+      <aside className="fixed left-0 top-0 bottom-0 w-16 bg-black/40 backdrop-blur-xl border-r border-white/10 z-50 flex flex-col shadow-glass">
         {/* Logo */}
-        <div className="h-16 flex items-center justify-center border-b border-[#E2E8F0] dark:border-[#334155]">
+        <div className="h-16 flex items-center justify-center border-b border-white/10">
           <motion.div
             whileHover={{ scale: 1.1, rotate: 5 }}
-            className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30 cursor-pointer"
+            className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shadow-glass cursor-pointer hover:bg-white/20 transition-colors"
             onClick={() => navigate('/')}
           >
             <SparklesIcon className="h-5 w-5 text-white" />
@@ -491,20 +490,16 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
         </nav>
 
         {/* Bottom Actions */}
-        <div className="p-2 space-y-2 border-t border-[#E2E8F0] dark:border-[#334155]">
-          {/* Theme Toggle */}
-          <motion.button
+        <div className="p-2 space-y-2 border-t border-white/10">
+          {/* Theme Toggle - Hidden for dark-only design */}
+          {/* <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={toggleTheme}
-            className="w-12 h-12 flex items-center justify-center rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+            className="w-12 h-12 flex items-center justify-center rounded-xl text-gray-400 hover:bg-white/10 hover:text-gray-200 transition-colors"
           >
-            {theme === 'light' ? (
-              <MoonIcon className="h-5 w-5" />
-            ) : (
-              <SunIcon className="h-5 w-5 text-amber-400" />
-            )}
-          </motion.button>
+            <MoonIcon className="h-5 w-5" />
+          </motion.button> */}
 
           {/* User Avatar */}
           {user && (
@@ -512,12 +507,12 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
               whileHover={{ scale: 1.05 }}
               className="relative w-12 h-12 flex items-center justify-center"
             >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20 cursor-pointer">
+              <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shadow-glass cursor-pointer hover:bg-white/20 transition-colors">
                 <span className="text-white font-bold text-sm">
                   {user.username.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <span className="absolute bottom-0 right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white dark:border-[#1E293B]" />
+              <span className="absolute bottom-0 right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-gray-900" />
             </motion.div>
           )}
         </div>
@@ -533,20 +528,20 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -240, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed left-16 top-0 bottom-0 w-60 bg-white/95 dark:bg-[#1E293B]/95 backdrop-blur-xl border-r border-[#E2E8F0] dark:border-[#334155] z-40 flex flex-col shadow-xl dark:shadow-slate-900/50"
+            className="fixed left-16 top-0 bottom-0 w-60 bg-black/40 backdrop-blur-xl border-r border-white/10 z-40 flex flex-col shadow-glass"
           >
             {/* Header */}
-            <div className="h-16 px-4 flex items-center border-b border-[#E2E8F0] dark:border-[#334155]">
-              <h2 className="text-base font-semibold text-[#0F172A] dark:text-white">
+            <div className="h-16 px-4 flex items-center border-b border-white/10">
+              <h2 className="text-base font-semibold text-white">
                 {level2Config.title}
               </h2>
             </div>
 
             {/* Context Panel - Namespace Filter (Kubernetes module only) */}
             {activeModule === 'kubernetes' && (
-              <div className="px-3 py-3 border-b border-[#E2E8F0] dark:border-[#334155] space-y-2">
+              <div className="px-3 py-3 border-b border-white/10 space-y-2">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
                     Filter NS
                   </label>
                   <NamespaceFilter />
@@ -579,16 +574,16 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
             </nav>
 
             {/* Footer */}
-            <div className="p-3 border-t border-[#E2E8F0] dark:border-[#334155]">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20">
+            <div className="p-3 border-t border-white/10">
+              <div className="p-3 rounded-xl bg-white/5 border border-white/10">
                 <div className="flex items-center gap-2 mb-2">
-                  <SparklesIcon className="h-4 w-4 text-blue-500" />
-                  <span className="text-xs font-semibold text-[#0F172A] dark:text-white">
+                  <SparklesIcon className="h-4 w-4 text-blue-400" />
+                  <span className="text-xs font-semibold text-white">
                     AI-Powered
                   </span>
                 </div>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                  NextSight AI v1.4.1
+                <p className="text-[10px] text-gray-500">
+                  NextSight AI v2.0
                 </p>
               </div>
             </div>
@@ -606,17 +601,17 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
         {/* ============================================================ */}
         {/* TOP HEADER */}
         {/* ============================================================ */}
-        <header className="sticky top-0 z-30 h-16 bg-white/80 dark:bg-[#1E293B]/80 backdrop-blur-xl border-b border-[#E2E8F0] dark:border-[#334155] shadow-sm">
-          {/* Gradient accent line */}
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500" />
+        <header className="sticky top-0 z-30 h-16 bg-black/40 backdrop-blur-xl border-b border-white/10 shadow-glass">
+          {/* Subtle accent line */}
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500/30 via-purple-500/30 to-cyan-500/30" />
 
           <div className="h-full px-4 lg:px-6 flex items-center gap-4">
             {/* Mobile menu button */}
             <button
-              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800"
+              className="lg:hidden p-2 rounded-lg hover:bg-white/10"
               onClick={() => setMobileMenuOpen(true)}
             >
-              <Bars3Icon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+              <Bars3Icon className="h-5 w-5 text-gray-300" />
             </button>
 
             {/* Breadcrumbs */}
@@ -633,7 +628,7 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
                 animate={{ width: searchFocused ? 280 : 200 }}
                 className="relative"
               >
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 <input
                   type="text"
                   placeholder="Search..."
@@ -641,9 +636,9 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={() => setSearchFocused(true)}
                   onBlur={() => setSearchFocused(false)}
-                  className="w-full pl-9 pr-4 py-2 text-sm bg-gray-100 dark:bg-slate-800 border border-transparent focus:border-blue-500 rounded-xl text-[#0F172A] dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                  className="w-full pl-9 pr-4 py-2 text-sm bg-white/10 backdrop-blur-xl border border-white/20 focus:border-white/40 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-white/30 transition-all hover:bg-white/15"
                 />
-                <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-gray-400 bg-gray-200 dark:bg-slate-700 rounded">
+                <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-gray-500 bg-white/10 rounded">
                   ⌘K
                 </kbd>
               </motion.div>
@@ -659,12 +654,12 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
 
             {/* User Section */}
             {user && (
-              <div className="flex items-center gap-2 pl-4 border-l border-[#E2E8F0] dark:border-[#334155]">
+              <div className="flex items-center gap-2 pl-4 border-l border-white/10">
                 <div className="hidden sm:flex flex-col items-end">
-                  <span className="text-sm font-medium text-[#0F172A] dark:text-white">
+                  <span className="text-sm font-medium text-white">
                     {user.username}
                   </span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                  <span className="text-xs text-gray-500 capitalize">
                     {user.role}
                   </span>
                 </div>
@@ -672,7 +667,7 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={logout}
-                  className="p-2 rounded-lg text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                  className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                   title="Sign out"
                 >
                   <ArrowLeftStartOnRectangleIcon className="h-5 w-5" />
@@ -712,23 +707,23 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
               animate={{ x: 0 }}
               exit={{ x: -320 }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="fixed left-0 top-0 bottom-0 w-80 bg-white dark:bg-[#1E293B] z-50 lg:hidden overflow-y-auto"
+              className="fixed left-0 top-0 bottom-0 w-80 bg-black/90 backdrop-blur-xl border-r border-white/10 z-50 lg:hidden overflow-y-auto"
             >
               {/* Mobile Header */}
-              <div className="h-16 px-4 flex items-center justify-between border-b border-[#E2E8F0] dark:border-[#334155]">
+              <div className="h-16 px-4 flex items-center justify-between border-b border-white/10">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
                     <SparklesIcon className="h-5 w-5 text-white" />
                   </div>
-                  <span className="text-lg font-bold text-[#0F172A] dark:text-white">
+                  <span className="text-lg font-bold text-white">
                     NextSight AI
                   </span>
                 </div>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800"
+                  className="p-2 rounded-lg hover:bg-white/10"
                 >
-                  <XMarkIcon className="h-5 w-5 text-gray-500" />
+                  <XMarkIcon className="h-5 w-5 text-gray-400" />
                 </button>
               </div>
 
@@ -748,8 +743,8 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
                           }
                         }}
                         className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors ${isActive
-                            ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
-                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-800'
+                            ? 'bg-white/10 text-white border border-white/20'
+                            : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
                           }`}
                       >
                         <div className="flex items-center gap-3">
@@ -777,7 +772,7 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
                               if (isGroup(subItem)) {
                                 return (
                                   <div key={subItem.name} className="py-1">
-                                    <p className="px-3 py-1 text-xs font-semibold text-gray-400 uppercase">
+                                    <p className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase">
                                       {subItem.name}
                                     </p>
                                     {subItem.items.map((child) => (
@@ -785,7 +780,7 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
                                         key={child.href}
                                         to={child.href}
                                         onClick={() => setMobileMenuOpen(false)}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+                                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
                                       >
                                         <child.icon className="h-4 w-4" />
                                         {child.name}
@@ -799,7 +794,7 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
                                   key={subItem.href}
                                   to={subItem.href}
                                   onClick={() => setMobileMenuOpen(false)}
-                                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+                                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
                                 >
                                   <subItem.icon className="h-4 w-4" />
                                   {subItem.name}

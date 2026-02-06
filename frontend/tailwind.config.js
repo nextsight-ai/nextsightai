@@ -26,19 +26,31 @@ export default {
   theme: {
     extend: {
       colors: {
-        // NextSight v2.0 Design System - Professional & Minimal
+        // NextSight v2.0 Design System - Glassy Black
         primary: {
+          50: '#ffffff',
+          100: '#f9fafb',
+          200: '#f3f4f6',
+          300: '#e5e7eb',
+          400: '#d1d5db',
+          500: '#9ca3af',  // Subtle gray
+          600: '#6b7280',
+          700: '#4b5563',
+          800: '#374151',
+          900: '#1f2937',
+          950: '#111827',
+        },
+        accent: {
           50: '#f0f9ff',
           100: '#e0f2fe',
           200: '#bae6fd',
           300: '#7dd3fc',
           400: '#38bdf8',
-          500: '#0ea5e9',
+          500: '#0ea5e9',  // Subtle blue
           600: '#0284c7',
           700: '#0369a1',
           800: '#075985',
           900: '#0c4a6e',
-          950: '#082f49',
         },
         success: {
           light: '#d1fae5',
@@ -133,8 +145,9 @@ export default {
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
-        'mesh-gradient': 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        'aurora': 'linear-gradient(135deg, #0ea5e9 0%, #8b5cf6 50%, #ec4899 100%)',
+        // Glass gradients for dark theme
+        'glass': 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
+        'glass-dark': 'linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0.6) 100%)',
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -160,11 +173,11 @@ export default {
         xs: '2px',
       },
       boxShadow: {
-        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
-        'glass-dark': '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
-        'neon': '0 0 5px theme(colors.primary.400), 0 0 20px theme(colors.primary.600)',
-        'neon-success': '0 0 5px theme(colors.success.400), 0 0 20px theme(colors.success.600)',
-        'inner-glow': 'inset 0 0 20px rgba(14, 165, 233, 0.1)',
+        'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.5)',
+        'glass-lg': '0 16px 48px 0 rgba(0, 0, 0, 0.7)',
+        'glow': '0 0 16px rgba(14, 165, 233, 0.3)',
+        'glow-white': '0 0 16px rgba(255, 255, 255, 0.1)',
+        'inner-dark': 'inset 0 2px 8px 0 rgba(0, 0, 0, 0.3)',
       },
     },
   },
