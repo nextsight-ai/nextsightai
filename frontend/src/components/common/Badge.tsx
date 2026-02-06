@@ -37,24 +37,24 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
     },
     ref
   ) => {
-    // Base styles
+    // Base styles - glassy design
     const baseStyles =
-      'inline-flex items-center font-medium rounded-full transition-colors';
+      'inline-flex items-center font-medium rounded-full transition-all duration-200 backdrop-blur-xl border';
 
-    // Variant styles
+    // Variant styles - minimal glass with subtle colors
     const variantStyles = {
       success:
-        'bg-success-100 text-success-800 dark:bg-success-900/20 dark:text-success-400',
+        'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
       warning:
-        'bg-warning-100 text-warning-800 dark:bg-warning-900/20 dark:text-warning-400',
+        'bg-amber-500/10 text-amber-300 border-amber-500/30',
       error:
-        'bg-error-100 text-error-800 dark:bg-error-900/20 dark:text-error-400',
+        'bg-red-500/10 text-red-300 border-red-500/30',
       info:
-        'bg-info-100 text-info-800 dark:bg-info-900/20 dark:text-info-400',
+        'bg-blue-500/10 text-blue-300 border-blue-500/30',
       primary:
-        'bg-primary-100 text-primary-800 dark:bg-primary-900/20 dark:text-primary-400',
+        'bg-blue-500/10 text-blue-300 border-blue-500/30',
       default:
-        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+        'bg-white/5 text-gray-300 border-white/20',
     };
 
     // Size styles

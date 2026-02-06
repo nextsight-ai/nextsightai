@@ -47,33 +47,33 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
     },
     ref
   ) => {
-    // Base styles - clean and professional
-    const baseStyles = 'bg-white dark:bg-gray-900 rounded-lg transition-all duration-200';
+    // Base styles - lighter glassmorphism
+    const baseStyles = 'bg-white/5 backdrop-blur-xl rounded-2xl transition-all duration-300';
 
     // Padding styles
     const paddingStyles = {
       none: '',
-      sm: 'p-4',
+      sm: 'p-5',
       md: 'p-6',
       lg: 'p-8',
     };
 
-    // Border styles - subtle
+    // Border styles - subtle glass border
     const borderStyles = bordered
-      ? 'border border-gray-200 dark:border-gray-800'
+      ? 'border border-white/10'
       : '';
 
-    // Shadow styles - soft and professional
+    // Shadow styles - dark glass shadows
     const shadowStyles = {
       none: '',
-      sm: 'shadow-sm',
-      md: 'shadow',
-      lg: 'shadow-md',
+      sm: 'shadow-glass',
+      md: 'shadow-glass',
+      lg: 'shadow-glass-lg',
     };
 
-    // Hoverable styles - subtle effect
+    // Hoverable styles - subtle glow
     const hoverStyles = hoverable
-      ? 'hover:shadow-md hover:border-gray-300 cursor-pointer dark:hover:border-gray-700'
+      ? 'hover:bg-white/10 hover:border-white/20 cursor-pointer hover:shadow-glow-white'
       : '';
 
     // Combine all styles
@@ -101,7 +101,7 @@ export interface CardHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export const CardHeader = React.forwardRef<HTMLDivElement, CardHeaderProps>(
   ({ bordered = false, className = '', children, ...props }, ref) => {
-    const borderClass = bordered ? 'border-b border-gray-200 dark:border-gray-700 pb-4 mb-4' : '';
+    const borderClass = bordered ? 'border-b border-white/10 pb-4 mb-4' : '';
     const headerClasses = `${borderClass} ${className}`.trim();
 
     return (
@@ -143,7 +143,7 @@ export interface CardFooterProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export const CardFooter = React.forwardRef<HTMLDivElement, CardFooterProps>(
   ({ bordered = false, className = '', children, ...props }, ref) => {
-    const borderClass = bordered ? 'border-t border-gray-200 dark:border-gray-700 pt-4 mt-4' : '';
+    const borderClass = bordered ? 'border-t border-white/10 pt-4 mt-4' : '';
     const footerClasses = `${borderClass} ${className}`.trim();
 
     return (

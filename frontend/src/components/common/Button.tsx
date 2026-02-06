@@ -42,29 +42,29 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref
   ) => {
-    // Base styles - clean and minimal
+    // Base styles - glassy and minimal
     const baseStyles =
-      'inline-flex items-center justify-center font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed';
+      'inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-white/20 disabled:opacity-40 disabled:cursor-not-allowed backdrop-blur-xl';
 
-    // Variant-specific styles - professional and subtle
+    // Variant-specific styles - lighter glass with minimal colors
     const variantStyles = {
       primary:
-        'bg-primary-500 text-white hover:bg-primary-600 focus:ring-primary-400 shadow-sm hover:shadow',
+        'bg-white/15 hover:bg-white/25 text-white border border-white/30 hover:border-white/40 shadow-glass hover:shadow-glow-white',
       secondary:
-        'bg-gray-100 text-gray-900 hover:bg-gray-200 focus:ring-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700',
+        'bg-white/5 hover:bg-white/10 text-gray-200 hover:text-white border border-white/20 hover:border-white/30 shadow-glass',
       outline:
-        'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800',
+        'bg-transparent hover:bg-white/10 text-gray-300 hover:text-white border border-white/30 hover:border-white/50',
       ghost:
-        'text-gray-700 hover:bg-gray-100 focus:ring-gray-300 dark:text-gray-300 dark:hover:bg-gray-800',
+        'bg-transparent hover:bg-white/10 text-gray-300 hover:text-white',
       danger:
-        'bg-error-500 text-white hover:bg-error-600 focus:ring-error-400 shadow-sm hover:shadow',
+        'bg-error-500/20 hover:bg-error-500/30 text-error-200 hover:text-error-100 border border-error-500/40 hover:border-error-500/60 shadow-glass',
     };
 
     // Size-specific styles
     const sizeStyles = {
-      sm: 'px-3 py-1.5 text-sm rounded-md gap-1.5',
-      md: 'px-4 py-2 text-base rounded-lg gap-2',
-      lg: 'px-6 py-3 text-lg rounded-lg gap-2',
+      sm: 'px-4 py-2 text-sm rounded-lg gap-1.5',
+      md: 'px-5 py-2.5 text-base rounded-lg gap-2',
+      lg: 'px-6 py-3 text-lg rounded-xl gap-2',
     };
 
     // Full width style

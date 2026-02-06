@@ -69,19 +69,19 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ) => {
     const inputId = React.useId();
 
-    // Base styles for input
+    // Base styles for input - glass effect
     const baseStyles =
-      'w-full rounded-lg border transition-colors focus:outline-none focus:ring-2';
+      'w-full rounded-lg border transition-all duration-200 focus:outline-none focus:ring-1 backdrop-blur-xl text-white placeholder:text-gray-500';
 
-    // State styles
+    // State styles - lighter glass
     const stateStyles = isError || error
-      ? 'border-error-300 focus:border-error-500 focus:ring-error-500/20 dark:border-error-700'
-      : 'border-gray-300 focus:border-primary-500 focus:ring-primary-500/20 dark:border-gray-600';
+      ? 'border-error-500/40 focus:border-error-500/60 focus:ring-error-500/30 bg-error-500/5'
+      : 'border-white/20 focus:border-white/40 focus:ring-white/20 bg-white/5';
 
     // Disabled styles
     const disabledStyles = disabled
-      ? 'bg-gray-100 cursor-not-allowed dark:bg-gray-800'
-      : 'bg-white dark:bg-gray-900';
+      ? 'bg-white/5 cursor-not-allowed opacity-50'
+      : 'hover:bg-white/10';
 
     // Size styles
     const sizeStyles = {
@@ -105,10 +105,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+            className="block text-sm font-medium text-gray-200 mb-1.5"
           >
             {label}
-            {required && <span className="text-error-500 ml-1">*</span>}
+            {required && <span className="text-error-400 ml-1">*</span>}
           </label>
         )}
 
@@ -116,7 +116,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         <div className="relative">
           {/* Left Icon */}
           {leftIcon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
               {leftIcon}
             </div>
           )}
@@ -136,7 +136,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
           {/* Right Icon */}
           {rightIcon && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
               {rightIcon}
             </div>
           )}
@@ -146,7 +146,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {error && (
           <p
             id={`${inputId}-error`}
-            className="mt-1.5 text-sm text-error-600 dark:text-error-400"
+            className="mt-1.5 text-sm text-error-400"
           >
             {error}
           </p>
@@ -156,7 +156,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {!error && helperText && (
           <p
             id={`${inputId}-helper`}
-            className="mt-1.5 text-sm text-gray-500 dark:text-gray-400"
+            className="mt-1.5 text-sm text-gray-400"
           >
             {helperText}
           </p>
@@ -207,19 +207,19 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ) => {
     const textareaId = React.useId();
 
-    // Base styles
+    // Base styles - glass effect
     const baseStyles =
-      'w-full rounded-lg border transition-colors focus:outline-none focus:ring-2 resize-vertical';
+      'w-full rounded-lg border transition-all duration-200 focus:outline-none focus:ring-1 resize-vertical backdrop-blur-xl text-white placeholder:text-gray-500';
 
-    // State styles
+    // State styles - lighter glass
     const stateStyles = isError || error
-      ? 'border-error-300 focus:border-error-500 focus:ring-error-500/20 dark:border-error-700'
-      : 'border-gray-300 focus:border-primary-500 focus:ring-primary-500/20 dark:border-gray-600';
+      ? 'border-error-500/40 focus:border-error-500/60 focus:ring-error-500/30 bg-error-500/5'
+      : 'border-white/20 focus:border-white/40 focus:ring-white/20 bg-white/5';
 
     // Disabled styles
     const disabledStyles = disabled
-      ? 'bg-gray-100 cursor-not-allowed dark:bg-gray-800'
-      : 'bg-white dark:bg-gray-900';
+      ? 'bg-white/5 cursor-not-allowed opacity-50'
+      : 'hover:bg-white/10';
 
     // Combine styles
     const textareaClasses = `${baseStyles} ${stateStyles} ${disabledStyles} px-4 py-2 text-base ${className}`.trim();
@@ -230,10 +230,10 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         {label && (
           <label
             htmlFor={textareaId}
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+            className="block text-sm font-medium text-gray-200 mb-1.5"
           >
             {label}
-            {required && <span className="text-error-500 ml-1">*</span>}
+            {required && <span className="text-error-400 ml-1">*</span>}
           </label>
         )}
 
@@ -255,7 +255,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         {error && (
           <p
             id={`${textareaId}-error`}
-            className="mt-1.5 text-sm text-error-600 dark:text-error-400"
+            className="mt-1.5 text-sm text-error-400"
           >
             {error}
           </p>
@@ -265,7 +265,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         {!error && helperText && (
           <p
             id={`${textareaId}-helper`}
-            className="mt-1.5 text-sm text-gray-500 dark:text-gray-400"
+            className="mt-1.5 text-sm text-gray-400"
           >
             {helperText}
           </p>

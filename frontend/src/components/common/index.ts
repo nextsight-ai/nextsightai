@@ -14,3 +14,15 @@ export type { BadgeProps, StatusBadgeProps } from './Badge';
 
 export { Input, Textarea } from './Input';
 export type { InputProps, TextareaProps } from './Input';
+
+export { Select } from './Select';
+export type { SelectProps } from './Select';
+
+export { Modal } from './Modal';
+export type { ModalProps } from './Modal';
+
+export { Alert } from './Alert';
+export type { AlertProps } from './Alert';
+
+export { Spinner, FullPageSpinner } from './Spinner';
+export type { SpinnerProps } from './Spinner';
