@@ -28,7 +28,7 @@ websockets==15.0.1
 # See: https://github.com/kubernetes-client/python/issues/2458
 certifi>=2024.12.21  # CVE-2024-56326
 jinja2>=3.1.6  # Multiple CVEs fixed
-cryptography>=44.0.1  # Security fixes
+cryptography>=46.0.5  # Security fixes
 ecdsa>=0.19.1  # CVE-2024-23342 (latest version, no fix available yet)
 
 # Testing
