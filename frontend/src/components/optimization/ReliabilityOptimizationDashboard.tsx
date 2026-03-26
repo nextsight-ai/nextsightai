@@ -13,6 +13,33 @@ import {
 } from '@heroicons/react/24/outline';
 import type { OptimizationDashboardResponse } from '../../types';
 import { reliabilityApi } from '../../services/api';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors, mono } from '../../styles/linear-design';
+
+// Severity inline style maps
+const severityLeftBorder: Record<string, string> = {
+  high: '#ef4444',
+  medium: '#f97316',
+  low: '#3b82f6',
+};
+
+const severityBg: Record<string, string> = {
+  high: 'rgba(239,68,68,0.05)',
+  medium: 'rgba(249,115,22,0.05)',
+  low: 'rgba(59,130,246,0.05)',
+};
+
+const severityBadgeBg: Record<string, string> = {
+  high: 'rgba(239,68,68,0.12)',
+  medium: 'rgba(249,115,22,0.12)',
+  low: 'rgba(59,130,246,0.12)',
+};
+
+const severityBadgeText: Record<string, string> = {
+  high: '#ef4444',
+  medium: '#f97316',
+  low: '#3b82f6',
+};
 
 // Reliability Risk Severity
 type ReliabilitySeverity = 'high' | 'medium' | 'low';
@@ -155,31 +182,10 @@ spec:
   return risks;
 }
 
-// Severity Badge Component
-function SeverityBadge({ severity, isReviewed }: { severity: ReliabilitySeverity; isReviewed?: boolean }) {
-  if (isReviewed) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-green-600 text-white shadow-lg shadow-green-600/30">
-        ✓ REVIEWED
-      </span>
-    );
-  }
-
-  const colors: Record<ReliabilitySeverity, string> = {
-    high: 'bg-red-600 text-white shadow-lg shadow-red-600/30',
-    medium: 'bg-orange-600 text-white shadow-lg shadow-orange-600/30',
-    low: 'bg-blue-600 text-white shadow-lg shadow-blue-600/30',
-  };
-
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded ${colors[severity]}`}>
-      {severity.toUpperCase()}
-    </span>
-  );
-}
-
 // Copy Button Component
 function CopyButton({ text }: { text: string }) {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -191,14 +197,23 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
       title="Copy to clipboard"
+      style={{
+        background: t.mainBg,
+        border: `1px solid ${t.cardBorder}`,
+        borderRadius: 4,
+        padding: 6,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        color: t.textSub,
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = t.navHoverBg)}
+      onMouseLeave={(e) => (e.currentTarget.style.background = t.mainBg)}
     >
-      {copied ? (
-        <CheckIcon className="h-4 w-4 text-green-500" />
-      ) : (
-        <ClipboardDocumentIcon className="h-4 w-4 text-gray-400" />
-      )}
+      {copied
+        ? <CheckIcon style={{ width: 14, height: 14, color: '#4ade80' }} />
+        : <ClipboardDocumentIcon style={{ width: 14, height: 14 }} />}
     </button>
   );
 }
@@ -209,19 +224,9 @@ function ReliabilityRiskCard({ risk, onMarkReviewed, isReviewed }: {
   onMarkReviewed: () => void;
   isReviewed: boolean;
 }) {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
   const [isExpanded, setIsExpanded] = useState(false);
-
-  const severityColors = {
-    high: 'border-l-4 border-l-red-500 dark:border-l-red-400 border border-red-100 dark:border-red-900/30',
-    medium: 'border-l-4 border-l-orange-500 dark:border-l-orange-400 border border-orange-100 dark:border-orange-900/30',
-    low: 'border-l-4 border-l-blue-500 dark:border-l-blue-400 border border-blue-100 dark:border-blue-900/30',
-  };
-
-  const severityBgColors = {
-    high: 'bg-gradient-to-r from-red-50 to-white dark:from-red-950/20 dark:to-slate-800',
-    medium: 'bg-gradient-to-r from-orange-50 to-white dark:from-orange-950/20 dark:to-slate-800',
-    low: 'bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/20 dark:to-slate-800',
-  };
 
   const riskTypeLabels = {
     single_replica: 'Single Replica',
@@ -230,142 +235,248 @@ function ReliabilityRiskCard({ risk, onMarkReviewed, isReviewed }: {
     missing_pdb: 'No PDB',
   };
 
+  const sev = risk.severity;
+
+  const confidenceColor = risk.confidence_level === 'high' ? '#4ade80' : '#fbbf24';
+  const safeColor = risk.safe_to_apply ? '#4ade80' : '#f97316';
+  const prodImpactColor =
+    risk.production_impact === 'low' ? '#4ade80' :
+    risk.production_impact === 'medium' ? '#fbbf24' : '#ef4444';
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 5 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`rounded-lg overflow-hidden ${
-        isReviewed
-          ? 'border-l-4 border-l-green-500 dark:border-l-green-400 border border-green-100 dark:border-green-900/30 bg-gradient-to-r from-green-50 to-white dark:from-green-950/20 dark:to-slate-800'
-          : `${severityColors[risk.severity]} ${severityBgColors[risk.severity]}`
-      }`}
+      style={{
+        borderRadius: 10,
+        overflow: 'hidden',
+        border: `1px solid ${t.cardBorder}`,
+        borderLeft: `3px solid ${isReviewed ? '#4ade80' : severityLeftBorder[sev]}`,
+        background: isReviewed ? 'rgba(34,197,94,0.05)' : severityBg[sev],
+        marginBottom: 8,
+      }}
     >
       {/* Compact Header - Always Visible */}
-      <div className="flex items-center justify-between p-3">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <SeverityBadge severity={risk.severity} isReviewed={isReviewed} />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-sm font-bold text-gray-900 dark:text-white truncate">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '2px 8px',
+            borderRadius: 9999,
+            fontSize: 10,
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            background: isReviewed ? 'rgba(34,197,94,0.12)' : severityBadgeBg[sev],
+            color: isReviewed ? '#4ade80' : severityBadgeText[sev],
+          }}>
+            {isReviewed ? '✓ Reviewed' : sev}
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ ...mono, fontSize: 12, fontWeight: 600, color: t.text }}>
                 {risk.workload_name}
               </span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+              <span style={{
+                padding: '2px 6px',
+                borderRadius: 4,
+                fontSize: 10,
+                background: t.mainBg,
+                color: t.textSub,
+              }}>
                 {riskTypeLabels[risk.risk_type]}
               </span>
             </div>
-            <div className="text-[10px] text-gray-600 dark:text-gray-400">
+            <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
               {risk.namespace} • {risk.workload_type}
             </div>
           </div>
         </div>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 4,
+            borderRadius: 4,
+            color: t.textMuted,
+            display: 'flex',
+            alignItems: 'center',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = t.navHoverBg)}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
         >
-          {isExpanded ? (
-            <ChevronUpIcon className="h-4 w-4 text-gray-500" />
-          ) : (
-            <ChevronDownIcon className="h-4 w-4 text-gray-500" />
-          )}
+          {isExpanded
+            ? <ChevronUpIcon style={{ width: 14, height: 14 }} />
+            : <ChevronDownIcon style={{ width: 14, height: 14 }} />}
         </button>
       </div>
 
-      {/* Quick Preview - Always Visible */}
-      <div className="px-3 pb-3">
-        <div className="text-xs text-gray-700 dark:text-gray-300">
-          <span className="font-medium">⚠️ {risk.risk}</span>
-        </div>
+      {/* Quick Preview */}
+      <div style={{ padding: '0 16px 10px', fontSize: 11, color: t.textSub }}>
+        ⚠️ {risk.risk}
       </div>
 
       {/* Expanded Details */}
       {isExpanded && (
-        <div className="px-3 pb-3 pt-0 border-t border-gray-200/50 dark:border-gray-700/50 space-y-3">
+        <div style={{
+          borderTop: `1px solid ${t.cardBorder}`,
+          padding: '12px 16px',
+          background: t.cardBg,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+        }}>
           {/* Observation */}
           <div>
-            <div className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
-              <EyeIcon className="h-3.5 w-3.5" />
-              Observation
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+              <EyeIcon style={{ width: 12, height: 12, color: t.textMuted }} />
+              <span style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Observation</span>
             </div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">{risk.observation}</div>
+            <div style={{ fontSize: 11, color: t.textSub }}>{risk.observation}</div>
           </div>
 
           {/* Impact */}
-          <div className="p-2 rounded bg-red-50 dark:bg-red-900/20">
-            <div className="text-xs font-bold text-red-700 dark:text-red-300 mb-1">📉 Impact</div>
-            <ul className="text-[10px] text-red-700 dark:text-red-300 space-y-0.5">
+          <div style={{
+            background: 'rgba(239,68,68,0.07)',
+            border: '1px solid rgba(239,68,68,0.15)',
+            borderRadius: 8,
+            padding: '10px 14px',
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#ef4444', marginBottom: 6 }}>📉 Impact</div>
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 2 }}>
               {risk.impact.map((item, idx) => (
-                <li key={idx}>• {item}</li>
+                <li key={idx} style={{ fontSize: 10, color: '#ef4444' }}>• {item}</li>
               ))}
             </ul>
           </div>
 
-          {/* AI Recommendation */}
-          <div className="p-2 rounded bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200/50 dark:border-purple-700/50">
-            <div className="text-xs font-bold text-purple-800 dark:text-purple-300 mb-1">💡 AI Recommendation</div>
-            <div className="text-xs text-gray-700 dark:text-gray-300 font-medium mb-1">
-              {risk.recommendation}
-            </div>
-            <div className="text-[10px] text-purple-700 dark:text-purple-400">
+          {/* AI Recommendation + Why */}
+          <div style={{
+            background: 'rgba(139,92,246,0.08)',
+            border: '1px solid rgba(139,92,246,0.15)',
+            borderRadius: 8,
+            padding: '10px 14px',
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#a78bfa', marginBottom: 6 }}>💡 AI Recommendation</div>
+            <div style={{ fontSize: 11, color: t.text, fontWeight: 500, marginBottom: 4 }}>{risk.recommendation}</div>
+            <div style={{ fontSize: 10, color: '#a78bfa' }}>
               <strong>Why:</strong> {risk.recommendation_why}
             </div>
           </div>
 
-          {/* Confidence */}
-          <div className="flex gap-2 text-[10px]">
-            <div className="flex-1 p-2 rounded bg-blue-50 dark:bg-blue-900/20">
-              <div className="text-gray-500 dark:text-gray-400 mb-0.5">Confidence</div>
-              <div className={`font-bold ${
-                risk.confidence_level === 'high' ? 'text-green-600' : 'text-amber-600'
-              }`}>
+          {/* Meta pills: Confidence / Safe to Apply / Prod Impact */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{
+              flex: 1,
+              background: t.mainBg,
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 8,
+              padding: '8px 12px',
+            }}>
+              <div style={{ fontSize: 9, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>Confidence</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: confidenceColor }}>
                 {risk.confidence_level.toUpperCase()}
               </div>
             </div>
-            <div className="flex-1 p-2 rounded bg-blue-50 dark:bg-blue-900/20">
-              <div className="text-gray-500 dark:text-gray-400 mb-0.5">Safe to Apply</div>
-              <div className={`font-bold ${risk.safe_to_apply ? 'text-green-600' : 'text-orange-600'}`}>
+            <div style={{
+              flex: 1,
+              background: t.mainBg,
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 8,
+              padding: '8px 12px',
+            }}>
+              <div style={{ fontSize: 9, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>Safe to Apply</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: safeColor }}>
                 {risk.safe_to_apply ? 'YES' : 'NEEDS REVIEW'}
               </div>
             </div>
-            <div className="flex-1 p-2 rounded bg-blue-50 dark:bg-blue-900/20">
-              <div className="text-gray-500 dark:text-gray-400 mb-0.5">Impact</div>
-              <div className={`font-bold ${
-                risk.production_impact === 'low' ? 'text-green-600' :
-                risk.production_impact === 'medium' ? 'text-amber-600' : 'text-red-600'
-              }`}>
+            <div style={{
+              flex: 1,
+              background: t.mainBg,
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 8,
+              padding: '8px 12px',
+            }}>
+              <div style={{ fontSize: 9, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 }}>Prod Impact</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: prodImpactColor }}>
                 {risk.production_impact.toUpperCase()}
               </div>
             </div>
           </div>
 
-          {/* YAML Suggestion */}
+          {/* YAML code block */}
           {risk.yaml_suggestion && (
-            <div className="relative">
-              <pre className="p-3 rounded-lg bg-gray-900 dark:bg-gray-950 text-gray-100 text-[10px] font-mono overflow-x-auto max-h-48 overflow-y-auto">
-                {risk.yaml_suggestion}
-              </pre>
-              <div className="absolute top-2 right-2">
+            <div style={{ position: 'relative' }}>
+              <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}>
                 <CopyButton text={risk.yaml_suggestion} />
               </div>
+              <pre style={{
+                background: '#0d0d0d',
+                borderRadius: 8,
+                padding: '10px 14px',
+                paddingRight: 44,
+                color: '#4ade80',
+                fontSize: 10,
+                fontFamily: mono.fontFamily,
+                overflowX: 'auto',
+                overflowY: 'auto',
+                maxHeight: 192,
+                margin: 0,
+                whiteSpace: 'pre',
+              }}>
+                {risk.yaml_suggestion}
+              </pre>
             </div>
           )}
 
           {/* Actions */}
-          <div className="flex items-center gap-2 pt-2">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4 }}>
             {risk.yaml_suggestion && (
               <button
                 onClick={() => navigator.clipboard.writeText(risk.yaml_suggestion!)}
-                className="flex items-center gap-1 px-2 py-1 rounded bg-purple-600 text-white hover:bg-purple-700 text-[10px] font-medium"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '4px 10px',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  borderRadius: 4,
+                  background: 'rgba(139,92,246,0.15)',
+                  border: '1px solid rgba(139,92,246,0.3)',
+                  color: '#a78bfa',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(139,92,246,0.25)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(139,92,246,0.15)')}
               >
-                <ClipboardDocumentIcon className="h-3 w-3" />
+                <ClipboardDocumentIcon style={{ width: 10, height: 10 }} />
                 Copy YAML
               </button>
             )}
             {!isReviewed && (
               <button
                 onClick={onMarkReviewed}
-                className="flex items-center gap-1 px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 text-[10px] font-medium"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '4px 10px',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  borderRadius: 4,
+                  background: 'rgba(34,197,94,0.15)',
+                  border: '1px solid rgba(34,197,94,0.3)',
+                  color: '#4ade80',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(34,197,94,0.25)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(34,197,94,0.15)')}
               >
-                <CheckCircleIcon className="h-3 w-3" />
+                <CheckCircleIcon style={{ width: 10, height: 10 }} />
                 Mark Reviewed
               </button>
             )}
@@ -384,6 +495,9 @@ export default function ReliabilityOptimizationDashboard({
   dashboardData: OptimizationDashboardResponse;
   isAnalyzing?: boolean;
 }) {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+
   const [reliabilityRisks, setReliabilityRisks] = useState<ReliabilityRisk[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSeverity, setSelectedSeverity] = useState<ReliabilitySeverity | 'all'>('all');
@@ -438,84 +552,91 @@ export default function ReliabilityOptimizationDashboard({
     setMarkedReviewed(prev => new Set([...prev, id]));
   };
 
+  const selectStyle: React.CSSProperties = {
+    background: t.mainBg,
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 6,
+    padding: '5px 8px',
+    fontSize: 11,
+    color: t.text,
+    outline: 'none',
+    cursor: 'pointer',
+  };
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <ArrowPathIcon className="h-8 w-8 animate-spin text-gray-400" />
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 256 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <ArrowPathIcon style={{
+            width: 32,
+            height: 32,
+            color: t.textMuted,
+            animation: 'spin 1s linear infinite',
+          }} />
+          <span style={{ fontSize: 11, color: t.textMuted }}>Loading reliability analysis…</span>
+          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Fixed Header */}
-      <div className="flex-shrink-0 space-y-4 mb-4">
-        {/* Compact Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Reliability Risk Analysis</h2>
-            <p className="text-xs text-gray-600 dark:text-gray-400">Detect configuration and runtime risks</p>
-          </div>
-          {isAnalyzing ? (
-            <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300">
-              <ArrowPathIcon className="h-3 w-3 animate-spin" />
-              Analyzing...
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-xs text-blue-700 dark:text-blue-300">
-              <ShieldCheckIcon className="h-3 w-3" />
-              {summary.high_risk} high-risk workloads
-            </div>
-          )}
-        </div>
+      <div style={{ flexShrink: 0, marginBottom: 16 }}>
 
-        {/* Compact Summary */}
-        <div className="grid grid-cols-4 gap-3 p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700">
-          <div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Workloads</div>
-            <div className="text-xl font-bold text-gray-900 dark:text-white">{summary.workloads_analyzed}</div>
+        {/* Summary Strip — 4 stat cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 12 }}>
+          {/* Workloads */}
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Workloads</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: t.text, marginTop: 4, ...mono }}>{summary.workloads_analyzed}</div>
           </div>
-          <div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Total Risks</div>
-            <div className="text-xl font-bold text-orange-600 dark:text-orange-400">{summary.total_risks}</div>
+          {/* Total Risks */}
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Risks</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#f97316', marginTop: 4, ...mono }}>{summary.total_risks}</div>
           </div>
-          <div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">High-Risk</div>
-            <div className="text-xl font-bold text-red-600 dark:text-red-400">{summary.high_risk}</div>
+          {/* High-Risk */}
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>High-Risk</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#ef4444', marginTop: 4, ...mono }}>{summary.high_risk}</div>
           </div>
-          <div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Outage Risk</div>
-            <div className="text-xl font-bold text-purple-600 dark:text-purple-400">{summary.potential_outages}</div>
+          {/* Outage Risk */}
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Outage Risk</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#a78bfa', marginTop: 4, ...mono }}>{summary.potential_outages}</div>
           </div>
         </div>
 
-        {/* Compact Filters */}
-        <div className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-          <FunnelIcon className="h-4 w-4 text-gray-500" />
+        {/* Filter Bar */}
+        <div style={{
+          background: t.cardBg,
+          border: `1px solid ${t.cardBorder}`,
+          borderRadius: 12,
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexWrap: 'wrap',
+        }}>
+          <FunnelIcon style={{ width: 14, height: 14, color: t.textMuted, flexShrink: 0 }} />
           <select
             value={selectedSeverity}
             onChange={(e) => setSelectedSeverity(e.target.value as ReliabilitySeverity | 'all')}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
+            style={selectStyle}
           >
             <option value="all">All Severities</option>
             <option value="high">High</option>
             <option value="medium">Medium</option>
             <option value="low">Low</option>
           </select>
-          <select
-            value={selectedNamespace}
-            onChange={(e) => setSelectedNamespace(e.target.value)}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-          >
+          <select value={selectedNamespace} onChange={(e) => setSelectedNamespace(e.target.value)} style={selectStyle}>
             {namespaces.map(ns => (
               <option key={ns} value={ns}>{ns === 'all' ? 'All Namespaces' : ns}</option>
             ))}
           </select>
-          <select
-            value={selectedWorkloadType}
-            onChange={(e) => setSelectedWorkloadType(e.target.value)}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-          >
+          <select value={selectedWorkloadType} onChange={(e) => setSelectedWorkloadType(e.target.value)} style={selectStyle}>
             {workloadTypes.map(type => (
               <option key={type} value={type}>{type === 'all' ? 'All Types' : type}</option>
             ))}
@@ -523,20 +644,28 @@ export default function ReliabilityOptimizationDashboard({
           <select
             value={safeToApplyFilter}
             onChange={(e) => setSafeToApplyFilter(e.target.value as 'all' | 'yes' | 'needs_review')}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
+            style={selectStyle}
           >
             <option value="all">All</option>
             <option value="yes">Safe to Apply</option>
             <option value="needs_review">Needs Review</option>
           </select>
-          <div className="ml-auto text-xs text-gray-500 dark:text-gray-400">
-            {filteredRisks.length - markedReviewed.size} pending
+          <div style={{ marginLeft: 'auto', fontSize: 11, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <ShieldCheckIcon style={{ width: 12, height: 12 }} />
+            {isAnalyzing ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <ArrowPathIcon style={{ width: 11, height: 11, animation: 'spin 1s linear infinite' }} />
+                Analyzing…
+              </span>
+            ) : (
+              `${filteredRisks.length - markedReviewed.size} pending`
+            )}
           </div>
         </div>
       </div>
 
       {/* Scrollable Risk Cards */}
-      <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+      <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
         {filteredRisks.length > 0 ? (
           filteredRisks.map((risk) => (
             <ReliabilityRiskCard
@@ -547,16 +676,30 @@ export default function ReliabilityOptimizationDashboard({
             />
           ))
         ) : (
-          <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700">
-            <CheckCircleIcon className="h-12 w-12 mx-auto mb-3 text-green-500" />
-            <p className="text-gray-600 dark:text-gray-400">No reliability risks found with the current filters</p>
+          <div style={{
+            textAlign: 'center',
+            padding: '48px 0',
+            background: t.cardBg,
+            border: `1px solid ${t.cardBorder}`,
+            borderRadius: 12,
+          }}>
+            <CheckCircleIcon style={{ width: 40, height: 40, margin: '0 auto 8px', color: '#4ade80' }} />
+            <p style={{ fontSize: 12, color: t.textSub, margin: 0 }}>No reliability risks found with the current filters</p>
           </div>
         )}
       </div>
 
-      {/* Fixed Footer Disclaimer */}
-      <div className="flex-shrink-0 mt-4 p-2 rounded bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
-        <p className="text-[10px] text-gray-600 dark:text-gray-400 text-center">
+      {/* Footer Disclaimer */}
+      <div style={{
+        flexShrink: 0,
+        marginTop: 12,
+        padding: '8px 16px',
+        background: t.mainBg,
+        border: `1px solid ${t.cardBorder}`,
+        borderRadius: 8,
+        textAlign: 'center',
+      }}>
+        <p style={{ fontSize: 10, color: t.textMuted, margin: 0 }}>
           Reliability recommendations based on Kubernetes best practices • Validate in staging before production
         </p>
       </div>

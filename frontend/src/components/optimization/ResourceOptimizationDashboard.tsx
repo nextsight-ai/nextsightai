@@ -1,42 +1,46 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   ExclamationTriangleIcon,
   ClipboardDocumentIcon,
-  ChartBarIcon,
   CheckCircleIcon,
   FunnelIcon,
-  InformationCircleIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  CpuChipIcon,
-  CircleStackIcon,
   CurrencyDollarIcon,
-  ArrowTrendingDownIcon,
 } from '@heroicons/react/24/outline';
-import type { OptimizationDashboardResponse, PodOptimization, OptimizationRecommendation } from '../../types';
+import type { OptimizationDashboardResponse } from '../../types';
 import { formatBytes } from '../../utils/constants';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors, mono } from '../../styles/linear-design';
 
-// Severity colors for left border
-const severityColors = {
-  critical: 'border-l-4 border-l-red-500 dark:border-l-red-400 border border-red-100 dark:border-red-900/30',
-  high: 'border-l-4 border-l-orange-500 dark:border-l-orange-400 border border-orange-100 dark:border-orange-900/30',
-  medium: 'border-l-4 border-l-amber-500 dark:border-l-amber-400 border border-amber-100 dark:border-amber-900/30',
-  low: 'border-l-4 border-l-blue-500 dark:border-l-blue-400 border border-blue-100 dark:border-blue-900/30',
+// Severity inline style maps
+const severityLeftBorder: Record<string, string> = {
+  critical: '#ef4444',
+  high: '#f97316',
+  medium: '#eab308',
+  low: '#3b82f6',
 };
 
-const severityBgColors = {
-  critical: 'bg-gradient-to-r from-red-50 to-white dark:from-red-950/20 dark:to-slate-800',
-  high: 'bg-gradient-to-r from-orange-50 to-white dark:from-orange-950/20 dark:to-slate-800',
-  medium: 'bg-gradient-to-r from-amber-50 to-white dark:from-amber-950/20 dark:to-slate-800',
-  low: 'bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/20 dark:to-slate-800',
+const severityBg: Record<string, string> = {
+  critical: 'rgba(239,68,68,0.05)',
+  high: 'rgba(249,115,22,0.05)',
+  medium: 'rgba(234,179,8,0.05)',
+  low: 'rgba(59,130,246,0.05)',
 };
 
-const severityBadgeColors = {
-  critical: 'bg-red-600 text-white shadow-lg shadow-red-600/30',
-  high: 'bg-orange-600 text-white shadow-lg shadow-orange-600/30',
-  medium: 'bg-amber-600 text-white shadow-lg shadow-amber-600/30',
-  low: 'bg-blue-600 text-white shadow-lg shadow-blue-600/30',
+const severityBadgeBg: Record<string, string> = {
+  critical: 'rgba(239,68,68,0.12)',
+  high: 'rgba(249,115,22,0.12)',
+  medium: 'rgba(234,179,8,0.12)',
+  low: 'rgba(59,130,246,0.12)',
+};
+
+const severityBadgeText: Record<string, string> = {
+  critical: '#ef4444',
+  high: '#f97316',
+  medium: '#eab308',
+  low: '#3b82f6',
 };
 
 type Severity = 'critical' | 'high' | 'medium' | 'low';
@@ -178,6 +182,8 @@ function OptimizationCard({ optimization, isExpanded, onToggle, isReviewed, onMa
   isReviewed: boolean;
   onMarkReviewed: () => void;
 }) {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -196,40 +202,73 @@ function OptimizationCard({ optimization, isExpanded, onToggle, isReviewed, onMa
     no_requests: '🔴 No Requests',
   };
 
+  const sev = optimization.severity;
+  const borderColor = severityLeftBorder[sev];
+  const bg = isReviewed ? t.cardBg : severityBg[sev];
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`rounded-lg overflow-hidden ${severityColors[optimization.severity]} ${severityBgColors[optimization.severity]} ${
-        isReviewed ? 'opacity-60' : ''
-      }`}
+      style={{
+        borderRadius: 10,
+        overflow: 'hidden',
+        border: `1px solid ${t.cardBorder}`,
+        borderLeft: `3px solid ${borderColor}`,
+        background: bg,
+        marginBottom: 8,
+        opacity: isReviewed ? 0.65 : 1,
+      }}
     >
       {/* Compact Header - Always Visible */}
-      <div className="flex items-center justify-between p-3">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
           {/* Severity Badge */}
-          <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase ${severityBadgeColors[optimization.severity]} ${
-            isReviewed ? 'line-through' : ''
-          }`}>
-            {optimization.severity}
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '2px 8px',
+            borderRadius: 9999,
+            fontSize: 10,
+            fontWeight: 600,
+            background: severityBadgeBg[sev],
+            color: severityBadgeText[sev],
+            textDecoration: isReviewed ? 'line-through' : 'none',
+            textTransform: 'uppercase',
+          }}>
+            {sev}
           </span>
 
           {/* Workload Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-sm font-bold text-gray-900 dark:text-white">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ ...mono, fontSize: 12, fontWeight: 600, color: t.text }}>
                 {optimization.workload_name}
               </span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300">
+              <span style={{
+                padding: '2px 6px',
+                borderRadius: 4,
+                fontSize: 10,
+                background: t.mainBg,
+                color: t.textSub,
+              }}>
                 {optimizationTypeLabels[optimization.optimization_type]}
               </span>
               {optimization.estimated_savings > 0 && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-medium">
+                <span style={{
+                  padding: '2px 6px',
+                  borderRadius: 4,
+                  fontSize: 10,
+                  fontWeight: 500,
+                  background: 'rgba(34,197,94,0.12)',
+                  color: '#4ade80',
+                }}>
                   💰 {formatCurrency(optimization.estimated_savings)}/mo
                 </span>
               )}
             </div>
-            <div className="text-[10px] text-gray-600 dark:text-gray-400">
+            <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
               {optimization.namespace} • {optimization.workload_type}
               {optimization.efficiency_score !== undefined && ` • ${optimization.efficiency_score.toFixed(0)}% efficiency`}
             </div>
@@ -239,90 +278,136 @@ function OptimizationCard({ optimization, isExpanded, onToggle, isReviewed, onMa
         {/* Expand/Collapse Button */}
         <button
           onClick={onToggle}
-          className="p-1 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition-colors"
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 4,
+            borderRadius: 4,
+            color: t.textMuted,
+            display: 'flex',
+            alignItems: 'center',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = t.navHoverBg)}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
         >
-          {isExpanded ? (
-            <ChevronUpIcon className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-          ) : (
-            <ChevronDownIcon className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-          )}
+          {isExpanded
+            ? <ChevronUpIcon style={{ width: 14, height: 14 }} />
+            : <ChevronDownIcon style={{ width: 14, height: 14 }} />}
         </button>
       </div>
 
-      {/* Quick Preview - Always Visible */}
-      <div className="px-3 pb-3 text-xs text-gray-700 dark:text-gray-300">
+      {/* Quick Preview */}
+      <div style={{ padding: '0 16px 10px', fontSize: 11, color: t.textSub }}>
         ⚠️ {optimization.issue}
       </div>
 
       {/* Expanded Details */}
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="border-t border-gray-200 dark:border-slate-700"
-          >
-            <div className="p-4 space-y-3 bg-white/50 dark:bg-slate-900/50">
-              {/* Current State */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Current State:</h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400">{optimization.current_state}</p>
-              </div>
-
-              {/* Recommendation */}
-              <div>
-                <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Recommendation:</h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400">{optimization.recommendation}</p>
-              </div>
-
-              {/* Kubectl Command */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300">Kubectl Command:</h4>
-                  <button
-                    onClick={handleCopy}
-                    className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
-                  >
-                    <ClipboardDocumentIcon className="h-3 w-3" />
-                    {copied ? '✓ Copied' : 'Copy'}
-                  </button>
-                </div>
-                <pre className="text-[10px] bg-gray-900 dark:bg-black text-green-400 p-2 rounded overflow-x-auto">
-                  {optimization.kubectl_command}
-                </pre>
-              </div>
-
-              {/* Safety & Actions */}
-              <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-slate-700">
-                <div className="flex items-center gap-2">
-                  {optimization.safe_to_apply ? (
-                    <span className="text-[10px] text-green-600 dark:text-green-400 flex items-center gap-1">
-                      <CheckCircleIcon className="h-3 w-3" />
-                      Safe to apply
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-orange-600 dark:text-orange-400 flex items-center gap-1">
-                      <ExclamationTriangleIcon className="h-3 w-3" />
-                      Review carefully before applying
-                    </span>
-                  )}
-                </div>
-
-                {!isReviewed && (
-                  <button
-                    onClick={onMarkReviewed}
-                    className="px-3 py-1 text-[10px] font-medium rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-                  >
-                    Mark Reviewed
-                  </button>
-                )}
-              </div>
+      {isExpanded && (
+        <div style={{
+          borderTop: `1px solid ${t.cardBorder}`,
+          padding: '12px 16px',
+          background: t.cardBg,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+        }}>
+          {/* Current State */}
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
+              Current State
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <div style={{ fontSize: 11, color: t.textSub }}>{optimization.current_state}</div>
+          </div>
+
+          {/* Recommendation */}
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
+              Recommendation
+            </div>
+            <div style={{ fontSize: 11, color: t.textSub }}>{optimization.recommendation}</div>
+          </div>
+
+          {/* Kubectl Command */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Kubectl Command
+              </div>
+              <button
+                onClick={handleCopy}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '3px 8px',
+                  fontSize: 10,
+                  borderRadius: 4,
+                  background: t.mainBg,
+                  border: `1px solid ${t.cardBorder}`,
+                  color: t.textSub,
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = t.navHoverBg)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = t.mainBg)}
+              >
+                <ClipboardDocumentIcon style={{ width: 10, height: 10 }} />
+                {copied ? '✓ Copied' : 'Copy'}
+              </button>
+            </div>
+            <pre style={{
+              background: '#0d0d0d',
+              borderRadius: 8,
+              padding: '10px 14px',
+              color: '#4ade80',
+              fontSize: 10,
+              fontFamily: mono.fontFamily,
+              overflowX: 'auto',
+              margin: 0,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+            }}>
+              {optimization.kubectl_command}
+            </pre>
+          </div>
+
+          {/* Footer: safety + mark reviewed */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: `1px solid ${t.cardBorder}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              {optimization.safe_to_apply ? (
+                <>
+                  <CheckCircleIcon style={{ width: 12, height: 12, color: '#4ade80' }} />
+                  <span style={{ fontSize: 10, color: '#4ade80' }}>Safe to apply</span>
+                </>
+              ) : (
+                <>
+                  <ExclamationTriangleIcon style={{ width: 12, height: 12, color: '#f97316' }} />
+                  <span style={{ fontSize: 10, color: '#f97316' }}>Review carefully before applying</span>
+                </>
+              )}
+            </div>
+            {!isReviewed && (
+              <button
+                onClick={onMarkReviewed}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  borderRadius: 4,
+                  background: 'rgba(59,130,246,0.15)',
+                  border: '1px solid rgba(59,130,246,0.3)',
+                  color: '#60a5fa',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(59,130,246,0.25)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(59,130,246,0.15)')}
+              >
+                Mark Reviewed
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -332,6 +417,9 @@ export default function ResourceOptimizationDashboard({
 }: {
   dashboardData: OptimizationDashboardResponse
 }) {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+
   // Filters
   const [filterNamespace, setFilterNamespace] = useState<string>('all');
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
@@ -345,7 +433,6 @@ export default function ResourceOptimizationDashboard({
 
   // Get unique values for filters
   const namespaces = Array.from(new Set(optimizations.map(o => o.namespace))).sort();
-  const optimizationTypes = Array.from(new Set(optimizations.map(o => o.optimization_type)));
 
   // Apply filters
   const filteredOptimizations = optimizations.filter(opt => {
@@ -373,92 +460,94 @@ export default function ResourceOptimizationDashboard({
 
   const totalSavings = filteredOptimizations.reduce((sum, opt) => sum + opt.estimated_savings, 0);
   const reviewedCount = filteredOptimizations.filter(opt => markedReviewed.has(opt.id)).length;
+  const criticalHighCount = filteredOptimizations.filter(o => o.severity === 'critical' || o.severity === 'high').length;
+
+  const selectStyle: React.CSSProperties = {
+    background: t.mainBg,
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 6,
+    padding: '5px 8px',
+    fontSize: 11,
+    color: t.text,
+    outline: 'none',
+    cursor: 'pointer',
+  };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Fixed Header */}
-      <div className="flex-shrink-0 space-y-4 mb-4">
-        {/* Compact Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Resource Efficiency Analysis</h2>
-            <p className="text-xs text-gray-600 dark:text-gray-400">Right-size workloads and reduce waste</p>
-          </div>
-          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-green-50 dark:bg-green-900/20 text-xs text-green-700 dark:text-green-300">
-            <CurrencyDollarIcon className="h-3 w-3" />
-            {formatCurrency(totalSavings)}/mo potential savings
-          </div>
-        </div>
+      <div style={{ flexShrink: 0, marginBottom: 16 }}>
 
-        {/* Compact Summary */}
-        <div className="grid grid-cols-4 gap-3 p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700">
-          <div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Total Issues</div>
-            <div className="text-xl font-bold text-gray-900 dark:text-white">{filteredOptimizations.length}</div>
+        {/* Summary Strip — 4 stat cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 12 }}>
+          {/* Total Issues */}
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Issues</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: t.text, marginTop: 4, ...mono }}>{filteredOptimizations.length}</div>
           </div>
-          <div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Reviewed</div>
-            <div className="text-xl font-bold text-blue-600">{reviewedCount}</div>
+          {/* Reviewed */}
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Reviewed</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: t.info, marginTop: 4, ...mono }}>{reviewedCount}</div>
           </div>
-          <div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Critical/High</div>
-            <div className="text-xl font-bold text-red-600">
-              {filteredOptimizations.filter(o => o.severity === 'critical' || o.severity === 'high').length}
+          {/* Critical/High */}
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Critical / High</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#ef4444', marginTop: 4, ...mono }}>{criticalHighCount}</div>
+          </div>
+          {/* Potential Savings */}
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Potential Savings</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#4ade80', marginTop: 4, ...mono }}>
+              {formatCurrency(totalSavings)}<span style={{ fontSize: 11, fontWeight: 400 }}>/mo</span>
             </div>
           </div>
-          <div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Potential Savings</div>
-            <div className="text-xl font-bold text-green-600">{formatCurrency(totalSavings)}/mo</div>
-          </div>
         </div>
 
-        {/* Compact Filters */}
-        <div className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-          <FunnelIcon className="h-4 w-4 text-gray-500" />
-          <select
-            value={filterSeverity}
-            onChange={(e) => setFilterSeverity(e.target.value)}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-          >
+        {/* Filter Bar */}
+        <div style={{
+          background: t.cardBg,
+          border: `1px solid ${t.cardBorder}`,
+          borderRadius: 12,
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}>
+          <FunnelIcon style={{ width: 14, height: 14, color: t.textMuted, flexShrink: 0 }} />
+          <select value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value)} style={selectStyle}>
             <option value="all">All Severities</option>
             <option value="critical">Critical</option>
             <option value="high">High</option>
             <option value="medium">Medium</option>
             <option value="low">Low</option>
           </select>
-          <select
-            value={filterNamespace}
-            onChange={(e) => setFilterNamespace(e.target.value)}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-          >
+          <select value={filterNamespace} onChange={(e) => setFilterNamespace(e.target.value)} style={selectStyle}>
             <option value="all">All Namespaces</option>
             {namespaces.map(ns => (
               <option key={ns} value={ns}>{ns}</option>
             ))}
           </select>
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-          >
+          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} style={selectStyle}>
             <option value="all">All Types</option>
             <option value="over_provisioned">Over-provisioned</option>
             <option value="idle_resource">Idle Resources</option>
             <option value="no_limits">Missing Limits</option>
             <option value="no_requests">Missing Requests</option>
           </select>
-          <div className="ml-auto text-xs text-gray-500 dark:text-gray-400">
+          <div style={{ marginLeft: 'auto', fontSize: 11, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <CurrencyDollarIcon style={{ width: 12, height: 12 }} />
             {filteredOptimizations.length - reviewedCount} pending
           </div>
         </div>
       </div>
 
       {/* Scrollable Cards Section */}
-      <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+      <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
         {filteredOptimizations.length === 0 ? (
-          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-            <CheckCircleIcon className="h-12 w-12 mx-auto mb-2 text-green-500" />
-            <p>No optimization opportunities found with current filters</p>
+          <div style={{ textAlign: 'center', padding: '48px 0', color: t.textMuted }}>
+            <CheckCircleIcon style={{ width: 40, height: 40, margin: '0 auto 8px', color: '#4ade80' }} />
+            <p style={{ fontSize: 12 }}>No optimization opportunities found with current filters</p>
           </div>
         ) : (
           filteredOptimizations.map(optimization => (
@@ -474,9 +563,17 @@ export default function ResourceOptimizationDashboard({
         )}
       </div>
 
-      {/* Fixed Footer Disclaimer */}
-      <div className="flex-shrink-0 mt-4 p-2 rounded bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
-        <p className="text-[10px] text-gray-600 dark:text-gray-400 text-center">
+      {/* Footer Disclaimer */}
+      <div style={{
+        flexShrink: 0,
+        marginTop: 12,
+        padding: '8px 16px',
+        background: t.mainBg,
+        border: `1px solid ${t.cardBorder}`,
+        borderRadius: 8,
+        textAlign: 'center',
+      }}>
+        <p style={{ fontSize: 10, color: t.textMuted, margin: 0 }}>
           Resource efficiency recommendations based on current usage patterns • Validate in staging before production
         </p>
       </div>

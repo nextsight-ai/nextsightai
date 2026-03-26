@@ -65,14 +65,14 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
           <h2 style={{
             fontSize: s.title,
             fontWeight: 500,
-            color: '#fafafa',
+            color: 'var(--text-primary)',
             margin: 0,
             marginBottom: subtitle ? 4 : 0,
           }}>
             {title}
           </h2>
           {subtitle && (
-            <p style={{ fontSize: s.subtitle, color: '#525252', margin: 0 }}>
+            <p style={{ fontSize: s.subtitle, color: 'var(--text-secondary)', margin: 0 }}>
               {subtitle}
             </p>
           )}

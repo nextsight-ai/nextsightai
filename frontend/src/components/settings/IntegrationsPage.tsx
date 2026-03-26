@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import {
   LinkIcon,
   PlusIcon,
@@ -12,13 +11,13 @@ import {
   CloudIcon,
   BeakerIcon,
   ChartBarIcon,
-  ShieldCheckIcon,
   BellIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
-import PageHeader from '../common/PageHeader';
 import { settingsApi, Integration as ApiIntegration } from '../../services/api';
 import { logger } from '../../utils/logger';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors } from '../../styles/linear-design';
 
 interface Integration {
   id: string;
@@ -72,6 +71,9 @@ const tabs = [
 
 export default function IntegrationsPage() {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +95,6 @@ export default function IntegrationsPage() {
       setError(null);
       const response = await settingsApi.listIntegrations();
 
-      // Transform API response to local format
       const transformed = response.data.map((item: ApiIntegration) => ({
         id: item.id,
         name: item.name,
@@ -102,8 +103,8 @@ export default function IntegrationsPage() {
         icon: iconMap[item.icon?.toLowerCase() || ''] || '🔗',
         status: item.status,
         lastSync: item.last_sync ? new Date(item.last_sync).toLocaleString() : undefined,
-        isManaged: item.is_managed,
-        setupUrl: item.setup_url,
+        isManaged: item.is_managed ?? false,
+        setupUrl: item.setup_url ?? undefined,
         config: item.config as Record<string, string> | undefined,
       }));
 
@@ -117,12 +118,10 @@ export default function IntegrationsPage() {
   };
 
   const handleConnect = async (integration: Integration) => {
-    // For managed integrations, navigate to the setup wizard
     if (integration.isManaged && integration.setupUrl) {
       navigate(integration.setupUrl);
       return;
     }
-    // For external integrations, show connect modal
     setSelectedIntegration(integration);
     setConnectForm({ endpoint: '', apiToken: '' });
     setShowConnectModal(true);
@@ -200,7 +199,6 @@ export default function IntegrationsPage() {
     }
   };
 
-  // Map tab id to category name
   const tabToCategory: Record<string, string | null> = {
     'all': null,
     'source-control': 'Source Control',
@@ -224,159 +222,184 @@ export default function IntegrationsPage() {
     i => !selectedCategory || i.category === selectedCategory
   );
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'Source Control': return LinkIcon;
-      case 'CI/CD': return BeakerIcon;
-      case 'Monitoring': return ChartBarIcon;
-      case 'Logging': return ChartBarIcon;
-      case 'Notifications': return BellIcon;
-      case 'Cloud': return CloudIcon;
-      default: return LinkIcon;
-    }
+  const cardStyle = {
+    background: t.cardBg,
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 12,
+    padding: 16,
+  };
+
+  const inputStyle = {
+    background: 'transparent',
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 6,
+    padding: '6px 10px',
+    color: t.text,
+    fontSize: 13,
+    outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box' as const,
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <ArrowPathIcon className="h-8 w-8 animate-spin text-blue-500" />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 256, background: t.mainBg }}>
+        <ArrowPathIcon style={{ width: 28, height: 28, color: t.info, animation: 'spin 1s linear infinite' }} />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Integrations"
-        description="Connect external services and tools to NextSight AI"
-        icon={LinkIcon}
-        iconColor="blue"
-        actions={
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={fetchIntegrations}
-            className="flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-300 rounded-xl text-sm font-medium"
-          >
-            <ArrowPathIcon className="h-4 w-4" />
-            Refresh
-          </motion.button>
-        }
-      />
+    <div style={{ color: t.text }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+            <LinkIcon style={{ width: 22, height: 22, color: t.info }} />
+            <h1 style={{ fontSize: 20, fontWeight: 600, color: t.text, margin: 0 }}>Integrations</h1>
+          </div>
+          <p style={{ fontSize: 13, color: t.textMuted, margin: 0, paddingLeft: 34 }}>
+            Connect external services and tools to NextSight AI
+          </p>
+        </div>
+        <button
+          onClick={fetchIntegrations}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '7px 14px', background: t.cardBg,
+            border: `1px solid ${t.cardBorder}`, borderRadius: 8,
+            color: t.textSub, fontSize: 13, fontWeight: 500, cursor: 'pointer',
+          }}
+        >
+          <ArrowPathIcon style={{ width: 14, height: 14 }} />
+          Refresh
+        </button>
+      </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm">
+        <div style={{
+          padding: '10px 14px', marginBottom: 16,
+          background: t.errorBg, border: `1px solid ${t.error}`,
+          borderRadius: 8, fontSize: 13, color: t.error,
+        }}>
           {error}
         </div>
       )}
 
       {/* Category Tabs */}
-      <div className="flex gap-2 border-b border-gray-200 dark:border-slate-700 pb-4 overflow-x-auto">
+      <div style={{
+        display: 'flex', gap: 6, flexWrap: 'wrap',
+        borderBottom: `1px solid ${t.cardBorder}`, paddingBottom: 16, marginBottom: 24,
+      }}>
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
-              activeTab === tab.id
-                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg'
-                : 'bg-white/80 dark:bg-slate-800/80 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 border border-gray-200/50 dark:border-slate-700/50'
-            }`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+              cursor: 'pointer', whiteSpace: 'nowrap',
+              background: activeTab === tab.id ? t.info : t.cardBg,
+              color: activeTab === tab.id ? '#fff' : t.textSub,
+              border: activeTab === tab.id ? 'none' : `1px solid ${t.cardBorder}`,
+            }}
           >
-            <tab.icon className="h-4 w-4" />
+            <tab.icon style={{ width: 13, height: 13 }} />
             {tab.label}
           </button>
         ))}
       </div>
 
       {/* Connected Integrations */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+      <div style={{ marginBottom: 32 }}>
+        <h3 style={{ fontSize: 12, fontWeight: 600, color: t.textSub, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 14px' }}>
           Connected Integrations ({filteredConnected.length})
         </h3>
 
         {filteredConnected.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="p-8 rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-slate-700/50 text-center"
-          >
-            <div className="p-4 rounded-2xl bg-gray-100 dark:bg-slate-700 w-fit mx-auto mb-4">
-              <LinkIcon className="h-8 w-8 text-gray-400" />
+          <div style={{ ...cardStyle, textAlign: 'center', padding: 40 }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: 12, background: t.mainBg,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px',
+            }}>
+              <LinkIcon style={{ width: 24, height: 24, color: t.textMuted }} />
             </div>
-            <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            <h4 style={{ fontSize: 15, fontWeight: 500, color: t.text, margin: '0 0 6px' }}>
               {selectedCategory ? `No ${selectedCategory} Integrations` : 'No Integrations Connected'}
             </h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Connect an integration below to get started
-            </p>
-          </motion.div>
+            <p style={{ fontSize: 13, color: t.textMuted, margin: 0 }}>Connect an integration below to get started</p>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredConnected.map((integration, index) => (
-              <motion.div
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+            {filteredConnected.map((integration) => (
+              <div
                 key={integration.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className={`p-4 rounded-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border ${
-                  integration.status === 'error'
-                    ? 'border-red-500/50'
-                    : 'border-gray-200/50 dark:border-slate-700/50'
-                }`}
+                style={{
+                  ...cardStyle,
+                  borderColor: integration.status === 'error' ? t.error : t.cardBorder,
+                }}
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{integration.icon}</span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 22 }}>{integration.icon}</span>
                     <div>
-                      <h4 className="font-medium text-gray-900 dark:text-white">{integration.name}</h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{integration.category}</p>
+                      <h4 style={{ fontSize: 13, fontWeight: 500, color: t.text, margin: 0 }}>{integration.name}</h4>
+                      <p style={{ fontSize: 11, color: t.textMuted, margin: '2px 0 0' }}>{integration.category}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    {integration.status === 'connected' ? (
-                      <CheckCircleIcon className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <ExclamationCircleIcon className="h-5 w-5 text-red-500" />
-                    )}
-                  </div>
+                  {integration.status === 'connected'
+                    ? <CheckCircleIcon style={{ width: 18, height: 18, color: t.success }} />
+                    : <ExclamationCircleIcon style={{ width: 18, height: 18, color: t.error }} />}
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{integration.description}</p>
+                <p style={{ fontSize: 12, color: t.textSub, margin: '0 0 10px' }}>{integration.description}</p>
                 {integration.lastSync && (
-                  <p className="text-xs text-gray-400 mb-3">Last synced: {integration.lastSync}</p>
+                  <p style={{ fontSize: 11, color: t.textMuted, margin: '0 0 10px' }}>Last synced: {integration.lastSync}</p>
                 )}
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-700">
-                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                    integration.status === 'connected'
-                      ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                      : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                  }`}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  paddingTop: 10, borderTop: `1px solid ${t.cardBorder}`,
+                }}>
+                  <span style={{
+                    padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 500,
+                    background: integration.status === 'connected' ? t.successBg : t.errorBg,
+                    color: integration.status === 'connected' ? t.success : t.error,
+                    border: `1px solid ${integration.status === 'connected' ? t.success : t.error}`,
+                  }}>
                     {integration.status === 'connected' ? 'Connected' : 'Error'}
                   </span>
-                  <div className="flex items-center gap-1">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <button
                       onClick={() => handleSync(integration.id)}
                       disabled={connectingId === integration.id}
-                      className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-400 disabled:opacity-50"
+                      style={{
+                        padding: 6, background: 'transparent', border: 'none',
+                        borderRadius: 6, cursor: 'pointer', color: t.textMuted,
+                        opacity: connectingId === integration.id ? 0.5 : 1,
+                      }}
                     >
-                      <ArrowPathIcon className={`h-4 w-4 ${connectingId === integration.id ? 'animate-spin' : ''}`} />
+                      <ArrowPathIcon style={{ width: 14, height: 14 }} />
                     </button>
                     <button
                       onClick={() => handleEdit(integration)}
-                      className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-400"
+                      style={{ padding: 6, background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', color: t.textMuted }}
                       title="Configure"
                     >
-                      <Cog6ToothIcon className="h-4 w-4" />
+                      <Cog6ToothIcon style={{ width: 14, height: 14 }} />
                     </button>
                     <button
                       onClick={() => handleDisconnect(integration.id)}
                       disabled={connectingId === integration.id}
-                      className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 disabled:opacity-50"
+                      style={{
+                        padding: 6, background: 'transparent', border: 'none',
+                        borderRadius: 6, cursor: 'pointer', color: t.textMuted,
+                        opacity: connectingId === integration.id ? 0.5 : 1,
+                      }}
                     >
-                      <TrashIcon className="h-4 w-4" />
+                      <TrashIcon style={{ width: 14, height: 14 }} />
                     </button>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         )}
@@ -384,86 +407,91 @@ export default function IntegrationsPage() {
 
       {/* Available Integrations */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        <h3 style={{ fontSize: 12, fontWeight: 600, color: t.textSub, textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 14px' }}>
           Available Integrations ({filteredAvailable.length})
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {filteredAvailable.map((integration, index) => (
-            <motion.div
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          {filteredAvailable.map((integration) => (
+            <div
               key={integration.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.03 }}
-              className={`p-4 rounded-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border transition-colors ${
-                integration.isManaged
-                  ? 'border-purple-500/30 hover:border-purple-500/50'
-                  : 'border-gray-200/50 dark:border-slate-700/50 hover:border-blue-500/50'
-              }`}
+              style={{
+                ...cardStyle,
+                borderColor: integration.isManaged ? t.info : t.cardBorder,
+              }}
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">{integration.icon}</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 18 }}>{integration.icon}</span>
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">{integration.name}</h4>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400">{integration.category}</p>
+                    <h4 style={{ fontSize: 13, fontWeight: 500, color: t.text, margin: 0 }}>{integration.name}</h4>
+                    <p style={{ fontSize: 10, color: t.textMuted, margin: '1px 0 0' }}>{integration.category}</p>
                   </div>
                 </div>
                 {integration.isManaged && (
-                  <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
+                  <span style={{
+                    padding: '1px 6px', borderRadius: 20, fontSize: 10, fontWeight: 500,
+                    background: t.infoBg, color: t.info, border: `1px solid ${t.info}`,
+                  }}>
                     Managed
                   </span>
                 )}
               </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{integration.description}</p>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+              <p style={{ fontSize: 11, color: t.textMuted, margin: '0 0 10px' }}>{integration.description}</p>
+              <button
                 onClick={() => handleConnect(integration)}
                 disabled={connectingId === integration.id}
-                className={`w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-50 ${
-                  integration.isManaged
-                    ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700'
-                    : 'border border-blue-500 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                }`}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 500,
+                  cursor: connectingId === integration.id ? 'not-allowed' : 'pointer',
+                  opacity: connectingId === integration.id ? 0.5 : 1,
+                  background: integration.isManaged ? t.info : 'transparent',
+                  color: integration.isManaged ? '#fff' : t.info,
+                  border: integration.isManaged ? 'none' : `1px solid ${t.info}`,
+                }}
               >
                 {connectingId === integration.id ? (
-                  <ArrowPathIcon className="h-3 w-3 animate-spin" />
+                  <ArrowPathIcon style={{ width: 12, height: 12 }} />
                 ) : integration.isManaged ? (
-                  <Cog6ToothIcon className="h-3 w-3" />
+                  <Cog6ToothIcon style={{ width: 12, height: 12 }} />
                 ) : (
-                  <PlusIcon className="h-3 w-3" />
+                  <PlusIcon style={{ width: 12, height: 12 }} />
                 )}
                 {integration.isManaged ? 'Setup' : 'Connect'}
-              </motion.button>
-            </motion.div>
+              </button>
+            </div>
           ))}
         </div>
       </div>
 
       {/* Connect Modal */}
       {showConnectModal && selectedIntegration && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md p-6 bg-white dark:bg-slate-800 rounded-2xl shadow-xl"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.6)',
+        }}>
+          <div style={{
+            width: '100%', maxWidth: 440,
+            background: t.cardBg, border: `1px solid ${t.cardBorder}`,
+            borderRadius: 14, padding: 24, boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0 }}>
                 Connect {selectedIntegration.name}
               </h3>
               <button
                 onClick={() => setShowConnectModal(false)}
-                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: 4 }}
               >
-                <XMarkIcon className="h-5 w-5 text-gray-400" />
+                <XMarkIcon style={{ width: 18, height: 18 }} />
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSub, marginBottom: 6 }}>
                   Endpoint URL *
                 </label>
                 <input
@@ -471,12 +499,12 @@ export default function IntegrationsPage() {
                   value={connectForm.endpoint}
                   onChange={(e) => setConnectForm(f => ({ ...f, endpoint: e.target.value }))}
                   placeholder="https://api.example.com"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white text-sm"
+                  style={inputStyle}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSub, marginBottom: 6 }}>
                   API Token (optional)
                 </label>
                 <input
@@ -484,77 +512,94 @@ export default function IntegrationsPage() {
                   value={connectForm.apiToken}
                   onChange={(e) => setConnectForm(f => ({ ...f, apiToken: e.target.value }))}
                   placeholder="Enter API token"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white text-sm"
+                  style={inputStyle}
                 />
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               <button
                 onClick={() => setShowConnectModal(false)}
-                className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 text-sm font-medium"
+                style={{
+                  flex: 1, padding: '8px 16px', borderRadius: 8,
+                  background: 'transparent', border: `1px solid ${t.cardBorder}`,
+                  color: t.textSub, fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmitConnect}
                 disabled={!connectForm.endpoint || connectingId !== null}
-                className="flex-1 px-4 py-2 rounded-lg bg-blue-500 text-white text-sm font-medium disabled:opacity-50"
+                style={{
+                  flex: 1, padding: '8px 16px', borderRadius: 8,
+                  background: t.info, border: 'none',
+                  color: '#fff', fontSize: 13, fontWeight: 500,
+                  cursor: !connectForm.endpoint || connectingId !== null ? 'not-allowed' : 'pointer',
+                  opacity: !connectForm.endpoint || connectingId !== null ? 0.5 : 1,
+                }}
               >
                 {connectingId ? 'Connecting...' : 'Connect'}
               </button>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
 
       {/* Edit/Configure Modal */}
       {showEditModal && selectedIntegration && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md p-6 bg-white dark:bg-slate-800 rounded-2xl shadow-xl"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{selectedIntegration.icon}</span>
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.6)',
+        }}>
+          <div style={{
+            width: '100%', maxWidth: 440,
+            background: t.cardBg, border: `1px solid ${t.cardBorder}`,
+            borderRadius: 14, padding: 24, boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 22 }}>{selectedIntegration.icon}</span>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  <h3 style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0 }}>
                     Configure {selectedIntegration.name}
                   </h3>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    selectedIntegration.status === 'connected'
-                      ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                      : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                  }`}>
+                  <span style={{
+                    fontSize: 11, padding: '1px 8px', borderRadius: 20,
+                    background: selectedIntegration.status === 'connected' ? t.successBg : t.errorBg,
+                    color: selectedIntegration.status === 'connected' ? t.success : t.error,
+                    border: `1px solid ${selectedIntegration.status === 'connected' ? t.success : t.error}`,
+                  }}>
                     {selectedIntegration.status === 'connected' ? 'Connected' : 'Disconnected'}
                   </span>
                 </div>
               </div>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: 4 }}
               >
-                <XMarkIcon className="h-5 w-5 text-gray-400" />
+                <XMarkIcon style={{ width: 18, height: 18 }} />
               </button>
             </div>
 
-            {/* Show current config info */}
             {selectedIntegration.config?.auto_detected && (
-              <div className="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                <p className="text-xs text-blue-700 dark:text-blue-300">
+              <div style={{
+                marginBottom: 16, padding: '10px 12px',
+                background: t.infoBg, border: `1px solid ${t.info}`, borderRadius: 8,
+              }}>
+                <p style={{ fontSize: 12, color: t.info, margin: 0 }}>
                   <strong>Auto-detected</strong> in namespace: {selectedIntegration.config?.namespace || 'unknown'}
                 </p>
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                <p style={{ fontSize: 12, color: t.info, margin: '4px 0 0' }}>
                   Service: {selectedIntegration.config?.service || 'unknown'}
                 </p>
               </div>
             )}
 
-            <div className="space-y-4">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSub, marginBottom: 6 }}>
                   Endpoint URL
                 </label>
                 <input
@@ -562,12 +607,12 @@ export default function IntegrationsPage() {
                   value={connectForm.endpoint}
                   onChange={(e) => setConnectForm(f => ({ ...f, endpoint: e.target.value }))}
                   placeholder="https://api.example.com"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white text-sm"
+                  style={inputStyle}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSub, marginBottom: 6 }}>
                   API Token (optional)
                 </label>
                 <input
@@ -575,33 +620,43 @@ export default function IntegrationsPage() {
                   value={connectForm.apiToken}
                   onChange={(e) => setConnectForm(f => ({ ...f, apiToken: e.target.value }))}
                   placeholder="Enter API token"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white text-sm"
+                  style={inputStyle}
                 />
               </div>
 
               {selectedIntegration.lastSync && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p style={{ fontSize: 11, color: t.textMuted, margin: 0 }}>
                   Last synced: {selectedIntegration.lastSync}
                 </p>
               )}
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-300 text-sm font-medium"
+                style={{
+                  flex: 1, padding: '8px 16px', borderRadius: 8,
+                  background: 'transparent', border: `1px solid ${t.cardBorder}`,
+                  color: t.textSub, fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveEdit}
                 disabled={!connectForm.endpoint || connectingId !== null}
-                className="flex-1 px-4 py-2 rounded-lg bg-blue-500 text-white text-sm font-medium disabled:opacity-50"
+                style={{
+                  flex: 1, padding: '8px 16px', borderRadius: 8,
+                  background: t.info, border: 'none',
+                  color: '#fff', fontSize: 13, fontWeight: 500,
+                  cursor: !connectForm.endpoint || connectingId !== null ? 'not-allowed' : 'pointer',
+                  opacity: !connectForm.endpoint || connectingId !== null ? 0.5 : 1,
+                }}
               >
                 {connectingId ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   ExclamationTriangleIcon,
   BoltIcon,
@@ -9,38 +9,47 @@ import {
   FunnelIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  XMarkIcon,
   CpuChipIcon,
   CircleStackIcon,
   FireIcon,
 } from '@heroicons/react/24/outline';
 import type { OptimizationDashboardResponse } from '../../types';
 import { formatBytes } from '../../utils/constants';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors, mono } from '../../styles/linear-design';
+
+// Severity inline style maps
+const severityLeftBorder: Record<string, string> = {
+  critical: '#ef4444',
+  high: '#f97316',
+  medium: '#eab308',
+  low: '#3b82f6',
+};
+
+const severityBg: Record<string, string> = {
+  critical: 'rgba(239,68,68,0.05)',
+  high: 'rgba(249,115,22,0.05)',
+  medium: 'rgba(234,179,8,0.05)',
+  low: 'rgba(59,130,246,0.05)',
+};
+
+const severityBadgeBg: Record<string, string> = {
+  critical: 'rgba(239,68,68,0.12)',
+  high: 'rgba(249,115,22,0.12)',
+  medium: 'rgba(234,179,8,0.12)',
+  low: 'rgba(59,130,246,0.12)',
+};
+
+const severityBadgeText: Record<string, string> = {
+  critical: '#ef4444',
+  high: '#f97316',
+  medium: '#eab308',
+  low: '#3b82f6',
+};
 
 interface PerformanceRiskPanelProps {
   dashboardData: OptimizationDashboardResponse;
 }
-
-const severityColors = {
-  critical: 'border-l-4 border-l-red-500 dark:border-l-red-400 border border-red-100 dark:border-red-900/30',
-  high: 'border-l-4 border-l-orange-500 dark:border-l-orange-400 border border-orange-100 dark:border-orange-900/30',
-  medium: 'border-l-4 border-l-amber-500 dark:border-l-amber-400 border border-amber-100 dark:border-amber-900/30',
-  low: 'border-l-4 border-l-blue-500 dark:border-l-blue-400 border border-blue-100 dark:border-blue-900/30',
-};
-
-const severityBgColors = {
-  critical: 'bg-gradient-to-r from-red-50 to-white dark:from-red-950/20 dark:to-slate-800',
-  high: 'bg-gradient-to-r from-orange-50 to-white dark:from-orange-950/20 dark:to-slate-800',
-  medium: 'bg-gradient-to-r from-amber-50 to-white dark:from-amber-950/20 dark:to-slate-800',
-  low: 'bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/20 dark:to-slate-800',
-};
-
-const severityBadgeColors = {
-  critical: 'bg-red-600 text-white shadow-lg shadow-red-600/30',
-  high: 'bg-orange-600 text-white shadow-lg shadow-orange-600/30',
-  medium: 'bg-amber-600 text-white shadow-lg shadow-amber-600/30',
-  low: 'bg-blue-600 text-white shadow-lg shadow-blue-600/30',
-};
 
 type Severity = 'critical' | 'high' | 'medium' | 'low';
 type PerformanceRiskType = 'cpu_throttling' | 'memory_pressure' | 'high_cpu_usage' | 'high_memory_usage';
@@ -173,6 +182,8 @@ function PerformanceRiskCard({ risk, onMarkReviewed, isReviewed }: {
   onMarkReviewed: () => void;
   isReviewed: boolean;
 }) {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
   const [isExpanded, setIsExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -199,160 +210,226 @@ function PerformanceRiskCard({ risk, onMarkReviewed, isReviewed }: {
   };
 
   const Icon = riskTypeIcons[risk.risk_type];
+  const sev = risk.severity;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 5 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`rounded-lg overflow-hidden ${
-        isReviewed
-          ? 'border-l-4 border-l-green-500 dark:border-l-green-400 border border-green-100 dark:border-green-900/30 bg-gradient-to-r from-green-50 to-white dark:from-green-950/20 dark:to-slate-800'
-          : `${severityColors[risk.severity]} ${severityBgColors[risk.severity]}`
-      }`}
+      style={{
+        borderRadius: 10,
+        overflow: 'hidden',
+        border: `1px solid ${t.cardBorder}`,
+        borderLeft: `3px solid ${isReviewed ? '#4ade80' : severityLeftBorder[sev]}`,
+        background: isReviewed ? 'rgba(34,197,94,0.05)' : severityBg[sev],
+        marginBottom: 8,
+      }}
     >
       {/* Compact Header - Always Visible */}
-      <div className="flex items-center justify-between p-3">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-            isReviewed
-              ? 'bg-green-600 text-white shadow-lg shadow-green-600/30'
-              : severityBadgeColors[risk.severity]
-          }`}>
-            {isReviewed ? '✓ REVIEWED' : risk.severity.toUpperCase()}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '2px 8px',
+            borderRadius: 9999,
+            fontSize: 10,
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            background: isReviewed ? 'rgba(34,197,94,0.12)' : severityBadgeBg[sev],
+            color: isReviewed ? '#4ade80' : severityBadgeText[sev],
+          }}>
+            {isReviewed ? '✓ Reviewed' : sev}
           </span>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-bold text-gray-900 dark:text-white truncate">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ ...mono, fontSize: 12, fontWeight: 600, color: t.text }}>
                 {risk.workload_name}
               </span>
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                <Icon className="h-3 w-3" />
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '2px 6px',
+                borderRadius: 4,
+                fontSize: 10,
+                background: t.mainBg,
+                color: t.textSub,
+              }}>
+                <Icon style={{ width: 10, height: 10 }} />
                 {riskTypeLabels[risk.risk_type]}
               </span>
             </div>
-            <div className="text-[10px] text-gray-600 dark:text-gray-400">
+            <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
               {risk.namespace} • {risk.workload_type}
             </div>
           </div>
         </div>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 4,
+            borderRadius: 4,
+            color: t.textMuted,
+            display: 'flex',
+            alignItems: 'center',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = t.navHoverBg)}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
         >
-          {isExpanded ? (
-            <ChevronUpIcon className="h-4 w-4 text-gray-500" />
-          ) : (
-            <ChevronDownIcon className="h-4 w-4 text-gray-500" />
-          )}
+          {isExpanded
+            ? <ChevronUpIcon style={{ width: 14, height: 14 }} />
+            : <ChevronDownIcon style={{ width: 14, height: 14 }} />}
         </button>
       </div>
 
-      {/* Quick Preview - Always Visible */}
-      <div className="px-3 pb-3">
-        <div className="text-xs text-gray-700 dark:text-gray-300">
-          <span className="font-medium">⚠️ {risk.observation}</span>
-        </div>
+      {/* Quick Preview */}
+      <div style={{ padding: '0 16px 10px', fontSize: 11, color: t.textSub }}>
+        ⚠️ {risk.observation}
       </div>
 
       {/* Expanded Details */}
       {isExpanded && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          className="px-3 pb-3 pt-0 border-t border-gray-200/50 dark:border-gray-700/50 space-y-3"
-        >
+        <div style={{
+          borderTop: `1px solid ${t.cardBorder}`,
+          padding: '12px 16px',
+          background: t.cardBg,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+        }}>
           {/* Current Usage */}
           <div>
-            <div className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
-              <ChartBarIcon className="h-3.5 w-3.5" />
-              Current Usage
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+              <ChartBarIcon style={{ width: 12, height: 12, color: t.textMuted }} />
+              <span style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Current Usage</span>
             </div>
-            <div className="text-xs text-gray-600 dark:text-gray-400">{risk.current_usage}</div>
+            <div style={{ fontSize: 11, color: t.textSub }}>{risk.current_usage}</div>
           </div>
 
           {/* Impact */}
-          <div className="p-2 rounded bg-red-50 dark:bg-red-900/20">
-            <div className="text-xs font-bold text-red-700 dark:text-red-300 mb-1">📉 Impact</div>
-            <ul className="text-[10px] text-red-700 dark:text-red-300 space-y-0.5">
+          <div style={{
+            background: 'rgba(239,68,68,0.07)',
+            border: '1px solid rgba(239,68,68,0.15)',
+            borderRadius: 8,
+            padding: '10px 14px',
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#ef4444', marginBottom: 6 }}>📉 Impact</div>
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 2 }}>
               {risk.impact.map((item, idx) => (
-                <li key={idx}>• {item}</li>
+                <li key={idx} style={{ fontSize: 10, color: '#ef4444' }}>• {item}</li>
               ))}
             </ul>
           </div>
 
-          {/* AI Recommendation */}
-          <div className="p-2 rounded bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200/50 dark:border-purple-700/50">
-            <div className="text-xs font-bold text-purple-800 dark:text-purple-300 mb-1">💡 Recommendation</div>
-            <div className="text-xs text-gray-700 dark:text-gray-300 font-medium mb-1">
-              {risk.recommendation}
-            </div>
-            <div className="text-[10px] text-purple-700 dark:text-purple-400">
+          {/* Recommendation + Why */}
+          <div style={{
+            background: 'rgba(139,92,246,0.08)',
+            border: '1px solid rgba(139,92,246,0.15)',
+            borderRadius: 8,
+            padding: '10px 14px',
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#a78bfa', marginBottom: 6 }}>💡 Recommendation</div>
+            <div style={{ fontSize: 11, color: t.text, fontWeight: 500, marginBottom: 4 }}>{risk.recommendation}</div>
+            <div style={{ fontSize: 10, color: '#a78bfa' }}>
               <strong>Why:</strong> {risk.recommendation_why}
-            </div>
-          </div>
-
-          {/* Confidence */}
-          <div className="p-2 rounded bg-blue-50 dark:bg-blue-900/20">
-            <div className="flex items-center gap-1 mb-1">
-              <span className="text-xs font-bold text-blue-700 dark:text-blue-300">🧠 Confidence</span>
-              <span className="px-1 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white">
-                {risk.confidence_level.toUpperCase()}
-              </span>
-            </div>
-            <div className="text-[10px] text-blue-700 dark:text-blue-300">
-              Based on current resource usage patterns
             </div>
           </div>
 
           {/* Kubectl Command */}
           {risk.kubectl_command && (
-            <div className="relative">
-              <div className="flex items-center justify-between mb-1">
-                <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300">Kubectl Command:</h4>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Kubectl Command
+                </div>
                 <button
                   onClick={handleCopy}
-                  className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '3px 8px',
+                    fontSize: 10,
+                    borderRadius: 4,
+                    background: t.mainBg,
+                    border: `1px solid ${t.cardBorder}`,
+                    color: t.textSub,
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = t.navHoverBg)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = t.mainBg)}
                 >
-                  <ClipboardDocumentIcon className="h-3 w-3" />
+                  <ClipboardDocumentIcon style={{ width: 10, height: 10 }} />
                   {copied ? '✓ Copied' : 'Copy'}
                 </button>
               </div>
-              <pre className="p-2 rounded-lg bg-gray-900 dark:bg-gray-950 text-gray-100 text-[10px] font-mono overflow-x-auto">
+              <pre style={{
+                background: '#0d0d0d',
+                borderRadius: 8,
+                padding: '10px 14px',
+                color: '#4ade80',
+                fontSize: 10,
+                fontFamily: mono.fontFamily,
+                overflowX: 'auto',
+                margin: 0,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-all',
+              }}>
                 {risk.kubectl_command}
               </pre>
             </div>
           )}
 
           {/* Actions */}
-          <div className="flex items-center gap-2 pt-2">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 4 }}>
             {!isReviewed && (
               <button
                 onClick={onMarkReviewed}
-                className="flex items-center gap-1 px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 text-[10px] font-medium"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '4px 10px',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  borderRadius: 4,
+                  background: 'rgba(34,197,94,0.15)',
+                  border: '1px solid rgba(34,197,94,0.3)',
+                  color: '#4ade80',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(34,197,94,0.25)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(34,197,94,0.15)')}
               >
-                <CheckCircleIcon className="h-3 w-3" />
+                <CheckCircleIcon style={{ width: 10, height: 10 }} />
                 Mark Reviewed
               </button>
             )}
           </div>
-        </motion.div>
+        </div>
       )}
     </motion.div>
   );
 }
 
 export default function PerformanceRiskPanel({ dashboardData }: PerformanceRiskPanelProps) {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+
   const [filterNamespace, setFilterNamespace] = useState<string>('all');
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [filterRiskType, setFilterRiskType] = useState<string>('all');
   const [markedReviewed, setMarkedReviewed] = useState<Set<string>>(new Set());
-  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
   const performanceRisks = generatePerformanceRisks(dashboardData);
 
   // Get unique values for filters
   const namespaces = Array.from(new Set(performanceRisks.map(r => r.namespace))).sort();
-  const riskTypes = Array.from(new Set(performanceRisks.map(r => r.risk_type)));
 
   // Apply filters
   const filteredRisks = performanceRisks.filter(risk => {
@@ -371,83 +448,84 @@ export default function PerformanceRiskPanel({ dashboardData }: PerformanceRiskP
   const throttlingCount = filteredRisks.filter(r => r.risk_type === 'cpu_throttling').length;
   const memPressureCount = filteredRisks.filter(r => r.risk_type === 'memory_pressure').length;
 
+  const selectStyle: React.CSSProperties = {
+    background: t.mainBg,
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 6,
+    padding: '5px 8px',
+    fontSize: 11,
+    color: t.text,
+    outline: 'none',
+    cursor: 'pointer',
+  };
+
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Fixed Header */}
-      <div className="flex-shrink-0 space-y-4 mb-4">
-        {/* Compact Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Performance Risk Analysis</h2>
-            <p className="text-xs text-gray-600 dark:text-gray-400">Detect latency and responsiveness issues</p>
+      <div style={{ flexShrink: 0, marginBottom: 16 }}>
+
+        {/* Summary Strip — 4 stat cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 12 }}>
+          {/* Total Risks */}
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Risks</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: t.text, marginTop: 4, ...mono }}>{filteredRisks.length}</div>
           </div>
-          <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-xs text-orange-700 dark:text-orange-300">
-            <BoltIcon className="h-3 w-3" />
-            {criticalCount + highCount} high-risk workloads
+          {/* Critical/High */}
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Critical / High</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#ef4444', marginTop: 4, ...mono }}>{criticalCount + highCount}</div>
+          </div>
+          {/* CPU Throttling */}
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>CPU Throttling</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#f97316', marginTop: 4, ...mono }}>{throttlingCount}</div>
+          </div>
+          {/* Memory Pressure */}
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '16px 20px' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Memory Pressure</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#a78bfa', marginTop: 4, ...mono }}>{memPressureCount}</div>
           </div>
         </div>
 
-        {/* Compact Summary */}
-        <div className="grid grid-cols-4 gap-3 p-4 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700">
-          <div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Total Risks</div>
-            <div className="text-xl font-bold text-gray-900 dark:text-white">{filteredRisks.length}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Critical/High</div>
-            <div className="text-xl font-bold text-red-600 dark:text-red-400">{criticalCount + highCount}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">CPU Throttling</div>
-            <div className="text-xl font-bold text-orange-600 dark:text-orange-400">{throttlingCount}</div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500 dark:text-gray-400">Memory Pressure</div>
-            <div className="text-xl font-bold text-purple-600 dark:text-purple-400">{memPressureCount}</div>
-          </div>
-        </div>
-
-        {/* Compact Filters */}
-        <div className="flex items-center gap-3 p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-          <FunnelIcon className="h-4 w-4 text-gray-500" />
-          <select
-            value={filterSeverity}
-            onChange={(e) => setFilterSeverity(e.target.value)}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-          >
+        {/* Filter Bar */}
+        <div style={{
+          background: t.cardBg,
+          border: `1px solid ${t.cardBorder}`,
+          borderRadius: 12,
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+        }}>
+          <FunnelIcon style={{ width: 14, height: 14, color: t.textMuted, flexShrink: 0 }} />
+          <select value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value)} style={selectStyle}>
             <option value="all">All Severities</option>
             <option value="critical">Critical</option>
             <option value="high">High</option>
             <option value="medium">Medium</option>
           </select>
-          <select
-            value={filterNamespace}
-            onChange={(e) => setFilterNamespace(e.target.value)}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-          >
+          <select value={filterNamespace} onChange={(e) => setFilterNamespace(e.target.value)} style={selectStyle}>
             <option value="all">All Namespaces</option>
             {namespaces.map(ns => (
               <option key={ns} value={ns}>{ns}</option>
             ))}
           </select>
-          <select
-            value={filterRiskType}
-            onChange={(e) => setFilterRiskType(e.target.value)}
-            className="px-2 py-1 rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs"
-          >
+          <select value={filterRiskType} onChange={(e) => setFilterRiskType(e.target.value)} style={selectStyle}>
             <option value="all">All Risk Types</option>
             <option value="cpu_throttling">CPU Throttling</option>
             <option value="memory_pressure">Memory Pressure</option>
             <option value="high_cpu_usage">High CPU Usage</option>
           </select>
-          <div className="ml-auto text-xs text-gray-500 dark:text-gray-400">
+          <div style={{ marginLeft: 'auto', fontSize: 11, color: t.textMuted, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <BoltIcon style={{ width: 12, height: 12 }} />
             {filteredRisks.length - markedReviewed.size} pending
           </div>
         </div>
       </div>
 
       {/* Scrollable Risk Cards */}
-      <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+      <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
         {filteredRisks.length > 0 ? (
           filteredRisks.map((risk) => (
             <PerformanceRiskCard
@@ -458,17 +536,31 @@ export default function PerformanceRiskPanel({ dashboardData }: PerformanceRiskP
             />
           ))
         ) : (
-          <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700">
-            <CheckCircleIcon className="h-12 w-12 mx-auto mb-3 text-green-500" />
-            <p className="text-gray-600 dark:text-gray-400">No performance risks detected with current filters</p>
-            <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">All workloads are performing within acceptable limits</p>
+          <div style={{
+            textAlign: 'center',
+            padding: '48px 0',
+            background: t.cardBg,
+            border: `1px solid ${t.cardBorder}`,
+            borderRadius: 12,
+          }}>
+            <CheckCircleIcon style={{ width: 40, height: 40, margin: '0 auto 8px', color: '#4ade80' }} />
+            <p style={{ fontSize: 12, color: t.textSub, margin: '0 0 4px' }}>No performance risks detected with current filters</p>
+            <p style={{ fontSize: 11, color: t.textMuted, margin: 0 }}>All workloads are performing within acceptable limits</p>
           </div>
         )}
       </div>
 
-      {/* Fixed Footer Disclaimer */}
-      <div className="flex-shrink-0 mt-4 p-2 rounded bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700">
-        <p className="text-[10px] text-gray-600 dark:text-gray-400 text-center">
+      {/* Footer Disclaimer */}
+      <div style={{
+        flexShrink: 0,
+        marginTop: 12,
+        padding: '8px 16px',
+        background: t.mainBg,
+        border: `1px solid ${t.cardBorder}`,
+        borderRadius: 8,
+        textAlign: 'center',
+      }}>
+        <p style={{ fontSize: 10, color: t.textMuted, margin: 0 }}>
           Performance recommendations based on current resource usage • Monitor after changes
         </p>
       </div>

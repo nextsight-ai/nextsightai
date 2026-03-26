@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   BellAlertIcon,
   ExclamationTriangleIcon,
@@ -15,9 +14,11 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
 } from '@heroicons/react/24/outline';
-import { prometheusApi, getSeverityColor, getRelativeTime } from '../../services/prometheusApi';
+import { prometheusApi, getRelativeTime } from '../../services/prometheusApi';
 import { logger } from '../../utils/logger';
 import type { Alert, AlertGroup, Silence, SilenceCreate, AlertsResponse, RulesResponse, SilencesResponse } from '../../types/prometheus';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors } from '../../styles/linear-design';
 
 interface SilenceModalProps {
   alert: Alert;
@@ -26,6 +27,8 @@ interface SilenceModalProps {
 }
 
 const SilenceModal = ({ alert, onClose, onSilence }: SilenceModalProps) => {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
   const [duration, setDuration] = useState('2h');
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
@@ -53,44 +56,89 @@ const SilenceModal = ({ alert, onClose, onSilence }: SilenceModalProps) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-md p-6"
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 50,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0,0,0,0.6)',
+      }}
+    >
+      <div
+        style={{
+          background: t.cardBg,
+          border: `1px solid ${t.cardBorder}`,
+          borderRadius: 12,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+          width: '100%',
+          maxWidth: 440,
+          padding: 24,
+        }}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0 }}>
             Silence Alert
           </h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">
-            <XMarkIcon className="h-5 w-5 text-gray-500" />
+          <button
+            onClick={onClose}
+            style={{
+              background: 'transparent',
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 6,
+              padding: '4px 4px',
+              cursor: 'pointer',
+              color: t.textSub,
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <XMarkIcon style={{ width: 18, height: 18 }} />
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSub, marginBottom: 6 }}>
               Alert
             </label>
-            <div className="p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-              <p className="font-medium text-gray-900 dark:text-white">
+            <div
+              style={{
+                padding: 12,
+                background: t.mainBg,
+                border: `1px solid ${t.cardBorder}`,
+                borderRadius: 8,
+              }}
+            >
+              <p style={{ fontWeight: 600, color: t.text, margin: 0, fontSize: 13 }}>
                 {alert.labels.alertname}
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <p style={{ fontSize: 12, color: t.textSub, marginTop: 4, marginBottom: 0 }}>
                 {alert.annotations.summary || alert.annotations.description}
               </p>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSub, marginBottom: 6 }}>
               Duration
             </label>
             <select
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg text-gray-900 dark:text-white"
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                background: t.mainBg,
+                border: `1px solid ${t.cardBorder}`,
+                borderRadius: 8,
+                color: t.text,
+                fontSize: 13,
+                outline: 'none',
+                cursor: 'pointer',
+              }}
             >
               <option value="30m">30 minutes</option>
               <option value="1h">1 hour</option>
@@ -103,7 +151,7 @@ const SilenceModal = ({ alert, onClose, onSilence }: SilenceModalProps) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSub, marginBottom: 6 }}>
               Comment
             </label>
             <textarea
@@ -111,28 +159,71 @@ const SilenceModal = ({ alert, onClose, onSilence }: SilenceModalProps) => {
               onChange={(e) => setComment(e.target.value)}
               placeholder="Reason for silencing..."
               rows={3}
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-lg text-gray-900 dark:text-white placeholder:text-gray-400"
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                background: t.mainBg,
+                border: `1px solid ${t.cardBorder}`,
+                borderRadius: 8,
+                color: t.text,
+                fontSize: 13,
+                outline: 'none',
+                resize: 'vertical',
+                boxSizing: 'border-box',
+              }}
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div style={{ display: 'flex', gap: 12, paddingTop: 4 }}>
             <button
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-200 dark:border-slate-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700"
+              style={{
+                flex: 1,
+                padding: '8px 16px',
+                background: 'transparent',
+                border: `1px solid ${t.cardBorder}`,
+                borderRadius: 8,
+                color: t.textSub,
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{
+                flex: 1,
+                padding: '8px 16px',
+                background: '#7c3aed',
+                border: 'none',
+                borderRadius: 8,
+                color: '#ffffff',
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.6 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+              }}
             >
-              {loading && <ArrowPathIcon className="h-4 w-4 animate-spin" />}
+              {loading && (
+                <ArrowPathIcon
+                  style={{
+                    width: 14,
+                    height: 14,
+                    animation: 'spin 1s linear infinite',
+                  }}
+                />
+              )}
               Silence
             </button>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };
@@ -149,15 +240,18 @@ const parseDurationToMs = (duration: string): number => {
 const severityIcon = (severity: string) => {
   switch (severity.toLowerCase()) {
     case 'critical':
-      return <FireIcon className="h-5 w-5 text-red-500" />;
+      return <FireIcon style={{ width: 20, height: 20, color: '#ef4444' }} />;
     case 'warning':
-      return <ExclamationTriangleIcon className="h-5 w-5 text-amber-500" />;
+      return <ExclamationTriangleIcon style={{ width: 20, height: 20, color: '#f59e0b' }} />;
     default:
-      return <InformationCircleIcon className="h-5 w-5 text-blue-500" />;
+      return <InformationCircleIcon style={{ width: 20, height: 20, color: '#3b82f6' }} />;
   }
 };
 
 export default function AlertsView() {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [ruleGroups, setRuleGroups] = useState<AlertGroup[]>([]);
   const [silences, setSilences] = useState<Silence[]>([]);
@@ -170,6 +264,7 @@ export default function AlertsView() {
   const [silenceModal, setSilenceModal] = useState<Alert | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshHover, setRefreshHover] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -194,7 +289,7 @@ export default function AlertsView() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 30000); // Refresh every 30s
+    const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
@@ -259,139 +354,281 @@ export default function AlertsView() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <ArrowPathIcon className="h-8 w-8 animate-spin text-purple-500" />
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: 256,
+          color: '#8b5cf6',
+        }}
+      >
+        <ArrowPathIcon
+          style={{
+            width: 32,
+            height: 32,
+            animation: 'spin 1s linear infinite',
+          }}
+        />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <BellAlertIcon className="h-7 w-7 text-purple-500" />
-            Alerts & Rules
+          <h1
+            style={{
+              fontSize: 20,
+              fontWeight: 600,
+              color: t.text,
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              letterSpacing: -0.5,
+            }}
+          >
+            <BellAlertIcon style={{ width: 24, height: 24, color: '#8b5cf6' }} />
+            Alerts &amp; Rules
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p style={{ fontSize: 12, color: t.textSub, margin: '4px 0 0 0' }}>
             Monitor active alerts, manage rules, and configure silences
           </p>
         </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+          onMouseEnter={() => setRefreshHover(true)}
+          onMouseLeave={() => setRefreshHover(false)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 16px',
+            background: refreshHover ? '#6d28d9' : '#7c3aed',
+            border: 'none',
+            borderRadius: 8,
+            color: '#ffffff',
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: refreshing ? 'not-allowed' : 'pointer',
+            opacity: refreshing ? 0.6 : 1,
+            transition: 'background 0.15s',
+          }}
         >
-          <ArrowPathIcon className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          <ArrowPathIcon
+            style={{
+              width: 16,
+              height: 16,
+              animation: refreshing ? 'spin 1s linear infinite' : 'none',
+            }}
+          />
           Refresh
         </button>
       </div>
 
       {/* Alert Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="p-4 rounded-xl bg-gradient-to-br from-red-500/10 to-red-600/5 border border-red-500/20"
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: 16,
+        }}
+      >
+        {/* Critical */}
+        <div
+          style={{
+            background: t.cardBg,
+            border: `1px solid ${t.cardBorder}`,
+            borderRadius: 12,
+            padding: 16,
+            borderTop: `3px solid ${t.error}`,
+          }}
         >
-          <div className="flex items-center gap-3">
-            <FireIcon className="h-8 w-8 text-red-500" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <FireIcon style={{ width: 28, height: 28, color: t.error }} />
             <div>
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400">{alertCounts.critical}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Critical</p>
+              <p style={{ fontSize: 24, fontWeight: 700, color: t.error, margin: 0, letterSpacing: -1 }}>
+                {alertCounts.critical}
+              </p>
+              <p style={{ fontSize: 12, color: t.textSub, margin: 0 }}>Critical</p>
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="p-4 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20"
+        {/* Warning */}
+        <div
+          style={{
+            background: t.cardBg,
+            border: `1px solid ${t.cardBorder}`,
+            borderRadius: 12,
+            padding: 16,
+            borderTop: `3px solid ${t.warning}`,
+          }}
         >
-          <div className="flex items-center gap-3">
-            <ExclamationTriangleIcon className="h-8 w-8 text-amber-500" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <ExclamationTriangleIcon style={{ width: 28, height: 28, color: t.warning }} />
             <div>
-              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{alertCounts.warning}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Warning</p>
+              <p style={{ fontSize: 24, fontWeight: 700, color: t.warning, margin: 0, letterSpacing: -1 }}>
+                {alertCounts.warning}
+              </p>
+              <p style={{ fontSize: 12, color: t.textSub, margin: 0 }}>Warning</p>
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20"
+        {/* Info */}
+        <div
+          style={{
+            background: t.cardBg,
+            border: `1px solid ${t.cardBorder}`,
+            borderRadius: 12,
+            padding: 16,
+            borderTop: `3px solid ${t.info}`,
+          }}
         >
-          <div className="flex items-center gap-3">
-            <InformationCircleIcon className="h-8 w-8 text-blue-500" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <InformationCircleIcon style={{ width: 28, height: 28, color: t.info }} />
             <div>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{alertCounts.info}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Info</p>
+              <p style={{ fontSize: 24, fontWeight: 700, color: t.info, margin: 0, letterSpacing: -1 }}>
+                {alertCounts.info}
+              </p>
+              <p style={{ fontSize: 12, color: t.textSub, margin: 0 }}>Info</p>
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20"
+        {/* Pending */}
+        <div
+          style={{
+            background: t.cardBg,
+            border: `1px solid ${t.cardBorder}`,
+            borderRadius: 12,
+            padding: 16,
+            borderTop: '3px solid #8b5cf6',
+          }}
         >
-          <div className="flex items-center gap-3">
-            <ClockIcon className="h-8 w-8 text-purple-500" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <ClockIcon style={{ width: 28, height: 28, color: '#8b5cf6' }} />
             <div>
-              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{alertCounts.pending}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Pending</p>
+              <p style={{ fontSize: 24, fontWeight: 700, color: '#8b5cf6', margin: 0, letterSpacing: -1 }}>
+                {alertCounts.pending}
+              </p>
+              <p style={{ fontSize: 12, color: t.textSub, margin: 0 }}>Pending</p>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* View Tabs */}
-      <div className="flex items-center gap-4 border-b border-gray-200 dark:border-slate-700">
+      <div
+        style={{
+          display: 'flex',
+          gap: 4,
+          borderBottom: `1px solid ${t.cardBorder}`,
+        }}
+      >
         {[
           { id: 'alerts', label: 'Active Alerts', icon: BellAlertIcon, count: filteredAlerts.length },
           { id: 'rules', label: 'Alert Rules', icon: ExclamationTriangleIcon, count: ruleGroups.reduce((acc, g) => acc + g.rules.length, 0) },
           { id: 'silences', label: 'Silences', icon: BellSlashIcon, count: silences.filter(s => s.status?.state === 'active').length },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setView(tab.id as 'alerts' | 'rules' | 'silences')}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-              view === tab.id
-                ? 'border-purple-500 text-purple-600 dark:text-purple-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            <tab.icon className="h-5 w-5" />
-            {tab.label}
-            <span className={`px-2 py-0.5 text-xs rounded-full ${
-              view === tab.id
-                ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
-                : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-400'
-            }`}>
-              {tab.count}
-            </span>
-          </button>
-        ))}
+        ].map(tab => {
+          const isActive = view === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setView(tab.id as 'alerts' | 'rules' | 'silences')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 16px',
+                background: 'transparent',
+                border: 'none',
+                borderBottom: isActive ? '2px solid #3b82f6' : '2px solid transparent',
+                marginBottom: -1,
+                color: isActive ? '#3b82f6' : t.textSub,
+                fontSize: 13,
+                fontWeight: isActive ? 500 : 400,
+                cursor: 'pointer',
+                transition: 'color 0.15s',
+              }}
+            >
+              <tab.icon style={{ width: 16, height: 16 }} />
+              {tab.label}
+              <span
+                style={{
+                  padding: '2px 8px',
+                  borderRadius: 9999,
+                  fontSize: 11,
+                  fontWeight: 500,
+                  background: isActive ? t.infoBg : t.mainBg,
+                  color: isActive ? t.info : t.textMuted,
+                  border: `1px solid ${t.cardBorder}`,
+                }}
+              >
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filters */}
       {view === 'alerts' && (
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="relative flex-1 min-w-[200px]">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+            <MagnifyingGlassIcon
+              style={{
+                position: 'absolute',
+                left: 12,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: 16,
+                height: 16,
+                color: t.textMuted,
+              }}
+            />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search alerts..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-900 dark:text-white placeholder:text-gray-400"
+              style={{
+                width: '100%',
+                paddingLeft: 36,
+                paddingRight: 12,
+                paddingTop: 8,
+                paddingBottom: 8,
+                background: t.cardBg,
+                border: `1px solid ${t.cardBorder}`,
+                borderRadius: 8,
+                color: t.text,
+                fontSize: 13,
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <FunnelIcon className="h-5 w-5 text-gray-400" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FunnelIcon style={{ width: 16, height: 16, color: t.textMuted }} />
             <select
               value={severityFilter}
               onChange={(e) => setSeverityFilter(e.target.value)}
-              className="px-3 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-900 dark:text-white text-sm"
+              style={{
+                padding: '8px 12px',
+                background: t.cardBg,
+                border: `1px solid ${t.cardBorder}`,
+                borderRadius: 8,
+                color: t.text,
+                fontSize: 13,
+                outline: 'none',
+                cursor: 'pointer',
+              }}
             >
               <option value="all">All Severities</option>
               <option value="critical">Critical</option>
@@ -402,7 +639,16 @@ export default function AlertsView() {
             <select
               value={stateFilter}
               onChange={(e) => setStateFilter(e.target.value)}
-              className="px-3 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-900 dark:text-white text-sm"
+              style={{
+                padding: '8px 12px',
+                background: t.cardBg,
+                border: `1px solid ${t.cardBorder}`,
+                borderRadius: 8,
+                color: t.text,
+                fontSize: 13,
+                outline: 'none',
+                cursor: 'pointer',
+              }}
             >
               <option value="all">All States</option>
               <option value="firing">Firing</option>
@@ -412,178 +658,315 @@ export default function AlertsView() {
         </div>
       )}
 
+      {/* Error Banner */}
       {error && (
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400">
+        <div
+          style={{
+            padding: '12px 16px',
+            background: t.errorBg,
+            border: `1px solid ${t.error}`,
+            borderRadius: 8,
+            color: t.error,
+            fontSize: 13,
+          }}
+        >
           {error}
         </div>
       )}
 
       {/* Alerts List */}
       {view === 'alerts' && (
-        <div className="space-y-3">
-          <AnimatePresence mode="popLayout">
-            {filteredAlerts.length === 0 ? (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center py-12"
-              >
-                <CheckCircleIcon className="h-16 w-16 mx-auto text-green-500 mb-4" />
-                <p className="text-lg font-medium text-gray-900 dark:text-white">All Clear!</p>
-                <p className="text-gray-500 dark:text-gray-400">No active alerts matching your filters</p>
-              </motion.div>
-            ) : (
-              filteredAlerts.map((alert, index) => (
-                <motion.div
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {filteredAlerts.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 0' }}>
+              <CheckCircleIcon
+                style={{ width: 56, height: 56, color: t.success, margin: '0 auto 16px' }}
+              />
+              <p style={{ fontSize: 16, fontWeight: 500, color: t.text, margin: '0 0 6px 0' }}>
+                All Clear!
+              </p>
+              <p style={{ fontSize: 13, color: t.textSub, margin: 0 }}>
+                No active alerts matching your filters
+              </p>
+            </div>
+          ) : (
+            filteredAlerts.map((alert, index) => {
+              const isCritical = alert.labels.severity === 'critical';
+              const isPending = alert.state === 'pending';
+
+              let leftBorderColor = t.warning;
+              if (isPending) leftBorderColor = '#8b5cf6';
+              else if (isCritical) leftBorderColor = t.error;
+
+              return (
+                <div
                   key={alert.fingerprint || index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ delay: index * 0.05 }}
-                  className={`p-4 rounded-xl border ${
-                    alert.state === 'firing'
-                      ? alert.labels.severity === 'critical'
-                        ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/50'
-                        : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/50'
-                      : 'bg-purple-50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800/50'
-                  }`}
+                  style={{
+                    background: t.cardBg,
+                    border: `1px solid ${t.cardBorder}`,
+                    borderLeft: `4px solid ${leftBorderColor}`,
+                    borderRadius: 10,
+                    padding: 16,
+                  }}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3">
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                       {severityIcon(alert.labels.severity || 'info')}
                       <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-gray-900 dark:text-white">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <h3 style={{ fontSize: 14, fontWeight: 600, color: t.text, margin: 0 }}>
                             {alert.labels.alertname}
                           </h3>
-                          <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                            alert.state === 'firing'
-                              ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                              : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
-                          }`}>
+                          {/* State badge */}
+                          <span
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: 9999,
+                              fontSize: 11,
+                              fontWeight: 500,
+                              background: isPending ? 'rgba(139,92,246,0.12)' : t.errorBg,
+                              color: isPending ? '#8b5cf6' : t.error,
+                            }}
+                          >
                             {alert.state}
                           </span>
-                          <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getSeverityColor(alert.labels.severity || 'info')}`}>
-                            {alert.labels.severity || 'info'}
-                          </span>
+                          {/* Severity badge */}
+                          {alert.labels.severity && (
+                            <span
+                              style={{
+                                padding: '2px 8px',
+                                borderRadius: 9999,
+                                fontSize: 11,
+                                fontWeight: 500,
+                                background: isCritical
+                                  ? t.errorBg
+                                  : alert.labels.severity === 'warning'
+                                  ? t.warningBg
+                                  : t.infoBg,
+                                color: isCritical
+                                  ? t.error
+                                  : alert.labels.severity === 'warning'
+                                  ? t.warning
+                                  : t.info,
+                              }}
+                            >
+                              {alert.labels.severity}
+                            </span>
+                          )}
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        <p style={{ fontSize: 13, color: t.textSub, margin: '6px 0 8px 0' }}>
                           {alert.annotations.summary || alert.annotations.description}
                         </p>
-                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
                           {alert.labels.namespace && (
-                            <span className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-slate-700 rounded text-gray-600 dark:text-gray-400">
+                            <span
+                              style={{
+                                padding: '2px 8px',
+                                borderRadius: 6,
+                                fontSize: 11,
+                                background: t.mainBg,
+                                border: `1px solid ${t.cardBorder}`,
+                                color: t.textSub,
+                                fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
+                              }}
+                            >
                               ns: {alert.labels.namespace}
                             </span>
                           )}
                           {alert.labels.pod && (
-                            <span className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-slate-700 rounded text-gray-600 dark:text-gray-400">
+                            <span
+                              style={{
+                                padding: '2px 8px',
+                                borderRadius: 6,
+                                fontSize: 11,
+                                background: t.mainBg,
+                                border: `1px solid ${t.cardBorder}`,
+                                color: t.textSub,
+                                fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
+                              }}
+                            >
                               pod: {alert.labels.pod}
                             </span>
                           )}
                           {alert.labels.instance && (
-                            <span className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-slate-700 rounded text-gray-600 dark:text-gray-400">
+                            <span
+                              style={{
+                                padding: '2px 8px',
+                                borderRadius: 6,
+                                fontSize: 11,
+                                background: t.mainBg,
+                                border: `1px solid ${t.cardBorder}`,
+                                color: t.textSub,
+                                fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
+                              }}
+                            >
                               {alert.labels.instance}
                             </span>
                           )}
                           {alert.active_at && (
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                            <span style={{ fontSize: 11, color: t.textMuted }}>
                               Active {getRelativeTime(alert.active_at)}
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={() => setSilenceModal(alert)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-300"
-                    >
-                      <BellSlashIcon className="h-4 w-4" />
-                      Silence
-                    </button>
+                    <SilenceButton alert={alert} onSilence={setSilenceModal} t={t} />
                   </div>
-                </motion.div>
-              ))
-            )}
-          </AnimatePresence>
+                </div>
+              );
+            })
+          )}
         </div>
       )}
 
       {/* Rules View */}
       {view === 'rules' && (
-        <div className="space-y-4">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {ruleGroups.map((group) => (
-            <div key={group.name} className="border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden">
+            <div
+              key={group.name}
+              style={{
+                border: `1px solid ${t.cardBorder}`,
+                borderRadius: 12,
+                overflow: 'hidden',
+              }}
+            >
               <button
                 onClick={() => toggleGroup(group.name)}
-                className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-800/50 hover:bg-gray-100 dark:hover:bg-slate-800"
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  background: t.mainBg,
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
               >
-                <div className="flex items-center gap-3">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {expandedGroups.has(group.name) ? (
-                    <ChevronDownIcon className="h-5 w-5 text-gray-500" />
+                    <ChevronDownIcon style={{ width: 16, height: 16, color: t.textMuted }} />
                   ) : (
-                    <ChevronRightIcon className="h-5 w-5 text-gray-500" />
+                    <ChevronRightIcon style={{ width: 16, height: 16, color: t.textMuted }} />
                   )}
-                  <span className="font-medium text-gray-900 dark:text-white">{group.name}</span>
-                  <span className="px-2 py-0.5 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full">
+                  <span style={{ fontWeight: 500, color: t.text, fontSize: 14 }}>{group.name}</span>
+                  <span
+                    style={{
+                      padding: '2px 8px',
+                      borderRadius: 9999,
+                      fontSize: 11,
+                      fontWeight: 500,
+                      background: 'rgba(139,92,246,0.12)',
+                      color: '#8b5cf6',
+                    }}
+                  >
                     {group.rules.length} rules
                   </span>
                 </div>
-                <span className="text-sm text-gray-500 dark:text-gray-400">{group.file}</span>
+                <span style={{ fontSize: 12, color: t.textMuted, fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" }}>
+                  {group.file}
+                </span>
               </button>
 
-              <AnimatePresence>
-                {expandedGroups.has(group.name) && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="divide-y divide-gray-200 dark:divide-slate-700">
-                      {group.rules.map((rule, idx) => (
-                        <div key={idx} className="p-4 bg-white dark:bg-slate-800">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-medium text-gray-900 dark:text-white">{rule.name}</h4>
-                                {rule.state && (
-                                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+              {expandedGroups.has(group.name) && (
+                <div>
+                  {group.rules.map((rule, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: 16,
+                        background: t.cardBg,
+                        borderTop: `1px solid ${t.cardBorder}`,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <h4 style={{ fontWeight: 600, color: t.text, fontSize: 13, margin: 0 }}>
+                              {rule.name}
+                            </h4>
+                            {rule.state && (
+                              <span
+                                style={{
+                                  padding: '2px 8px',
+                                  borderRadius: 9999,
+                                  fontSize: 11,
+                                  fontWeight: 500,
+                                  background:
                                     rule.state === 'firing'
-                                      ? 'bg-red-100 dark:bg-red-900/30 text-red-600'
+                                      ? t.errorBg
                                       : rule.state === 'pending'
-                                      ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600'
-                                      : 'bg-green-100 dark:bg-green-900/30 text-green-600'
-                                  }`}>
-                                    {rule.state}
-                                  </span>
-                                )}
-                                {rule.labels.severity && (
-                                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getSeverityColor(rule.labels.severity)}`}>
-                                    {rule.labels.severity}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                {rule.annotations.summary || rule.annotations.description}
-                              </p>
-                              <code className="block mt-2 p-2 bg-gray-50 dark:bg-slate-900/50 rounded text-xs text-gray-600 dark:text-gray-400 font-mono">
-                                {rule.query}
-                              </code>
-                              <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                <span>For: {rule.duration}</span>
-                                {rule.alerts.length > 0 && (
-                                  <span className="text-red-500">{rule.alerts.length} firing</span>
-                                )}
-                              </div>
-                            </div>
+                                      ? t.warningBg
+                                      : t.successBg,
+                                  color:
+                                    rule.state === 'firing'
+                                      ? t.error
+                                      : rule.state === 'pending'
+                                      ? t.warning
+                                      : t.success,
+                                }}
+                              >
+                                {rule.state}
+                              </span>
+                            )}
+                            {rule.labels.severity && (
+                              <span
+                                style={{
+                                  padding: '2px 8px',
+                                  borderRadius: 9999,
+                                  fontSize: 11,
+                                  fontWeight: 500,
+                                  background:
+                                    rule.labels.severity === 'critical'
+                                      ? t.errorBg
+                                      : rule.labels.severity === 'warning'
+                                      ? t.warningBg
+                                      : t.infoBg,
+                                  color:
+                                    rule.labels.severity === 'critical'
+                                      ? t.error
+                                      : rule.labels.severity === 'warning'
+                                      ? t.warning
+                                      : t.info,
+                                }}
+                              >
+                                {rule.labels.severity}
+                              </span>
+                            )}
+                          </div>
+                          <p style={{ fontSize: 12, color: t.textSub, margin: '6px 0 8px 0' }}>
+                            {rule.annotations.summary || rule.annotations.description}
+                          </p>
+                          <code
+                            style={{
+                              display: 'block',
+                              padding: '8px 12px',
+                              background: t.mainBg,
+                              border: `1px solid ${t.cardBorder}`,
+                              borderRadius: 6,
+                              fontSize: 11,
+                              color: t.textSub,
+                              fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
+                              wordBreak: 'break-all',
+                            }}
+                          >
+                            {rule.query}
+                          </code>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8, fontSize: 12, color: t.textMuted }}>
+                            <span>For: {rule.duration}</span>
+                            {rule.alerts.length > 0 && (
+                              <span style={{ color: t.error }}>{rule.alerts.length} firing</span>
+                            )}
                           </div>
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -591,63 +974,84 @@ export default function AlertsView() {
 
       {/* Silences View */}
       {view === 'silences' && (
-        <div className="space-y-3">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {silences.length === 0 ? (
-            <div className="text-center py-12">
-              <BellSlashIcon className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-              <p className="text-lg font-medium text-gray-900 dark:text-white">No Active Silences</p>
-              <p className="text-gray-500 dark:text-gray-400">Silence alerts from the Active Alerts tab</p>
+            <div style={{ textAlign: 'center', padding: '48px 0' }}>
+              <BellSlashIcon
+                style={{ width: 56, height: 56, color: t.textMuted, margin: '0 auto 16px' }}
+              />
+              <p style={{ fontSize: 16, fontWeight: 500, color: t.text, margin: '0 0 6px 0' }}>
+                No Active Silences
+              </p>
+              <p style={{ fontSize: 13, color: t.textSub, margin: 0 }}>
+                Silence alerts from the Active Alerts tab
+              </p>
             </div>
           ) : (
-            silences.map((silence) => (
-              <motion.div
-                key={silence.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`p-4 rounded-xl border ${
-                  silence.status?.state === 'active'
-                    ? 'bg-purple-50 dark:bg-purple-900/10 border-purple-200 dark:border-purple-800/50'
-                    : 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <BellSlashIcon className="h-5 w-5 text-purple-500" />
-                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                        silence.status?.state === 'active'
-                          ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600'
-                          : 'bg-gray-100 dark:bg-slate-700 text-gray-600'
-                      }`}>
-                        {silence.status?.state || 'unknown'}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                      {silence.comment}
-                    </p>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {silence.matchers.map((m, idx) => (
-                        <span key={idx} className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-slate-700 rounded text-gray-600 dark:text-gray-400">
-                          {m.name}={m.value}
+            silences.map((silence) => {
+              const isActive = silence.status?.state === 'active';
+              return (
+                <div
+                  key={silence.id}
+                  style={{
+                    background: t.cardBg,
+                    border: `1px solid ${t.cardBorder}`,
+                    borderLeft: isActive ? '4px solid #8b5cf6' : `4px solid ${t.cardBorder}`,
+                    borderRadius: 10,
+                    padding: 16,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <BellSlashIcon style={{ width: 18, height: 18, color: '#8b5cf6' }} />
+                        <span
+                          style={{
+                            padding: '2px 8px',
+                            borderRadius: 9999,
+                            fontSize: 11,
+                            fontWeight: 500,
+                            background: isActive ? 'rgba(139,92,246,0.12)' : t.mainBg,
+                            color: isActive ? '#8b5cf6' : t.textMuted,
+                            border: `1px solid ${t.cardBorder}`,
+                          }}
+                        >
+                          {silence.status?.state || 'unknown'}
                         </span>
-                      ))}
+                      </div>
+                      <p style={{ fontSize: 13, color: t.textSub, margin: '8px 0' }}>
+                        {silence.comment}
+                      </p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                        {silence.matchers.map((m, idx) => (
+                          <span
+                            key={idx}
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: 6,
+                              fontSize: 11,
+                              background: t.mainBg,
+                              border: `1px solid ${t.cardBorder}`,
+                              color: t.textSub,
+                              fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
+                            }}
+                          >
+                            {m.name}={m.value}
+                          </span>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 12, color: t.textMuted }}>
+                        <span>By: {silence.created_by}</span>
+                        <span>Ends: {new Date(silence.ends_at).toLocaleString()}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span>By: {silence.created_by}</span>
-                      <span>Ends: {new Date(silence.ends_at).toLocaleString()}</span>
-                    </div>
+                    {isActive && (
+                      <DeleteSilenceButton silenceId={silence.id} onDelete={handleDeleteSilence} t={t} />
+                    )}
                   </div>
-                  {silence.status?.state === 'active' && (
-                    <button
-                      onClick={() => handleDeleteSilence(silence.id)}
-                      className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                    >
-                      <XMarkIcon className="h-5 w-5" />
-                    </button>
-                  )}
                 </div>
-              </motion.div>
-            ))
+              );
+            })
           )}
         </div>
       )}
@@ -661,5 +1065,75 @@ export default function AlertsView() {
         />
       )}
     </div>
+  );
+}
+
+// Small helper button components to avoid inline hook-in-callback patterns
+function SilenceButton({
+  alert,
+  onSilence,
+  t,
+}: {
+  alert: Alert;
+  onSilence: (alert: Alert) => void;
+  t: ReturnType<typeof getThemeColors>;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      onClick={() => onSilence(alert)}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '6px 12px',
+        background: hover ? t.mainBg : t.cardBg,
+        border: `1px solid ${t.cardBorder}`,
+        borderRadius: 8,
+        color: t.textSub,
+        fontSize: 12,
+        cursor: 'pointer',
+        transition: 'background 0.15s',
+      }}
+    >
+      <BellSlashIcon style={{ width: 14, height: 14 }} />
+      Silence
+    </button>
+  );
+}
+
+function DeleteSilenceButton({
+  silenceId,
+  onDelete,
+  t,
+}: {
+  silenceId: string;
+  onDelete: (id: string) => void;
+  t: ReturnType<typeof getThemeColors>;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      onClick={() => onDelete(silenceId)}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        flexShrink: 0,
+        padding: 8,
+        background: hover ? t.errorBg : 'transparent',
+        border: 'none',
+        borderRadius: 8,
+        color: t.error,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        transition: 'background 0.15s',
+      }}
+    >
+      <XMarkIcon style={{ width: 18, height: 18 }} />
+    </button>
   );
 }

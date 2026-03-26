@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   ServerIcon,
   BellIcon,
@@ -13,7 +12,6 @@ import {
   Cog6ToothIcon,
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
-import GlassCard from '../common/GlassCard';
 import { prometheusApi } from '../../services/prometheusApi';
 import type {
   PrometheusStackConfig,
@@ -21,120 +19,171 @@ import type {
   StackStatus,
 } from '../../types/prometheus';
 import { getDefaultStackConfig } from '../../types/prometheus';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors } from '../../styles/linear-design';
 
 interface StepProps {
   config: PrometheusStackConfig;
   setConfig: (config: PrometheusStackConfig) => void;
+  t: ReturnType<typeof getThemeColors>;
+}
+
+const inputStyle = (t: ReturnType<typeof getThemeColors>) => ({
+  background: 'transparent',
+  border: `1px solid ${t.cardBorder}`,
+  borderRadius: 6,
+  padding: '7px 10px',
+  color: t.text,
+  fontSize: 13,
+  outline: 'none',
+  width: '100%',
+  boxSizing: 'border-box' as const,
+});
+
+const selectStyle = (t: ReturnType<typeof getThemeColors>) => ({
+  background: t.cardBg,
+  border: `1px solid ${t.cardBorder}`,
+  borderRadius: 6,
+  padding: '7px 10px',
+  color: t.text,
+  fontSize: 13,
+  outline: 'none',
+  width: '100%',
+  boxSizing: 'border-box' as const,
+});
+
+const labelStyle = (t: ReturnType<typeof getThemeColors>) => ({
+  display: 'block' as const,
+  fontSize: 12,
+  fontWeight: 500 as const,
+  color: t.textSub,
+  marginBottom: 6,
+});
+
+const hintStyle = (t: ReturnType<typeof getThemeColors>) => ({
+  marginTop: 4,
+  fontSize: 11,
+  color: t.textMuted,
+});
+
+function ToggleRow({
+  label, description, checked, onChange, t,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (val: boolean) => void;
+  t: ReturnType<typeof getThemeColors>;
+}) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '12px 14px', background: t.mainBg,
+      border: `1px solid ${t.cardBorder}`, borderRadius: 8,
+    }}>
+      <div>
+        <h4 style={{ fontSize: 13, fontWeight: 500, color: t.text, margin: 0 }}>{label}</h4>
+        <p style={{ fontSize: 12, color: t.textMuted, margin: '2px 0 0' }}>{description}</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        style={{
+          width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
+          background: checked ? t.info : t.cardBorder,
+          position: 'relative', flexShrink: 0, transition: 'background 0.2s',
+        }}
+      >
+        <span style={{
+          position: 'absolute', top: 3, borderRadius: '50%',
+          width: 18, height: 18, background: '#fff',
+          left: checked ? 23 : 3, transition: 'left 0.2s',
+        }} />
+      </button>
+    </div>
+  );
 }
 
 // Step 1: Namespace & Release Configuration
-function NamespaceStep({ config, setConfig }: StepProps) {
+function NamespaceStep({ config, setConfig, t }: StepProps) {
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Namespace
-        </label>
+        <label style={labelStyle(t)}>Namespace</label>
         <input
           type="text"
           value={config.namespace}
           onChange={(e) => setConfig({ ...config, namespace: e.target.value })}
-          className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          style={inputStyle(t)}
           placeholder="monitoring"
         />
-        <p className="mt-1 text-xs text-gray-500">Namespace where Prometheus stack will be deployed</p>
+        <p style={hintStyle(t)}>Namespace where Prometheus stack will be deployed</p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Release Name
-        </label>
+        <label style={labelStyle(t)}>Release Name</label>
         <input
           type="text"
           value={config.release_name}
           onChange={(e) => setConfig({ ...config, release_name: e.target.value })}
-          className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          style={inputStyle(t)}
           placeholder="prometheus-stack"
         />
-        <p className="mt-1 text-xs text-gray-500">Helm release name for the stack</p>
+        <p style={hintStyle(t)}>Helm release name for the stack</p>
       </div>
     </div>
   );
 }
 
 // Step 2: Prometheus Configuration
-function PrometheusStep({ config, setConfig }: StepProps) {
+function PrometheusStep({ config, setConfig, t }: StepProps) {
   const retentionOptions = ['7d', '15d', '30d', '60d', '90d'];
   const storageOptions = ['10Gi', '25Gi', '50Gi', '100Gi', '200Gi', '500Gi'];
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Data Retention
-          </label>
+          <label style={labelStyle(t)}>Data Retention</label>
           <select
             value={config.prometheus.retention}
-            onChange={(e) => setConfig({
-              ...config,
-              prometheus: { ...config.prometheus, retention: e.target.value }
-            })}
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+            onChange={(e) => setConfig({ ...config, prometheus: { ...config.prometheus, retention: e.target.value } })}
+            style={selectStyle(t)}
           >
-            {retentionOptions.map(opt => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
+            {retentionOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </select>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Storage Size
-          </label>
+          <label style={labelStyle(t)}>Storage Size</label>
           <select
             value={config.prometheus.storage_size}
-            onChange={(e) => setConfig({
-              ...config,
-              prometheus: { ...config.prometheus, storage_size: e.target.value }
-            })}
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+            onChange={(e) => setConfig({ ...config, prometheus: { ...config.prometheus, storage_size: e.target.value } })}
+            style={selectStyle(t)}
           >
-            {storageOptions.map(opt => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
+            {storageOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </select>
         </div>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Storage Class (optional)
-        </label>
+        <label style={labelStyle(t)}>Storage Class (optional)</label>
         <input
           type="text"
           value={config.prometheus.storage_class || ''}
-          onChange={(e) => setConfig({
-            ...config,
-            prometheus: { ...config.prometheus, storage_class: e.target.value || undefined }
-          })}
-          className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+          onChange={(e) => setConfig({ ...config, prometheus: { ...config.prometheus, storage_class: e.target.value || undefined } })}
+          style={inputStyle(t)}
           placeholder="default (uses cluster default)"
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Replicas
-          </label>
+          <label style={labelStyle(t)}>Replicas</label>
           <select
             value={config.prometheus.replicas}
-            onChange={(e) => setConfig({
-              ...config,
-              prometheus: { ...config.prometheus, replicas: parseInt(e.target.value) }
-            })}
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+            onChange={(e) => setConfig({ ...config, prometheus: { ...config.prometheus, replicas: parseInt(e.target.value) } })}
+            style={selectStyle(t)}
           >
             <option value={1}>1 (Single)</option>
             <option value={2}>2 (HA)</option>
@@ -143,16 +192,11 @@ function PrometheusStep({ config, setConfig }: StepProps) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Scrape Interval
-          </label>
+          <label style={labelStyle(t)}>Scrape Interval</label>
           <select
             value={config.prometheus.scrape_interval}
-            onChange={(e) => setConfig({
-              ...config,
-              prometheus: { ...config.prometheus, scrape_interval: e.target.value }
-            })}
-            className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+            onChange={(e) => setConfig({ ...config, prometheus: { ...config.prometheus, scrape_interval: e.target.value } })}
+            style={selectStyle(t)}
           >
             <option value="15s">15s</option>
             <option value="30s">30s</option>
@@ -161,37 +205,34 @@ function PrometheusStep({ config, setConfig }: StepProps) {
         </div>
       </div>
 
-      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-        <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">Resource Limits</h4>
-        <div className="grid grid-cols-2 gap-4">
+      <div style={{
+        padding: '12px 14px', background: t.infoBg,
+        border: `1px solid ${t.info}`, borderRadius: 8,
+      }}>
+        <h4 style={{ fontSize: 12, fontWeight: 600, color: t.info, margin: '0 0 10px' }}>Resource Limits</h4>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <div>
-            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">CPU Request</label>
+            <label style={{ ...labelStyle(t), color: t.textMuted }}>CPU Request</label>
             <input
               type="text"
               value={config.prometheus.resources.cpu_request}
               onChange={(e) => setConfig({
                 ...config,
-                prometheus: {
-                  ...config.prometheus,
-                  resources: { ...config.prometheus.resources, cpu_request: e.target.value }
-                }
+                prometheus: { ...config.prometheus, resources: { ...config.prometheus.resources, cpu_request: e.target.value } }
               })}
-              className="w-full px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
+              style={{ ...inputStyle(t), fontSize: 12 }}
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Memory Request</label>
+            <label style={{ ...labelStyle(t), color: t.textMuted }}>Memory Request</label>
             <input
               type="text"
               value={config.prometheus.resources.memory_request}
               onChange={(e) => setConfig({
                 ...config,
-                prometheus: {
-                  ...config.prometheus,
-                  resources: { ...config.prometheus.resources, memory_request: e.target.value }
-                }
+                prometheus: { ...config.prometheus, resources: { ...config.prometheus.resources, memory_request: e.target.value } }
               })}
-              className="w-full px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800"
+              style={{ ...inputStyle(t), fontSize: 12 }}
             />
           </div>
         </div>
@@ -201,42 +242,26 @@ function PrometheusStep({ config, setConfig }: StepProps) {
 }
 
 // Step 3: Alertmanager Configuration
-function AlertmanagerStep({ config, setConfig }: StepProps) {
+function AlertmanagerStep({ config, setConfig, t }: StepProps) {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-        <div>
-          <h4 className="font-medium text-gray-900 dark:text-white">Enable Alertmanager</h4>
-          <p className="text-sm text-gray-500">Handle and route alerts to notification channels</p>
-        </div>
-        <label className="relative inline-flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            checked={config.alertmanager.enabled}
-            onChange={(e) => setConfig({
-              ...config,
-              alertmanager: { ...config.alertmanager, enabled: e.target.checked }
-            })}
-            className="sr-only peer"
-          />
-          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
-        </label>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <ToggleRow
+        label="Enable Alertmanager"
+        description="Handle and route alerts to notification channels"
+        checked={config.alertmanager.enabled}
+        onChange={(val) => setConfig({ ...config, alertmanager: { ...config.alertmanager, enabled: val } })}
+        t={t}
+      />
 
       {config.alertmanager.enabled && (
         <>
-          <div className="grid grid-cols-2 gap-4">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Replicas
-              </label>
+              <label style={labelStyle(t)}>Replicas</label>
               <select
                 value={config.alertmanager.replicas}
-                onChange={(e) => setConfig({
-                  ...config,
-                  alertmanager: { ...config.alertmanager, replicas: parseInt(e.target.value) }
-                })}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+                onChange={(e) => setConfig({ ...config, alertmanager: { ...config.alertmanager, replicas: parseInt(e.target.value) } })}
+                style={selectStyle(t)}
               >
                 <option value={1}>1</option>
                 <option value={2}>2</option>
@@ -245,16 +270,11 @@ function AlertmanagerStep({ config, setConfig }: StepProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Storage Size
-              </label>
+              <label style={labelStyle(t)}>Storage Size</label>
               <select
                 value={config.alertmanager.storage_size}
-                onChange={(e) => setConfig({
-                  ...config,
-                  alertmanager: { ...config.alertmanager, storage_size: e.target.value }
-                })}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+                onChange={(e) => setConfig({ ...config, alertmanager: { ...config.alertmanager, storage_size: e.target.value } })}
+                style={selectStyle(t)}
               >
                 <option value="5Gi">5Gi</option>
                 <option value="10Gi">10Gi</option>
@@ -263,15 +283,15 @@ function AlertmanagerStep({ config, setConfig }: StepProps) {
             </div>
           </div>
 
-          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-            <div className="flex items-start gap-2">
-              <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm text-amber-800 dark:text-amber-300">
-                  Notification receivers (Slack, Email, PagerDuty) can be configured after deployment through the Alert Rules Manager.
-                </p>
-              </div>
-            </div>
+          <div style={{
+            padding: '10px 14px', background: t.warningBg,
+            border: `1px solid ${t.warning}`, borderRadius: 8,
+            display: 'flex', alignItems: 'flex-start', gap: 8,
+          }}>
+            <ExclamationTriangleIcon style={{ width: 16, height: 16, color: t.warning, flexShrink: 0, marginTop: 1 }} />
+            <p style={{ fontSize: 12, color: t.warning, margin: 0 }}>
+              Notification receivers (Slack, Email, PagerDuty) can be configured after deployment through the Alert Rules Manager.
+            </p>
           </div>
         </>
       )}
@@ -280,77 +300,45 @@ function AlertmanagerStep({ config, setConfig }: StepProps) {
 }
 
 // Step 4: Grafana Configuration
-function GrafanaStep({ config, setConfig }: StepProps) {
+function GrafanaStep({ config, setConfig, t }: StepProps) {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-        <div>
-          <h4 className="font-medium text-gray-900 dark:text-white">Enable Grafana</h4>
-          <p className="text-sm text-gray-500">Visualization and dashboards for metrics</p>
-        </div>
-        <label className="relative inline-flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            checked={config.grafana.enabled}
-            onChange={(e) => setConfig({
-              ...config,
-              grafana: { ...config.grafana, enabled: e.target.checked }
-            })}
-            className="sr-only peer"
-          />
-          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
-        </label>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <ToggleRow
+        label="Enable Grafana"
+        description="Visualization and dashboards for metrics"
+        checked={config.grafana.enabled}
+        onChange={(val) => setConfig({ ...config, grafana: { ...config.grafana, enabled: val } })}
+        t={t}
+      />
 
       {config.grafana.enabled && (
         <>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Admin Password (optional)
-            </label>
+            <label style={labelStyle(t)}>Admin Password (optional)</label>
             <input
               type="password"
               value={config.grafana.admin_password || ''}
-              onChange={(e) => setConfig({
-                ...config,
-                grafana: { ...config.grafana, admin_password: e.target.value || undefined }
-              })}
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+              onChange={(e) => setConfig({ ...config, grafana: { ...config.grafana, admin_password: e.target.value || undefined } })}
+              style={inputStyle(t)}
               placeholder="Auto-generated if empty"
             />
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-            <div>
-              <h4 className="font-medium text-gray-900 dark:text-white">Enable Persistence</h4>
-              <p className="text-sm text-gray-500">Store dashboards and settings</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={config.grafana.persistence_enabled}
-                onChange={(e) => setConfig({
-                  ...config,
-                  grafana: { ...config.grafana, persistence_enabled: e.target.checked }
-                })}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-            </label>
-          </div>
+          <ToggleRow
+            label="Enable Persistence"
+            description="Store dashboards and settings"
+            checked={config.grafana.persistence_enabled}
+            onChange={(val) => setConfig({ ...config, grafana: { ...config.grafana, persistence_enabled: val } })}
+            t={t}
+          />
 
           {config.grafana.persistence_enabled && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Storage Size
-              </label>
+              <label style={labelStyle(t)}>Storage Size</label>
               <select
                 value={config.grafana.storage_size}
-                onChange={(e) => setConfig({
-                  ...config,
-                  grafana: { ...config.grafana, storage_size: e.target.value }
-                })}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+                onChange={(e) => setConfig({ ...config, grafana: { ...config.grafana, storage_size: e.target.value } })}
+                style={selectStyle(t)}
               >
                 <option value="5Gi">5Gi</option>
                 <option value="10Gi">10Gi</option>
@@ -359,38 +347,22 @@ function GrafanaStep({ config, setConfig }: StepProps) {
             </div>
           )}
 
-          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-            <div>
-              <h4 className="font-medium text-gray-900 dark:text-white">Enable Ingress</h4>
-              <p className="text-sm text-gray-500">Expose Grafana externally</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={config.grafana.ingress_enabled}
-                onChange={(e) => setConfig({
-                  ...config,
-                  grafana: { ...config.grafana, ingress_enabled: e.target.checked }
-                })}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-            </label>
-          </div>
+          <ToggleRow
+            label="Enable Ingress"
+            description="Expose Grafana externally"
+            checked={config.grafana.ingress_enabled}
+            onChange={(val) => setConfig({ ...config, grafana: { ...config.grafana, ingress_enabled: val } })}
+            t={t}
+          />
 
           {config.grafana.ingress_enabled && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Ingress Host
-              </label>
+              <label style={labelStyle(t)}>Ingress Host</label>
               <input
                 type="text"
                 value={config.grafana.ingress_host || ''}
-                onChange={(e) => setConfig({
-                  ...config,
-                  grafana: { ...config.grafana, ingress_host: e.target.value || undefined }
-                })}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500"
+                onChange={(e) => setConfig({ ...config, grafana: { ...config.grafana, ingress_host: e.target.value || undefined } })}
+                style={inputStyle(t)}
                 placeholder="grafana.example.com"
               />
             </div>
@@ -402,58 +374,39 @@ function GrafanaStep({ config, setConfig }: StepProps) {
 }
 
 // Step 5: Exporters Configuration
-function ExportersStep({ config, setConfig }: StepProps) {
+function ExportersStep({ config, setConfig, t }: StepProps) {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-        <div>
-          <h4 className="font-medium text-gray-900 dark:text-white">Node Exporter</h4>
-          <p className="text-sm text-gray-500">Collect hardware and OS metrics from nodes</p>
-        </div>
-        <label className="relative inline-flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            checked={config.node_exporter.enabled}
-            onChange={(e) => setConfig({
-              ...config,
-              node_exporter: { enabled: e.target.checked }
-            })}
-            className="sr-only peer"
-          />
-          <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-        </label>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <ToggleRow
+        label="Node Exporter"
+        description="Collect hardware and OS metrics from nodes"
+        checked={config.node_exporter.enabled}
+        onChange={(val) => setConfig({ ...config, node_exporter: { enabled: val } })}
+        t={t}
+      />
 
-      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-        <div>
-          <h4 className="font-medium text-gray-900 dark:text-white">kube-state-metrics</h4>
-          <p className="text-sm text-gray-500">Collect Kubernetes object state metrics</p>
-        </div>
-        <label className="relative inline-flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            checked={config.kube_state_metrics.enabled}
-            onChange={(e) => setConfig({
-              ...config,
-              kube_state_metrics: { enabled: e.target.checked }
-            })}
-            className="sr-only peer"
-          />
-          <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-        </label>
-      </div>
+      <ToggleRow
+        label="kube-state-metrics"
+        description="Collect Kubernetes object state metrics"
+        checked={config.kube_state_metrics.enabled}
+        onChange={(val) => setConfig({ ...config, kube_state_metrics: { enabled: val } })}
+        t={t}
+      />
 
-      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-        <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">What you'll get:</h4>
-        <ul className="text-sm text-blue-700 dark:text-blue-400 space-y-1">
+      <div style={{
+        padding: '12px 14px', background: t.infoBg,
+        border: `1px solid ${t.info}`, borderRadius: 8,
+      }}>
+        <h4 style={{ fontSize: 12, fontWeight: 600, color: t.info, margin: '0 0 8px' }}>What you'll get:</h4>
+        <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 4 }}>
           {config.node_exporter.enabled && (
-            <li>- CPU, Memory, Disk, Network metrics per node</li>
+            <li style={{ fontSize: 12, color: t.info }}>- CPU, Memory, Disk, Network metrics per node</li>
           )}
           {config.kube_state_metrics.enabled && (
-            <li>- Deployment, Pod, Service, Node state metrics</li>
+            <li style={{ fontSize: 12, color: t.info }}>- Deployment, Pod, Service, Node state metrics</li>
           )}
-          <li>- Container CPU/Memory metrics (from kubelet)</li>
-          <li>- Kubernetes API server metrics</li>
+          <li style={{ fontSize: 12, color: t.info }}>- Container CPU/Memory metrics (from kubelet)</li>
+          <li style={{ fontSize: 12, color: t.info }}>- Kubernetes API server metrics</li>
         </ul>
       </div>
     </div>
@@ -461,71 +414,72 @@ function ExportersStep({ config, setConfig }: StepProps) {
 }
 
 // Step 6: Review & Deploy
-function ReviewStep({ config }: { config: PrometheusStackConfig }) {
+function ReviewStep({ config, t }: { config: PrometheusStackConfig; t: ReturnType<typeof getThemeColors> }) {
+  const reviewCardStyle = {
+    padding: '12px 14px', background: t.mainBg,
+    border: `1px solid ${t.cardBorder}`, borderRadius: 8,
+  };
+
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-          <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Namespace</h4>
-          <p className="text-lg font-semibold text-gray-900 dark:text-white">{config.namespace}</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={reviewCardStyle}>
+          <h4 style={{ fontSize: 11, fontWeight: 500, color: t.textMuted, margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.4 }}>Namespace</h4>
+          <p style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0, fontFamily: "'SF Mono', monospace" }}>{config.namespace}</p>
         </div>
-        <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-          <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Release Name</h4>
-          <p className="text-lg font-semibold text-gray-900 dark:text-white">{config.release_name}</p>
-        </div>
-      </div>
-
-      <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-        <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Prometheus</h4>
-        <div className="grid grid-cols-3 gap-2 text-sm">
-          <div><span className="text-gray-500">Retention:</span> {config.prometheus.retention}</div>
-          <div><span className="text-gray-500">Storage:</span> {config.prometheus.storage_size}</div>
-          <div><span className="text-gray-500">Replicas:</span> {config.prometheus.replicas}</div>
+        <div style={reviewCardStyle}>
+          <h4 style={{ fontSize: 11, fontWeight: 500, color: t.textMuted, margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.4 }}>Release Name</h4>
+          <p style={{ fontSize: 16, fontWeight: 600, color: t.text, margin: 0, fontFamily: "'SF Mono', monospace" }}>{config.release_name}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className={`p-4 rounded-lg ${config.alertmanager.enabled ? 'bg-green-50 dark:bg-green-900/20' : 'bg-gray-50 dark:bg-slate-700/50'}`}>
-          <div className="flex items-center gap-2">
-            {config.alertmanager.enabled ? (
-              <CheckCircleIcon className="w-5 h-5 text-green-500" />
-            ) : (
-              <XCircleIcon className="w-5 h-5 text-gray-400" />
-            )}
-            <span className="font-medium text-gray-900 dark:text-white">Alertmanager</span>
+      <div style={reviewCardStyle}>
+        <h4 style={{ fontSize: 11, fontWeight: 500, color: t.textMuted, margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: 0.4 }}>Prometheus</h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          <div style={{ fontSize: 12, color: t.textSub }}>
+            <span style={{ color: t.textMuted }}>Retention: </span>{config.prometheus.retention}
           </div>
-        </div>
-        <div className={`p-4 rounded-lg ${config.grafana.enabled ? 'bg-green-50 dark:bg-green-900/20' : 'bg-gray-50 dark:bg-slate-700/50'}`}>
-          <div className="flex items-center gap-2">
-            {config.grafana.enabled ? (
-              <CheckCircleIcon className="w-5 h-5 text-green-500" />
-            ) : (
-              <XCircleIcon className="w-5 h-5 text-gray-400" />
-            )}
-            <span className="font-medium text-gray-900 dark:text-white">Grafana</span>
+          <div style={{ fontSize: 12, color: t.textSub }}>
+            <span style={{ color: t.textMuted }}>Storage: </span>{config.prometheus.storage_size}
           </div>
-        </div>
-        <div className={`p-4 rounded-lg ${config.node_exporter.enabled ? 'bg-green-50 dark:bg-green-900/20' : 'bg-gray-50 dark:bg-slate-700/50'}`}>
-          <div className="flex items-center gap-2">
-            {config.node_exporter.enabled ? (
-              <CheckCircleIcon className="w-5 h-5 text-green-500" />
-            ) : (
-              <XCircleIcon className="w-5 h-5 text-gray-400" />
-            )}
-            <span className="font-medium text-gray-900 dark:text-white">Node Exporter</span>
+          <div style={{ fontSize: 12, color: t.textSub }}>
+            <span style={{ color: t.textMuted }}>Replicas: </span>{config.prometheus.replicas}
           </div>
         </div>
       </div>
 
-      <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-        <div className="flex items-start gap-2">
-          <ExclamationTriangleIcon className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm text-amber-800 dark:text-amber-300">
-              Deployment may take 5-10 minutes. The stack will be installed via Helm and pods will need time to start.
-            </p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        {[
+          { label: 'Alertmanager', enabled: config.alertmanager.enabled },
+          { label: 'Grafana', enabled: config.grafana.enabled },
+          { label: 'Node Exporter', enabled: config.node_exporter.enabled },
+        ].map(({ label, enabled }) => (
+          <div
+            key={label}
+            style={{
+              padding: '10px 12px', borderRadius: 8,
+              background: enabled ? t.successBg : t.mainBg,
+              border: `1px solid ${enabled ? t.success : t.cardBorder}`,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}
+          >
+            {enabled
+              ? <CheckCircleIcon style={{ width: 18, height: 18, color: t.success }} />
+              : <XCircleIcon style={{ width: 18, height: 18, color: t.textMuted }} />}
+            <span style={{ fontSize: 13, fontWeight: 500, color: t.text }}>{label}</span>
           </div>
-        </div>
+        ))}
+      </div>
+
+      <div style={{
+        padding: '10px 14px', background: t.warningBg,
+        border: `1px solid ${t.warning}`, borderRadius: 8,
+        display: 'flex', alignItems: 'flex-start', gap: 8,
+      }}>
+        <ExclamationTriangleIcon style={{ width: 16, height: 16, color: t.warning, flexShrink: 0, marginTop: 1 }} />
+        <p style={{ fontSize: 12, color: t.warning, margin: 0 }}>
+          Deployment may take 5-10 minutes. The stack will be installed via Helm and pods will need time to start.
+        </p>
       </div>
     </div>
   );
@@ -533,6 +487,9 @@ function ReviewStep({ config }: { config: PrometheusStackConfig }) {
 
 // Main Component
 export default function PrometheusSetup() {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+
   const [currentStep, setCurrentStep] = useState(0);
   const [config, setConfig] = useState<PrometheusStackConfig>(getDefaultStackConfig());
   const [status, setStatus] = useState<PrometheusStackStatus | null>(null);
@@ -559,7 +516,6 @@ export default function PrometheusSetup() {
       const response = await prometheusApi.getStackStatus();
       setStatus(response.data);
     } catch (err) {
-      // Stack not installed is expected
       setStatus(null);
     } finally {
       setLoading(false);
@@ -586,206 +542,271 @@ export default function PrometheusSetup() {
     }
   };
 
-  const getStatusColor = (stackStatus: StackStatus) => {
+  const getStatusStyle = (stackStatus: StackStatus) => {
     switch (stackStatus) {
       case 'running':
-        return 'text-green-500 bg-green-500/10';
+        return { color: t.success, background: t.successBg, border: `1px solid ${t.success}` };
       case 'degraded':
-        return 'text-amber-500 bg-amber-500/10';
+        return { color: t.warning, background: t.warningBg, border: `1px solid ${t.warning}` };
       case 'failed':
-        return 'text-red-500 bg-red-500/10';
+        return { color: t.error, background: t.errorBg, border: `1px solid ${t.error}` };
       case 'installing':
       case 'upgrading':
-        return 'text-blue-500 bg-blue-500/10';
+        return { color: t.info, background: t.infoBg, border: `1px solid ${t.info}` };
       default:
-        return 'text-gray-500 bg-gray-500/10';
+        return { color: t.textMuted, background: t.cardBg, border: `1px solid ${t.cardBorder}` };
     }
+  };
+
+  const cardStyle = {
+    background: t.cardBg,
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 12,
+    padding: 20,
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 256, background: t.mainBg }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: '50%',
+          border: `3px solid ${t.cardBorder}`, borderTopColor: t.info,
+          animation: 'spin 1s linear infinite',
+        }} />
       </div>
     );
   }
 
   // If stack is already installed, show status
   if (status && status.status !== 'not_installed') {
+    const statusStyle = getStatusStyle(status.status);
     return (
-      <div className="space-y-6">
-        <GlassCard>
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Prometheus Stack Status</h2>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(status.status)}`}>
-                {status.status}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Namespace</p>
-                <p className="font-semibold text-gray-900 dark:text-white">{status.namespace}</p>
-              </div>
-              <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Release</p>
-                <p className="font-semibold text-gray-900 dark:text-white">{status.release_name}</p>
-              </div>
-              <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Version</p>
-                <p className="font-semibold text-gray-900 dark:text-white">{status.version || 'N/A'}</p>
-              </div>
-              <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Components</p>
-                <p className="font-semibold text-gray-900 dark:text-white">{status.components.length}</p>
-              </div>
-            </div>
-
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Components</h3>
-            <div className="space-y-2">
-              {status.components.map((component) => (
-                <div key={component.name} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    {component.ready ? (
-                      <CheckCircleIcon className="w-5 h-5 text-green-500" />
-                    ) : (
-                      <XCircleIcon className="w-5 h-5 text-red-500" />
-                    )}
-                    <span className="font-medium text-gray-900 dark:text-white">{component.name}</span>
-                  </div>
-                  <span className="text-sm text-gray-500">
-                    {component.ready_replicas}/{component.replicas} ready
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {status.prometheus_url && (
-              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">Access URLs (Internal)</h4>
-                <div className="space-y-1 text-sm text-blue-700 dark:text-blue-400">
-                  <p>Prometheus: {status.prometheus_url}</p>
-                  {status.alertmanager_url && <p>Alertmanager: {status.alertmanager_url}</p>}
-                  {status.grafana_url && <p>Grafana: {status.grafana_url}</p>}
-                </div>
-              </div>
-            )}
+      <div style={{ color: t.text }}>
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: t.text, margin: 0 }}>Prometheus Stack Status</h2>
+            <span style={{
+              padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500,
+              ...statusStyle,
+            }}>
+              {status.status}
+            </span>
           </div>
-        </GlassCard>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+            {[
+              { label: 'Namespace', value: status.namespace },
+              { label: 'Release', value: status.release_name },
+              { label: 'Version', value: status.version || 'N/A' },
+              { label: 'Components', value: String(status.components.length) },
+            ].map(({ label, value }) => (
+              <div key={label} style={{
+                padding: '12px 14px', background: t.mainBg,
+                border: `1px solid ${t.cardBorder}`, borderRadius: 8,
+              }}>
+                <p style={{ fontSize: 11, color: t.textMuted, margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</p>
+                <p style={{ fontSize: 15, fontWeight: 600, color: t.text, margin: 0, fontFamily: "'SF Mono', monospace" }}>{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: t.text, margin: '0 0 12px' }}>Components</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {status.components.map((component) => (
+              <div
+                key={component.name}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 14px', background: t.mainBg,
+                  border: `1px solid ${t.cardBorder}`, borderRadius: 8,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {component.ready
+                    ? <CheckCircleIcon style={{ width: 18, height: 18, color: t.success }} />
+                    : <XCircleIcon style={{ width: 18, height: 18, color: t.error }} />}
+                  <span style={{ fontSize: 13, fontWeight: 500, color: t.text }}>{component.name}</span>
+                </div>
+                <span style={{ fontSize: 12, color: t.textMuted }}>
+                  {component.ready_replicas}/{component.replicas} ready
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {status.prometheus_url && (
+            <div style={{
+              marginTop: 20, padding: '12px 14px', background: t.infoBg,
+              border: `1px solid ${t.info}`, borderRadius: 8,
+            }}>
+              <h4 style={{ fontSize: 12, fontWeight: 600, color: t.info, margin: '0 0 8px' }}>Access URLs (Internal)</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <p style={{ fontSize: 12, color: t.info, margin: 0, fontFamily: "'SF Mono', monospace" }}>
+                  Prometheus: {status.prometheus_url}
+                </p>
+                {status.alertmanager_url && (
+                  <p style={{ fontSize: 12, color: t.info, margin: 0, fontFamily: "'SF Mono', monospace" }}>
+                    Alertmanager: {status.alertmanager_url}
+                  </p>
+                )}
+                {status.grafana_url && (
+                  <p style={{ fontSize: 12, color: t.info, margin: 0, fontFamily: "'SF Mono', monospace" }}>
+                    Grafana: {status.grafana_url}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
   // Show setup wizard
   return (
-    <div className="space-y-6">
-      <GlassCard>
-        <div className="p-6">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Deploy Prometheus Stack</h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">
-            Deploy a complete monitoring stack with Prometheus, Alertmanager, Grafana, and exporters.
-          </p>
+    <div style={{ color: t.text }}>
+      <div style={cardStyle}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: t.text, margin: '0 0 4px' }}>Deploy Prometheus Stack</h2>
+        <p style={{ fontSize: 13, color: t.textMuted, margin: '0 0 24px' }}>
+          Deploy a complete monitoring stack with Prometheus, Alertmanager, Grafana, and exporters.
+        </p>
 
-          {/* Progress Steps */}
-          <div className="flex items-center justify-between mb-8">
-            {steps.map((step, index) => (
-              <div key={step.id} className="flex items-center">
-                <button
-                  onClick={() => setCurrentStep(index)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                    currentStep === index
-                      ? 'bg-primary-500 text-white'
-                      : currentStep > index
-                      ? 'bg-green-500/10 text-green-500'
-                      : 'bg-gray-100 dark:bg-slate-700 text-gray-500'
-                  }`}
-                >
-                  <step.icon className="w-5 h-5" />
-                  <span className="hidden md:inline text-sm font-medium">{step.title}</span>
-                </button>
-                {index < steps.length - 1 && (
-                  <div className={`w-8 h-0.5 mx-2 ${currentStep > index ? 'bg-green-500' : 'bg-gray-300 dark:bg-slate-600'}`} />
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Step Content */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentStep}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
-              className="min-h-[300px]"
-            >
-              {currentStep === 0 && <NamespaceStep config={config} setConfig={setConfig} />}
-              {currentStep === 1 && <PrometheusStep config={config} setConfig={setConfig} />}
-              {currentStep === 2 && <AlertmanagerStep config={config} setConfig={setConfig} />}
-              {currentStep === 3 && <GrafanaStep config={config} setConfig={setConfig} />}
-              {currentStep === 4 && <ExportersStep config={config} setConfig={setConfig} />}
-              {currentStep === 5 && <ReviewStep config={config} />}
-            </motion.div>
-          </AnimatePresence>
-
-          {/* Error/Success Messages */}
-          {error && (
-            <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-            </div>
-          )}
-
-          {deployResult && (
-            <div className={`mt-4 p-4 rounded-lg ${deployResult.success ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
-              <p className={`text-sm ${deployResult.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {deployResult.message}
-              </p>
-            </div>
-          )}
-
-          {/* Navigation Buttons */}
-          <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
-              disabled={currentStep === 0}
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ArrowLeftIcon className="w-4 h-4" />
-              Back
-            </button>
-
-            {currentStep < steps.length - 1 ? (
+        {/* Progress Steps */}
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 28, flexWrap: 'wrap', gap: 4 }}>
+          {steps.map((step, index) => (
+            <div key={step.id} style={{ display: 'flex', alignItems: 'center' }}>
               <button
-                onClick={() => setCurrentStep(currentStep + 1)}
-                className="flex items-center gap-2 px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+                onClick={() => setCurrentStep(index)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 12px', borderRadius: 8,
+                  cursor: 'pointer', fontSize: 12, fontWeight: 500,
+                  background: currentStep === index
+                    ? t.info
+                    : currentStep > index
+                    ? t.successBg
+                    : t.mainBg,
+                  color: currentStep === index
+                    ? '#fff'
+                    : currentStep > index
+                    ? t.success
+                    : t.textMuted,
+                  border: currentStep === index
+                    ? 'none'
+                    : currentStep > index
+                    ? `1px solid ${t.success}`
+                    : `1px solid ${t.cardBorder}`,
+                }}
               >
-                Next
-                <ArrowRightIcon className="w-4 h-4" />
+                <step.icon style={{ width: 15, height: 15 }} />
+                <span>{step.title}</span>
               </button>
-            ) : (
-              <button
-                onClick={handleDeploy}
-                disabled={deploying}
-                className="flex items-center gap-2 px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {deploying ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Deploying...
-                  </>
-                ) : (
-                  <>
-                    <PlayIcon className="w-4 h-4" />
-                    Deploy Stack
-                  </>
-                )}
-              </button>
-            )}
-          </div>
+              {index < steps.length - 1 && (
+                <div style={{
+                  width: 20, height: 1, margin: '0 4px',
+                  background: currentStep > index ? t.success : t.cardBorder,
+                }} />
+              )}
+            </div>
+          ))}
         </div>
-      </GlassCard>
+
+        {/* Step Content */}
+        <div style={{ minHeight: 300 }}>
+          {currentStep === 0 && <NamespaceStep config={config} setConfig={setConfig} t={t} />}
+          {currentStep === 1 && <PrometheusStep config={config} setConfig={setConfig} t={t} />}
+          {currentStep === 2 && <AlertmanagerStep config={config} setConfig={setConfig} t={t} />}
+          {currentStep === 3 && <GrafanaStep config={config} setConfig={setConfig} t={t} />}
+          {currentStep === 4 && <ExportersStep config={config} setConfig={setConfig} t={t} />}
+          {currentStep === 5 && <ReviewStep config={config} t={t} />}
+        </div>
+
+        {/* Error/Success Messages */}
+        {error && (
+          <div style={{
+            marginTop: 16, padding: '10px 14px',
+            background: t.errorBg, border: `1px solid ${t.error}`, borderRadius: 8,
+          }}>
+            <p style={{ fontSize: 13, color: t.error, margin: 0 }}>{error}</p>
+          </div>
+        )}
+
+        {deployResult && (
+          <div style={{
+            marginTop: 16, padding: '10px 14px', borderRadius: 8,
+            background: deployResult.success ? t.successBg : t.errorBg,
+            border: `1px solid ${deployResult.success ? t.success : t.error}`,
+          }}>
+            <p style={{ fontSize: 13, color: deployResult.success ? t.success : t.error, margin: 0 }}>
+              {deployResult.message}
+            </p>
+          </div>
+        )}
+
+        {/* Navigation Buttons */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginTop: 28, paddingTop: 20, borderTop: `1px solid ${t.cardBorder}`,
+        }}>
+          <button
+            onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
+            disabled={currentStep === 0}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 16px', background: 'transparent', border: 'none',
+              color: currentStep === 0 ? t.textMuted : t.textSub,
+              fontSize: 13, fontWeight: 500,
+              cursor: currentStep === 0 ? 'not-allowed' : 'pointer',
+              opacity: currentStep === 0 ? 0.5 : 1,
+            }}
+          >
+            <ArrowLeftIcon style={{ width: 15, height: 15 }} />
+            Back
+          </button>
+
+          {currentStep < steps.length - 1 ? (
+            <button
+              onClick={() => setCurrentStep(currentStep + 1)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 20px', background: t.info, border: 'none',
+                borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+              }}
+            >
+              Next
+              <ArrowRightIcon style={{ width: 15, height: 15 }} />
+            </button>
+          ) : (
+            <button
+              onClick={handleDeploy}
+              disabled={deploying}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 20px', background: t.success, border: 'none',
+                borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 500,
+                cursor: deploying ? 'not-allowed' : 'pointer',
+                opacity: deploying ? 0.7 : 1,
+              }}
+            >
+              {deploying ? (
+                <>
+                  <div style={{
+                    width: 14, height: 14, borderRadius: '50%',
+                    border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff',
+                    animation: 'spin 1s linear infinite',
+                  }} />
+                  Deploying...
+                </>
+              ) : (
+                <>
+                  <PlayIcon style={{ width: 15, height: 15 }} />
+                  Deploy Stack
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

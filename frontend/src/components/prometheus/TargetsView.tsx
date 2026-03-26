@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   ServerIcon,
   CheckCircleIcon,
@@ -14,22 +13,27 @@ import {
   ChevronRightIcon,
   GlobeAltIcon,
 } from '@heroicons/react/24/outline';
-import { prometheusApi, getTargetHealthColor, getRelativeTime } from '../../services/prometheusApi';
+import { prometheusApi, getRelativeTime } from '../../services/prometheusApi';
 import { logger } from '../../utils/logger';
 import type { TargetGroup, ScrapeTarget, TargetsResponse } from '../../types/prometheus';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors } from '../../styles/linear-design';
 
 const healthIcon = (health: string) => {
   switch (health.toLowerCase()) {
     case 'up':
-      return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
+      return <CheckCircleIcon style={{ width: 20, height: 20, color: '#22c55e' }} />;
     case 'down':
-      return <XCircleIcon className="h-5 w-5 text-red-500" />;
+      return <XCircleIcon style={{ width: 20, height: 20, color: '#ef4444' }} />;
     default:
-      return <QuestionMarkCircleIcon className="h-5 w-5 text-gray-500" />;
+      return <QuestionMarkCircleIcon style={{ width: 20, height: 20, color: '#9ca3af' }} />;
   }
 };
 
 export default function TargetsView() {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+
   const [targetGroups, setTargetGroups] = useState<TargetGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +43,7 @@ export default function TargetsView() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeCount, setActiveCount] = useState(0);
   const [downCount, setDownCount] = useState(0);
+  const [refreshHover, setRefreshHover] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -51,7 +56,7 @@ export default function TargetsView() {
 
       // Auto-expand all jobs on first load
       if (expandedJobs.size === 0 && data.targets.length > 0) {
-        setExpandedJobs(new Set(data.targets.map(t => t.job)));
+        setExpandedJobs(new Set(data.targets.map(tg => tg.job)));
       }
     } catch (err: unknown) {
       logger.error('Failed to fetch targets', err);
@@ -101,105 +106,230 @@ export default function TargetsView() {
     return {
       ...group,
       targets: filteredTargets,
-      active_count: filteredTargets.filter(t => t.health === 'up').length,
-      down_count: filteredTargets.filter(t => t.health === 'down').length,
+      active_count: filteredTargets.filter(tg => tg.health === 'up').length,
+      down_count: filteredTargets.filter(tg => tg.health === 'down').length,
     };
   }).filter(group => group.targets.length > 0);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <ArrowPathIcon className="h-8 w-8 animate-spin text-purple-500" />
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: 256,
+          color: '#8b5cf6',
+        }}
+      >
+        <ArrowPathIcon
+          style={{
+            width: 32,
+            height: 32,
+            animation: 'spin 1s linear infinite',
+          }}
+        />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            <ServerIcon className="h-7 w-7 text-purple-500" />
+          <h1
+            style={{
+              fontSize: 20,
+              fontWeight: 600,
+              color: t.text,
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              letterSpacing: -0.5,
+            }}
+          >
+            <ServerIcon style={{ width: 24, height: 24, color: '#8b5cf6' }} />
             Scrape Targets
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p style={{ fontSize: 12, color: t.textSub, margin: '4px 0 0 0' }}>
             Monitor Prometheus scrape targets and their health status
           </p>
         </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+          onMouseEnter={() => setRefreshHover(true)}
+          onMouseLeave={() => setRefreshHover(false)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 16px',
+            background: refreshHover ? '#6d28d9' : '#7c3aed',
+            border: 'none',
+            borderRadius: 8,
+            color: '#ffffff',
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: refreshing ? 'not-allowed' : 'pointer',
+            opacity: refreshing ? 0.6 : 1,
+            transition: 'background 0.15s',
+          }}
         >
-          <ArrowPathIcon className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          <ArrowPathIcon
+            style={{
+              width: 16,
+              height: 16,
+              animation: refreshing ? 'spin 1s linear infinite' : 'none',
+            }}
+          />
           Refresh
         </button>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20"
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        {/* Jobs */}
+        <div
+          style={{
+            background: t.cardBg,
+            border: `1px solid ${t.cardBorder}`,
+            borderRadius: 12,
+            padding: 16,
+            borderTop: '3px solid #8b5cf6',
+          }}
         >
-          <div className="flex items-center gap-3">
-            <ServerIcon className="h-8 w-8 text-purple-500" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <ServerIcon style={{ width: 28, height: 28, color: '#8b5cf6' }} />
             <div>
-              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+              <p
+                style={{
+                  fontSize: 24,
+                  fontWeight: 700,
+                  color: '#8b5cf6',
+                  margin: 0,
+                  letterSpacing: -1,
+                }}
+              >
                 {targetGroups.length}
               </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Jobs</p>
+              <p style={{ fontSize: 12, color: t.textSub, margin: 0 }}>Jobs</p>
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20"
+        {/* Targets Up */}
+        <div
+          style={{
+            background: t.cardBg,
+            border: `1px solid ${t.cardBorder}`,
+            borderRadius: 12,
+            padding: 16,
+            borderTop: `3px solid ${t.success}`,
+          }}
         >
-          <div className="flex items-center gap-3">
-            <CheckCircleIcon className="h-8 w-8 text-green-500" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <CheckCircleIcon style={{ width: 28, height: 28, color: t.success }} />
             <div>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{activeCount}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Targets Up</p>
+              <p
+                style={{
+                  fontSize: 24,
+                  fontWeight: 700,
+                  color: t.success,
+                  margin: 0,
+                  letterSpacing: -1,
+                }}
+              >
+                {activeCount}
+              </p>
+              <p style={{ fontSize: 12, color: t.textSub, margin: 0 }}>Targets Up</p>
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="p-4 rounded-xl bg-gradient-to-br from-red-500/10 to-red-600/5 border border-red-500/20"
+        {/* Targets Down */}
+        <div
+          style={{
+            background: t.cardBg,
+            border: `1px solid ${t.cardBorder}`,
+            borderRadius: 12,
+            padding: 16,
+            borderTop: `3px solid ${t.error}`,
+          }}
         >
-          <div className="flex items-center gap-3">
-            <XCircleIcon className="h-8 w-8 text-red-500" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <XCircleIcon style={{ width: 28, height: 28, color: t.error }} />
             <div>
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400">{downCount}</p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Targets Down</p>
+              <p
+                style={{
+                  fontSize: 24,
+                  fontWeight: 700,
+                  color: t.error,
+                  margin: 0,
+                  letterSpacing: -1,
+                }}
+              >
+                {downCount}
+              </p>
+              <p style={{ fontSize: 12, color: t.textSub, margin: 0 }}>Targets Down</p>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="relative flex-1 min-w-[200px]">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+          <MagnifyingGlassIcon
+            style={{
+              position: 'absolute',
+              left: 12,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 16,
+              height: 16,
+              color: t.textMuted,
+            }}
+          />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search targets..."
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-900 dark:text-white placeholder:text-gray-400"
+            style={{
+              width: '100%',
+              paddingLeft: 36,
+              paddingRight: 12,
+              paddingTop: 8,
+              paddingBottom: 8,
+              background: t.cardBg,
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 8,
+              color: t.text,
+              fontSize: 13,
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <FunnelIcon className="h-5 w-5 text-gray-400" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <FunnelIcon style={{ width: 16, height: 16, color: t.textMuted }} />
           <select
             value={healthFilter}
             onChange={(e) => setHealthFilter(e.target.value)}
-            className="px-3 py-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-900 dark:text-white text-sm"
+            style={{
+              padding: '8px 12px',
+              background: t.cardBg,
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 8,
+              color: t.text,
+              fontSize: 13,
+              outline: 'none',
+              cursor: 'pointer',
+            }}
           >
             <option value="all">All Health</option>
             <option value="up">Up</option>
@@ -209,19 +339,33 @@ export default function TargetsView() {
         </div>
       </div>
 
+      {/* Error Banner */}
       {error && (
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400">
+        <div
+          style={{
+            padding: '12px 16px',
+            background: t.errorBg,
+            border: `1px solid ${t.error}`,
+            borderRadius: 8,
+            color: t.error,
+            fontSize: 13,
+          }}
+        >
           {error}
         </div>
       )}
 
       {/* Target Groups */}
-      <div className="space-y-4">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {filteredGroups.length === 0 ? (
-          <div className="text-center py-12">
-            <ServerIcon className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-            <p className="text-lg font-medium text-gray-900 dark:text-white">No Targets Found</p>
-            <p className="text-gray-500 dark:text-gray-400">
+          <div style={{ textAlign: 'center', padding: '48px 0' }}>
+            <ServerIcon
+              style={{ width: 56, height: 56, color: t.textMuted, margin: '0 auto 16px' }}
+            />
+            <p style={{ fontSize: 16, fontWeight: 500, color: t.text, margin: '0 0 6px 0' }}>
+              No Targets Found
+            </p>
+            <p style={{ fontSize: 13, color: t.textSub, margin: 0 }}>
               {searchQuery || healthFilter !== 'all'
                 ? 'No targets match your filters'
                 : 'Prometheus is not scraping any targets'}
@@ -231,51 +375,86 @@ export default function TargetsView() {
           filteredGroups.map((group) => (
             <div
               key={group.job}
-              className="border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden"
+              style={{
+                border: `1px solid ${t.cardBorder}`,
+                borderRadius: 12,
+                overflow: 'hidden',
+              }}
             >
+              {/* Group header */}
               <button
                 onClick={() => toggleJob(group.job)}
-                className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-800/50 hover:bg-gray-100 dark:hover:bg-slate-800"
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  background: t.mainBg,
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
               >
-                <div className="flex items-center gap-3">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {expandedJobs.has(group.job) ? (
-                    <ChevronDownIcon className="h-5 w-5 text-gray-500" />
+                    <ChevronDownIcon style={{ width: 16, height: 16, color: t.textMuted }} />
                   ) : (
-                    <ChevronRightIcon className="h-5 w-5 text-gray-500" />
+                    <ChevronRightIcon style={{ width: 16, height: 16, color: t.textMuted }} />
                   )}
-                  <ServerIcon className="h-5 w-5 text-purple-500" />
-                  <span className="font-medium text-gray-900 dark:text-white">{group.job}</span>
+                  <ServerIcon style={{ width: 16, height: 16, color: '#8b5cf6' }} />
+                  <span style={{ fontWeight: 500, color: t.text, fontSize: 14 }}>{group.job}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1 px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full">
-                    <CheckCircleIcon className="h-3 w-3" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '2px 8px',
+                      borderRadius: 9999,
+                      fontSize: 11,
+                      fontWeight: 500,
+                      background: t.successBg,
+                      color: t.success,
+                    }}
+                  >
+                    <CheckCircleIcon style={{ width: 12, height: 12 }} />
                     {group.active_count} up
                   </span>
                   {group.down_count > 0 && (
-                    <span className="flex items-center gap-1 px-2 py-0.5 text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full">
-                      <XCircleIcon className="h-3 w-3" />
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '2px 8px',
+                        borderRadius: 9999,
+                        fontSize: 11,
+                        fontWeight: 500,
+                        background: t.errorBg,
+                        color: t.error,
+                      }}
+                    >
+                      <XCircleIcon style={{ width: 12, height: 12 }} />
                       {group.down_count} down
                     </span>
                   )}
                 </div>
               </button>
 
-              <AnimatePresence>
-                {expandedJobs.has(group.job) && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="divide-y divide-gray-200 dark:divide-slate-700">
-                      {group.targets.map((target, idx) => (
-                        <TargetRow key={`${target.instance}-${idx}`} target={target} />
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {/* Target rows */}
+              {expandedJobs.has(group.job) && (
+                <div>
+                  {group.targets.map((target, idx) => (
+                    <TargetRow
+                      key={`${target.instance}-${idx}`}
+                      target={target}
+                      isLast={idx === group.targets.length - 1}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           ))
         )}
@@ -286,114 +465,274 @@ export default function TargetsView() {
 
 interface TargetRowProps {
   target: ScrapeTarget;
+  isLast?: boolean;
 }
 
-function TargetRow({ target }: TargetRowProps) {
+function TargetRow({ target, isLast }: TargetRowProps) {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
   const [expanded, setExpanded] = useState(false);
+  const [rowHover, setRowHover] = useState(false);
+
+  const isDown = target.health === 'down';
 
   return (
-    <div className="bg-white dark:bg-slate-800">
+    <div
+      style={{
+        background: isDown
+          ? theme === 'dark'
+            ? 'rgba(239,68,68,0.04)'
+            : 'rgba(239,68,68,0.03)'
+          : t.cardBg,
+        borderTop: `1px solid ${t.cardBorder}`,
+        borderBottom: isLast ? 'none' : undefined,
+      }}
+    >
+      {/* Main row */}
       <div
         onClick={() => setExpanded(!expanded)}
-        className={`flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700/50 ${
-          target.health === 'down' ? 'bg-red-50/50 dark:bg-red-900/5' : ''
-        }`}
+        onMouseEnter={() => setRowHover(true)}
+        onMouseLeave={() => setRowHover(false)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 16px',
+          cursor: 'pointer',
+          background: rowHover
+            ? theme === 'dark'
+              ? 'rgba(255,255,255,0.03)'
+              : 'rgba(0,0,0,0.02)'
+            : 'transparent',
+          transition: 'background 0.15s',
+        }}
       >
-        <div className="flex items-center gap-3">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {healthIcon(target.health)}
           <div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-gray-900 dark:text-white">{target.instance}</span>
-              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getTargetHealthColor(target.health)}`}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span
+                style={{
+                  fontWeight: 500,
+                  color: t.text,
+                  fontSize: 13,
+                  fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
+                }}
+              >
+                {target.instance}
+              </span>
+              {/* Health badge */}
+              <span
+                style={{
+                  padding: '2px 8px',
+                  borderRadius: 9999,
+                  fontSize: 11,
+                  fontWeight: 500,
+                  background: isDown
+                    ? t.errorBg
+                    : target.health === 'up'
+                    ? t.successBg
+                    : t.cardBorder,
+                  color: isDown
+                    ? t.error
+                    : target.health === 'up'
+                    ? t.success
+                    : t.textMuted,
+                }}
+              >
                 {target.health}
               </span>
             </div>
             {target.last_error && (
-              <p className="text-sm text-red-500 mt-0.5 flex items-center gap-1">
-                <ExclamationTriangleIcon className="h-4 w-4" />
+              <p
+                style={{
+                  fontSize: 12,
+                  color: t.error,
+                  margin: '4px 0 0 0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+              >
+                <ExclamationTriangleIcon style={{ width: 14, height: 14 }} />
                 {target.last_error}
               </p>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            fontSize: 12,
+            color: t.textSub,
+          }}
+        >
           {target.last_scrape && (
-            <span className="flex items-center gap-1">
-              <ClockIcon className="h-4 w-4" />
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <ClockIcon style={{ width: 14, height: 14 }} />
               {getRelativeTime(target.last_scrape)}
             </span>
           )}
           {target.last_scrape_duration && (
-            <span>{(target.last_scrape_duration * 1000).toFixed(0)}ms</span>
+            <span style={{ fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" }}>
+              {(target.last_scrape_duration * 1000).toFixed(0)}ms
+            </span>
           )}
           {expanded ? (
-            <ChevronDownIcon className="h-5 w-5" />
+            <ChevronDownIcon style={{ width: 16, height: 16, color: t.textMuted }} />
           ) : (
-            <ChevronRightIcon className="h-5 w-5" />
+            <ChevronRightIcon style={{ width: 16, height: 16, color: t.textMuted }} />
           )}
         </div>
       </div>
 
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-t border-gray-100 dark:border-slate-700"
-          >
-            <div className="p-4 bg-gray-50/50 dark:bg-slate-900/30 space-y-3">
-              {/* Scrape URL */}
-              {target.scrape_url && (
-                <div>
-                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Scrape URL</p>
-                  <div className="flex items-center gap-2">
-                    <GlobeAltIcon className="h-4 w-4 text-gray-400" />
-                    <code className="text-sm text-gray-900 dark:text-white font-mono">
-                      {target.scrape_url}
-                    </code>
-                  </div>
-                </div>
-              )}
-
-              {/* Labels */}
-              <div>
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Labels</p>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(target.labels).map(([key, value]) => (
-                    <span
-                      key={key}
-                      className="px-2 py-1 text-xs bg-gray-100 dark:bg-slate-700 rounded text-gray-700 dark:text-gray-300"
-                    >
-                      <span className="text-purple-600 dark:text-purple-400">{key}</span>
-                      <span className="text-gray-400 mx-1">=</span>
-                      <span>{value}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Metrics */}
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-200 dark:border-slate-700">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Last Scrape</p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {target.last_scrape ? new Date(target.last_scrape).toLocaleString() : 'N/A'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Scrape Duration</p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {target.last_scrape_duration
-                      ? `${(target.last_scrape_duration * 1000).toFixed(2)}ms`
-                      : 'N/A'}
-                  </p>
-                </div>
+      {/* Expanded detail panel */}
+      {expanded && (
+        <div
+          style={{
+            borderTop: `1px solid ${t.cardBorder}`,
+            padding: '16px 16px 16px 48px',
+            background:
+              theme === 'dark'
+                ? 'rgba(255,255,255,0.02)'
+                : 'rgba(0,0,0,0.015)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+          }}
+        >
+          {/* Scrape URL */}
+          {target.scrape_url && (
+            <div>
+              <p
+                style={{
+                  fontSize: 11,
+                  fontWeight: 500,
+                  color: t.textMuted,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  margin: '0 0 6px 0',
+                }}
+              >
+                Scrape URL
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <GlobeAltIcon style={{ width: 14, height: 14, color: t.textSub, flexShrink: 0 }} />
+                <code
+                  style={{
+                    fontSize: 12,
+                    color: t.text,
+                    fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {target.scrape_url}
+                </code>
               </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+
+          {/* Labels */}
+          <div>
+            <p
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: t.textMuted,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                margin: '0 0 8px 0',
+              }}
+            >
+              Labels
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {Object.entries(target.labels).map(([key, value]) => (
+                <span
+                  key={key}
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: 6,
+                    fontSize: 11,
+                    background: t.mainBg,
+                    border: `1px solid ${t.cardBorder}`,
+                    color: t.textSub,
+                    fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
+                  }}
+                >
+                  <span style={{ color: '#8b5cf6' }}>{key}</span>
+                  <span style={{ color: t.textMuted, margin: '0 2px' }}>=</span>
+                  <span style={{ color: t.text }}>{value}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Timing info */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 16,
+              paddingTop: 12,
+              borderTop: `1px solid ${t.cardBorder}`,
+            }}
+          >
+            <div>
+              <p
+                style={{
+                  fontSize: 11,
+                  color: t.textMuted,
+                  margin: '0 0 4px 0',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                }}
+              >
+                Last Scrape
+              </p>
+              <p
+                style={{
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: t.text,
+                  margin: 0,
+                  fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
+                }}
+              >
+                {target.last_scrape ? new Date(target.last_scrape).toLocaleString() : 'N/A'}
+              </p>
+            </div>
+            <div>
+              <p
+                style={{
+                  fontSize: 11,
+                  color: t.textMuted,
+                  margin: '0 0 4px 0',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                }}
+              >
+                Scrape Duration
+              </p>
+              <p
+                style={{
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: t.text,
+                  margin: 0,
+                  fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
+                }}
+              >
+                {target.last_scrape_duration
+                  ? `${(target.last_scrape_duration * 1000).toFixed(2)}ms`
+                  : 'N/A'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

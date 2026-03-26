@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { logger } from '../../utils/logger';
 import {
   ServerStackIcon,
@@ -24,12 +23,9 @@ import { clustersApi, ClusterTestResult } from '../../services/api';
 import { useCluster } from '../../contexts/ClusterContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import GlassCard, { SectionHeader } from '../common/GlassCard';
 import type { ClusterInfo } from '../../types';
-
-// Import shared constants
-import { containerVariants, itemVariants, scaleVariants } from '../../utils/constants';
-import { StatusBadge, HealthIndicator } from '../common/StatusBadge';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors } from '../../styles/linear-design';
 
 type AuthType = 'kubeconfig' | 'kubeconfig_file' | 'token';
 
@@ -54,13 +50,9 @@ interface KubeContext {
   namespace?: string;
 }
 
-// Modal variants (extends shared scaleVariants)
-const modalVariants = {
-  ...scaleVariants,
-  visible: { opacity: 1, scale: 1, transition: { type: 'spring' as const, duration: 0.3 } },
-};
-
 export default function ClusterManagement() {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
   const { clusters, setActiveCluster, refreshClusters } = useCluster();
   const { user } = useAuth();
   const toast = useToast();
@@ -83,7 +75,6 @@ export default function ClusterManagement() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // New state for enhanced features
   const [testingCluster, setTestingCluster] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<ClusterTestResult | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -317,982 +308,1058 @@ export default function ClusterManagement() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusDotColor = (status: string): string => {
     switch (status) {
-      case 'connected':
-        return 'text-success-500';
-      case 'disconnected':
-        return 'text-warning-500';
-      case 'error':
-        return 'text-danger-500';
-      default:
-        return 'text-gray-500';
+      case 'connected': return t.success;
+      case 'disconnected': return t.warning;
+      case 'error': return t.error;
+      default: return t.textMuted;
     }
   };
 
-  const getStatusBg = (status: string) => {
+  const getStatusBadgeStyle = (status: string): React.CSSProperties => {
     switch (status) {
-      case 'connected':
-        return 'bg-success-500/10';
-      case 'disconnected':
-        return 'bg-warning-500/10';
-      case 'error':
-        return 'bg-danger-500/10';
-      default:
-        return 'bg-gray-500/10';
+      case 'connected': return { background: t.successBg, color: t.success };
+      case 'disconnected': return { background: t.warningBg, color: t.warning };
+      case 'error': return { background: t.errorBg, color: t.error };
+      default: return { background: t.cardBorder, color: t.textMuted };
     }
   };
+
+  // ─── Shared styles ──────────────────────────────────────────────────────────
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    background: 'transparent',
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 6,
+    padding: '6px 10px',
+    color: t.text,
+    fontSize: 13,
+    outline: 'none',
+    boxSizing: 'border-box',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: 11,
+    fontWeight: 500,
+    color: t.textSub,
+    marginBottom: 4,
+  };
+
+  const btnPrimary: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '7px 14px',
+    background: t.info,
+    color: '#fff',
+    border: 'none',
+    borderRadius: 6,
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: 'pointer',
+  };
+
+  const btnSecondary: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '7px 14px',
+    background: 'transparent',
+    color: t.textSub,
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 6,
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: 'pointer',
+  };
+
+  const btnDanger: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '7px 10px',
+    background: 'transparent',
+    color: t.error,
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 6,
+    fontSize: 13,
+    cursor: 'pointer',
+  };
+
+  const modalOverlayStyle: React.CSSProperties = {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 50,
+    overflow: 'auto',
+    background: 'rgba(0,0,0,0.6)',
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    padding: '40px 16px',
+  };
+
+  const modalCardStyle: React.CSSProperties = {
+    background: t.cardBg,
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 12,
+    padding: 24,
+    width: '100%',
+    maxWidth: 480,
+    position: 'relative',
+  };
+
+  const authBtnStyle = (active: boolean): React.CSSProperties => ({
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    padding: '10px 8px',
+    borderRadius: 8,
+    border: `1px solid ${active ? t.info : t.cardBorder}`,
+    background: active ? t.infoBg : 'transparent',
+    color: active ? t.info : t.textSub,
+    cursor: 'pointer',
+    fontSize: 11,
+    fontWeight: 500,
+    flex: 1,
+  });
 
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="space-y-6"
-    >
-      {/* Sticky Header */}
-      <motion.div
-        variants={itemVariants}
-        className="sticky top-16 z-30 -mx-4 lg:-mx-8 px-4 lg:px-8 py-4 bg-gray-50/95 dark:bg-slate-950/95 backdrop-blur-sm border-b border-gray-200/50 dark:border-slate-700/50"
+    <div style={{ color: t.text }}>
+      {/* Header */}
+      <div
+        style={{
+          padding: '16px 32px',
+          borderBottom: `1px solid ${t.cardBorder}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-primary-100 dark:bg-primary-900/30">
-              <ServerStackIcon className="h-6 w-6 text-primary-600 dark:text-primary-400" />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-                Cluster Management
-              </h1>
-              <p className="text-gray-500 dark:text-gray-400 text-sm">
-                {clusters.length} cluster{clusters.length !== 1 ? 's' : ''} configured
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => refreshClusters()}
-              disabled={loading}
-              className="inline-flex items-center px-3 py-2 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border border-white/20 dark:border-slate-700/50 hover:bg-white/90 dark:hover:bg-slate-800/90 disabled:opacity-50 transition-all"
-            >
-              <ArrowPathIcon className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </motion.button>
-            {isAdmin && (
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowAddModal(true)}
-                className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl hover:from-primary-600 hover:to-primary-700 text-sm font-medium shadow-lg shadow-primary-500/25 hover:shadow-xl hover:shadow-primary-500/30 transition-all duration-300"
-              >
-                <PlusIcon className="h-4 w-4 mr-2" />
-                Add Cluster
-              </motion.button>
-            )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <ServerStackIcon style={{ width: 20, height: 20, color: t.info }} />
+          <div>
+            <h1 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: t.text }}>Cluster Management</h1>
+            <p style={{ margin: 0, fontSize: 11, color: t.textSub }}>
+              {clusters.length} cluster{clusters.length !== 1 ? 's' : ''} configured
+            </p>
           </div>
         </div>
-      </motion.div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => refreshClusters()}
+            disabled={loading}
+            style={{ ...btnSecondary, opacity: loading ? 0.5 : 1 }}
+          >
+            <ArrowPathIcon style={{ width: 14, height: 14, ...(loading ? { animation: 'spin 1s linear infinite' } : {}) }} />
+            Refresh
+          </button>
+          {isAdmin && (
+            <button onClick={() => setShowAddModal(true)} style={btnPrimary}>
+              <PlusIcon style={{ width: 14, height: 14 }} />
+              Add Cluster
+            </button>
+          )}
+        </div>
+      </div>
 
-      {/* Alerts */}
-      <AnimatePresence>
+      {/* Main content */}
+      <div style={{ padding: '24px 32px' }}>
+        {/* Alerts */}
         {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="bg-danger-500/10 backdrop-blur-sm border border-danger-500/20 rounded-xl p-4"
+          <div
+            style={{
+              background: t.errorBg,
+              border: `1px solid ${t.error}`,
+              borderRadius: 8,
+              padding: '10px 14px',
+              marginBottom: 16,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 13,
+              color: t.error,
+            }}
           >
-            <div className="flex items-center">
-              <ExclamationCircleIcon className="h-5 w-5 text-danger-500 mr-2" />
-              <span className="text-danger-600 dark:text-danger-400 text-sm">{error}</span>
-            </div>
-          </motion.div>
+            <ExclamationCircleIcon style={{ width: 16, height: 16, flexShrink: 0 }} />
+            {error}
+          </div>
         )}
-
         {success && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="bg-success-500/10 backdrop-blur-sm border border-success-500/20 rounded-xl p-4"
+          <div
+            style={{
+              background: t.successBg,
+              border: `1px solid ${t.success}`,
+              borderRadius: 8,
+              padding: '10px 14px',
+              marginBottom: 16,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 13,
+              color: t.success,
+            }}
           >
-            <div className="flex items-center">
-              <CheckCircleIcon className="h-5 w-5 text-success-500 mr-2" />
-              <span className="text-success-600 dark:text-success-400 text-sm">{success}</span>
-            </div>
-          </motion.div>
+            <CheckCircleIcon style={{ width: 16, height: 16, flexShrink: 0 }} />
+            {success}
+          </div>
         )}
-      </AnimatePresence>
 
-      {/* Clusters Grid */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {clusters.map((cluster, index) => (
-          <motion.div
-            key={cluster.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
+        {/* Clusters grid */}
+        {clusters.length === 0 ? (
+          <div
+            style={{
+              background: t.cardBg,
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 12,
+              padding: '56px 32px',
+              textAlign: 'center',
+            }}
           >
-            <GlassCard
-              hover
-              variant={cluster.is_active ? 'glow' : 'hover'}
-              className={`${cluster.is_active ? 'ring-2 ring-primary-500/50' : ''}`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center">
-                  <div className={`p-2.5 rounded-xl ${getStatusBg(cluster.status)}`}>
-                    <ServerStackIcon className={`h-6 w-6 ${getStatusColor(cluster.status)}`} />
+            <CloudIcon style={{ width: 40, height: 40, color: t.textMuted, margin: '0 auto 16px', opacity: 0.4 }} />
+            <h3 style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 600, color: t.text }}>No clusters configured</h3>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: t.textSub }}>Add a cluster to get started</p>
+            {isAdmin && (
+              <button onClick={() => setShowAddModal(true)} style={btnPrimary}>
+                <PlusIcon style={{ width: 14, height: 14 }} />
+                Add Cluster
+              </button>
+            )}
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+            {clusters.map((cluster) => (
+              <div
+                key={cluster.id}
+                style={{
+                  background: t.cardBg,
+                  border: `1px solid ${cluster.is_active ? t.info : t.cardBorder}`,
+                  borderRadius: 12,
+                  padding: 16,
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                {/* Card header */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {/* Status dot */}
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 8,
+                        background: getStatusBadgeStyle(cluster.status).background,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <ServerStackIcon style={{ width: 18, height: 18, color: getStatusDotColor(cluster.status) }} />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 600, color: t.text }}>{cluster.name}</h3>
+                      <p style={{ margin: 0, fontSize: 11, color: t.textMuted, fontFamily: 'monospace' }}>{cluster.id}</p>
+                    </div>
                   </div>
-                  <div className="ml-3">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-                      {cluster.name}
-                    </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{cluster.id}</p>
-                  </div>
-                </div>
-                {cluster.is_active && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-medium bg-primary-500/10 text-primary-600 dark:text-primary-400">
-                    Active
-                  </span>
-                )}
-              </div>
-
-              <div className="mt-4 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500 dark:text-gray-400">Status</span>
-                  <span className={`font-medium capitalize ${getStatusColor(cluster.status)}`}>
-                    {cluster.status}
-                  </span>
-                </div>
-
-                {cluster.version && (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500 dark:text-gray-400">Version</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{cluster.version}</span>
-                  </div>
-                )}
-
-                {cluster.context && (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500 dark:text-gray-400">Context</span>
-                    <span className="font-medium text-gray-900 dark:text-white truncate max-w-[120px]">
-                      {cluster.context}
+                  {cluster.is_active && (
+                    <span
+                      style={{
+                        padding: '2px 8px',
+                        borderRadius: 9999,
+                        fontSize: 10,
+                        fontWeight: 500,
+                        background: t.infoBg,
+                        color: t.info,
+                        flexShrink: 0,
+                      }}
+                    >
+                      Active
                     </span>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500 dark:text-gray-400">Nodes</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{cluster.node_count}</span>
+                  )}
                 </div>
 
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500 dark:text-gray-400">Namespaces</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{cluster.namespace_count}</span>
-                </div>
-              </div>
-
-              {/* Test Result Display */}
-              <AnimatePresence>
-                {testResult && testResult.cluster_id === cluster.id && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className={`mt-3 p-2.5 rounded-xl text-xs ${
-                      testResult.success
-                        ? 'bg-success-500/10 border border-success-500/20'
-                        : 'bg-danger-500/10 border border-danger-500/20'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {testResult.success ? (
-                        <CheckCircleIcon className="h-4 w-4 text-success-500 flex-shrink-0" />
-                      ) : (
-                        <ExclamationCircleIcon className="h-4 w-4 text-danger-500 flex-shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        {testResult.success ? (
-                          <div className="space-y-0.5">
-                            <p className="text-success-600 dark:text-success-400 font-medium">Connected</p>
-                            <p className="text-gray-500 dark:text-gray-400">
-                              {testResult.version} • {testResult.latency_ms}ms
-                            </p>
-                          </div>
+                {/* Cluster meta */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14, flex: 1 }}>
+                  {[
+                    { label: 'Status', value: cluster.status, mono: false, badge: true },
+                    cluster.version ? { label: 'Version', value: cluster.version, mono: true, badge: false } : null,
+                    cluster.context ? { label: 'Context', value: cluster.context, mono: false, badge: false } : null,
+                    { label: 'Nodes', value: String(cluster.node_count), mono: false, badge: false },
+                    { label: 'Namespaces', value: String(cluster.namespace_count), mono: false, badge: false },
+                  ]
+                    .filter(Boolean)
+                    .map((row: any) => (
+                      <div
+                        key={row.label}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}
+                      >
+                        <span style={{ color: t.textMuted }}>{row.label}</span>
+                        {row.badge ? (
+                          <span
+                            style={{
+                              ...getStatusBadgeStyle(row.value),
+                              padding: '1px 7px',
+                              borderRadius: 9999,
+                              fontSize: 11,
+                              fontWeight: 500,
+                              textTransform: 'capitalize',
+                            }}
+                          >
+                            {row.value}
+                          </span>
                         ) : (
-                          <p className="text-danger-600 dark:text-danger-400 truncate">{testResult.error}</p>
+                          <span
+                            style={{
+                              fontWeight: 500,
+                              color: t.text,
+                              fontFamily: row.mono ? 'monospace' : 'inherit',
+                              maxWidth: 140,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {row.value}
+                          </span>
                         )}
                       </div>
-                      <button
-                        onClick={() => setTestResult(null)}
-                        className="text-gray-400 hover:text-gray-500"
-                      >
-                        <XMarkIcon className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Action Buttons */}
-              <div className="mt-4 pt-4 border-t border-gray-200/50 dark:border-slate-700/50 space-y-3">
-                {/* Primary action row */}
-                <div className="flex items-center justify-between">
-                  {!cluster.is_active ? (
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => handleSetActive(cluster.id)}
-                      disabled={loading}
-                      className="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 disabled:opacity-50"
-                    >
-                      Switch to this cluster
-                    </motion.button>
-                  ) : (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Currently active</span>
-                  )}
+                    ))}
                 </div>
 
-                {/* Secondary action buttons */}
-                <div className="flex items-center gap-2">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleTestConnection(cluster.id)}
-                    disabled={testingCluster === cluster.id}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-gray-100/50 dark:bg-slate-700/50 text-gray-600 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-slate-600/50 disabled:opacity-50 transition-all"
-                    title="Test connection"
+                {/* Test result */}
+                {testResult && testResult.cluster_id === cluster.id && (
+                  <div
+                    style={{
+                      background: testResult.success ? t.successBg : t.errorBg,
+                      border: `1px solid ${testResult.success ? t.success : t.error}`,
+                      borderRadius: 6,
+                      padding: '8px 10px',
+                      marginBottom: 12,
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 8,
+                      fontSize: 12,
+                    }}
                   >
-                    {testingCluster === cluster.id ? (
-                      <ArrowPathIcon className="h-3.5 w-3.5 animate-spin" />
+                    {testResult.success ? (
+                      <CheckCircleIcon style={{ width: 14, height: 14, color: t.success, flexShrink: 0, marginTop: 1 }} />
                     ) : (
-                      <SignalIcon className="h-3.5 w-3.5" />
+                      <ExclamationCircleIcon style={{ width: 14, height: 14, color: t.error, flexShrink: 0, marginTop: 1 }} />
                     )}
-                    <span>Test</span>
-                  </motion.button>
-
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleViewHealth(cluster.id)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-gray-100/50 dark:bg-slate-700/50 text-gray-600 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-slate-600/50 transition-all"
-                    title="View health details"
-                  >
-                    <HeartIcon className="h-3.5 w-3.5" />
-                    <span>Health</span>
-                  </motion.button>
-
-                  {isAdmin && (
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleEditCluster(cluster)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-gray-100/50 dark:bg-slate-700/50 text-gray-600 dark:text-gray-300 hover:bg-gray-200/50 dark:hover:bg-slate-600/50 transition-all"
-                      title="Edit cluster"
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {testResult.success ? (
+                        <>
+                          <p style={{ margin: '0 0 2px', color: t.success, fontWeight: 500 }}>Connected</p>
+                          <p style={{ margin: 0, color: t.textMuted }}>
+                            {testResult.version} • {testResult.latency_ms}ms
+                          </p>
+                        </>
+                      ) : (
+                        <p style={{ margin: 0, color: t.error, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {testResult.error}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setTestResult(null)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: 0, flexShrink: 0 }}
                     >
-                      <PencilSquareIcon className="h-3.5 w-3.5" />
-                      <span>Edit</span>
-                    </motion.button>
-                  )}
+                      <XMarkIcon style={{ width: 12, height: 12 }} />
+                    </button>
+                  </div>
+                )}
 
-                  {isAdmin && !cluster.is_default && (
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => handleDeleteCluster(cluster.id)}
-                      disabled={loading || cluster.is_active}
-                      className="p-1.5 rounded-lg text-gray-400 hover:text-danger-500 hover:bg-danger-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                      title={cluster.is_active ? 'Cannot delete active cluster' : 'Delete cluster'}
+                {/* Actions */}
+                <div style={{ paddingTop: 12, borderTop: `1px solid ${t.cardBorder}` }}>
+                  {/* Primary action */}
+                  <div style={{ marginBottom: 10 }}>
+                    {!cluster.is_active ? (
+                      <button
+                        onClick={() => handleSetActive(cluster.id)}
+                        disabled={loading}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: t.info,
+                          fontSize: 12,
+                          fontWeight: 500,
+                          padding: 0,
+                          opacity: loading ? 0.5 : 1,
+                        }}
+                      >
+                        Switch to this cluster
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: 12, color: t.textMuted }}>Currently active</span>
+                    )}
+                  </div>
+
+                  {/* Secondary action row */}
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      onClick={() => handleTestConnection(cluster.id)}
+                      disabled={testingCluster === cluster.id}
+                      style={{
+                        flex: 1,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 4,
+                        padding: '5px 8px',
+                        background: t.mainBg,
+                        border: `1px solid ${t.cardBorder}`,
+                        borderRadius: 6,
+                        fontSize: 11,
+                        fontWeight: 500,
+                        color: t.textSub,
+                        cursor: 'pointer',
+                        opacity: testingCluster === cluster.id ? 0.5 : 1,
+                      }}
+                      title="Test connection"
                     >
-                      <TrashIcon className="h-4 w-4" />
-                    </motion.button>
-                  )}
+                      {testingCluster === cluster.id ? (
+                        <ArrowPathIcon style={{ width: 12, height: 12, animation: 'spin 1s linear infinite' }} />
+                      ) : (
+                        <SignalIcon style={{ width: 12, height: 12 }} />
+                      )}
+                      Test
+                    </button>
+
+                    <button
+                      onClick={() => handleViewHealth(cluster.id)}
+                      style={{
+                        flex: 1,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 4,
+                        padding: '5px 8px',
+                        background: t.mainBg,
+                        border: `1px solid ${t.cardBorder}`,
+                        borderRadius: 6,
+                        fontSize: 11,
+                        fontWeight: 500,
+                        color: t.textSub,
+                        cursor: 'pointer',
+                      }}
+                      title="View health details"
+                    >
+                      <HeartIcon style={{ width: 12, height: 12 }} />
+                      Health
+                    </button>
+
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleEditCluster(cluster)}
+                        style={{
+                          flex: 1,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 4,
+                          padding: '5px 8px',
+                          background: t.mainBg,
+                          border: `1px solid ${t.cardBorder}`,
+                          borderRadius: 6,
+                          fontSize: 11,
+                          fontWeight: 500,
+                          color: t.textSub,
+                          cursor: 'pointer',
+                        }}
+                        title="Edit cluster"
+                      >
+                        <PencilSquareIcon style={{ width: 12, height: 12 }} />
+                        Edit
+                      </button>
+                    )}
+
+                    {isAdmin && !cluster.is_default && (
+                      <button
+                        onClick={() => handleDeleteCluster(cluster.id)}
+                        disabled={loading || cluster.is_active}
+                        style={{
+                          ...btnDanger,
+                          padding: '5px 8px',
+                          opacity: loading || cluster.is_active ? 0.4 : 1,
+                          cursor: cluster.is_active ? 'not-allowed' : 'pointer',
+                        }}
+                        title={cluster.is_active ? 'Cannot delete active cluster' : 'Delete cluster'}
+                      >
+                        <TrashIcon style={{ width: 13, height: 13 }} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </GlassCard>
-          </motion.div>
-        ))}
-
-        {clusters.length === 0 && (
-          <motion.div
-            variants={itemVariants}
-            className="col-span-full"
-          >
-            <GlassCard className="flex flex-col items-center justify-center py-12">
-              <div className="p-4 rounded-2xl bg-gray-500/10 mb-4">
-                <CloudIcon className="h-10 w-10 text-gray-400" />
-              </div>
-              <h3 className="text-base font-medium text-gray-900 dark:text-white">No clusters configured</h3>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Add a cluster to get started
-              </p>
-              {isAdmin && (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setShowAddModal(true)}
-                  className="mt-4 inline-flex items-center px-4 py-2 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl hover:from-primary-600 hover:to-primary-700 text-sm font-medium shadow-lg shadow-primary-500/25"
-                >
-                  <PlusIcon className="h-4 w-4 mr-2" />
-                  Add Cluster
-                </motion.button>
-              )}
-            </GlassCard>
-          </motion.div>
+            ))}
+          </div>
         )}
-      </motion.div>
 
-      {/* Available Contexts */}
-      {contexts.length > 0 && (
-        <motion.div variants={itemVariants}>
-          <GlassCard>
-            <SectionHeader
-              title="Available Kubeconfig Contexts"
-              subtitle="Contexts found in your kubeconfig file"
-            />
-            <div className="overflow-x-auto -mx-4 lg:-mx-6">
-              <table className="min-w-full">
+        {/* Available Contexts table */}
+        {contexts.length > 0 && (
+          <div
+            style={{
+              background: t.cardBg,
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 12,
+              marginTop: 24,
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ padding: '14px 20px', borderBottom: `1px solid ${t.cardBorder}` }}>
+              <h3 style={{ margin: '0 0 2px', fontSize: 13, fontWeight: 600, color: t.text }}>Available Kubeconfig Contexts</h3>
+              <p style={{ margin: 0, fontSize: 11, color: t.textSub }}>Contexts found in your kubeconfig file</p>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
-                  <tr className="border-b border-gray-200/50 dark:border-slate-700/50">
-                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Context Name
-                    </th>
-                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Cluster
-                    </th>
-                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      User
-                    </th>
-                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Namespace
-                    </th>
+                  <tr>
+                    {['Context Name', 'Cluster', 'User', 'Namespace'].map((col) => (
+                      <th
+                        key={col}
+                        style={{
+                          padding: '8px 20px',
+                          textAlign: 'left',
+                          fontSize: 10,
+                          fontWeight: 500,
+                          color: t.textMuted,
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                          borderBottom: `1px solid ${t.cardBorder}`,
+                        }}
+                      >
+                        {col}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100/50 dark:divide-slate-700/30">
+                <tbody>
                   {contexts.map((ctx, index) => (
-                    <motion.tr
+                    <tr
                       key={ctx.name}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="hover:bg-gray-50/50 dark:hover:bg-slate-700/30 transition-colors"
+                      style={{ borderBottom: index < contexts.length - 1 ? `1px solid ${t.cardBorder}` : 'none' }}
                     >
-                      <td className="px-4 lg:px-6 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                        {ctx.name}
-                      </td>
-                      <td className="px-4 lg:px-6 py-3 text-sm text-gray-500 dark:text-gray-400">{ctx.cluster}</td>
-                      <td className="px-4 lg:px-6 py-3 text-sm text-gray-500 dark:text-gray-400">{ctx.user}</td>
-                      <td className="px-4 lg:px-6 py-3 text-sm text-gray-500 dark:text-gray-400">
-                        {ctx.namespace || 'default'}
-                      </td>
-                    </motion.tr>
+                      <td style={{ padding: '10px 20px', fontWeight: 500, color: t.text }}>{ctx.name}</td>
+                      <td style={{ padding: '10px 20px', color: t.textSub }}>{ctx.cluster}</td>
+                      <td style={{ padding: '10px 20px', color: t.textSub }}>{ctx.user}</td>
+                      <td style={{ padding: '10px 20px', color: t.textSub }}>{ctx.namespace || 'default'}</td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </GlassCard>
-        </motion.div>
-      )}
+          </div>
+        )}
+      </div>
 
       {/* Add Cluster Modal */}
-      <AnimatePresence>
-        {showAddModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 overflow-y-auto"
-          >
-            <div className="flex min-h-full items-center justify-center p-4">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+      {showAddModal && (
+        <div style={modalOverlayStyle} onClick={() => setShowAddModal(false)}>
+          <div style={modalCardStyle} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: t.text }}>Add New Cluster</h2>
+              <button
                 onClick={() => setShowAddModal(false)}
-              />
-              <motion.div
-                variants={modalVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                className="relative bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl max-w-md w-full p-6 border border-white/20 dark:border-slate-700/50"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: 4 }}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">Add New Cluster</h2>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => setShowAddModal(false)}
-                    className="p-1.5 rounded-lg hover:bg-gray-100/50 dark:hover:bg-slate-700/50 transition-colors"
-                  >
-                    <XMarkIcon className="h-5 w-5 text-gray-500" />
-                  </motion.button>
-                </div>
-
-                <form onSubmit={handleAddCluster} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Cluster ID *
-                    </label>
-                    <input
-                      type="text"
-                      value={addForm.id}
-                      onChange={(e) => setAddForm({ ...addForm, id: e.target.value })}
-                      className="w-full px-3 py-2 text-sm border border-gray-200/50 dark:border-slate-600/50 rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500/50 focus:border-transparent transition-all"
-                      placeholder="my-cluster"
-                      required
-                    />
-                    <p className="mt-1 text-[10px] text-gray-500">Unique identifier for this cluster</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Display Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={addForm.name}
-                      onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
-                      className="w-full px-3 py-2 text-sm border border-gray-200/50 dark:border-slate-600/50 rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500/50 focus:border-transparent transition-all"
-                      placeholder="My Production Cluster"
-                      required
-                    />
-                  </div>
-
-                  {/* Authentication Type Selector */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Authentication Method
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setAddForm({ ...addForm, auth_type: 'kubeconfig' })}
-                        className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all ${
-                          addForm.auth_type === 'kubeconfig'
-                            ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400'
-                            : 'border-gray-200/50 dark:border-slate-600/50 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-slate-500'
-                        }`}
-                      >
-                        <DocumentTextIcon className="h-5 w-5" />
-                        <span className="text-xs font-medium">Context</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAddForm({ ...addForm, auth_type: 'kubeconfig_file' })}
-                        className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all ${
-                          addForm.auth_type === 'kubeconfig_file'
-                            ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400'
-                            : 'border-gray-200/50 dark:border-slate-600/50 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-slate-500'
-                        }`}
-                      >
-                        <ArrowUpTrayIcon className="h-5 w-5" />
-                        <span className="text-xs font-medium">Upload File</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAddForm({ ...addForm, auth_type: 'token' })}
-                        className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all ${
-                          addForm.auth_type === 'token'
-                            ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-400'
-                            : 'border-gray-200/50 dark:border-slate-600/50 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-slate-500'
-                        }`}
-                      >
-                        <KeyIcon className="h-5 w-5" />
-                        <span className="text-xs font-medium">Token</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Kubeconfig Context Fields */}
-                  {addForm.auth_type === 'kubeconfig' && (
-                    <>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Kubeconfig Context
-                        </label>
-                        <select
-                          value={addForm.context}
-                          onChange={(e) => setAddForm({ ...addForm, context: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-200/50 dark:border-slate-600/50 rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500/50 focus:border-transparent transition-all"
-                        >
-                          <option value="">Select a context...</option>
-                          {contexts.map((ctx) => (
-                            <option key={ctx.name} value={ctx.name}>
-                              {ctx.name}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="mt-1 text-[10px] text-gray-500">Select from available kubeconfig contexts</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Kubeconfig Path
-                        </label>
-                        <input
-                          type="text"
-                          value={addForm.kubeconfig_path}
-                          onChange={(e) => setAddForm({ ...addForm, kubeconfig_path: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-200/50 dark:border-slate-600/50 rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500/50 focus:border-transparent transition-all"
-                          placeholder="~/.kube/config"
-                        />
-                        <p className="mt-1 text-[10px] text-gray-500">Leave empty to use default kubeconfig</p>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Kubeconfig File Upload/Paste Fields */}
-                  {addForm.auth_type === 'kubeconfig_file' && (
-                    <>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Upload Kubeconfig File
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="file"
-                            accept=".yaml,.yml,.config,*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onload = (event) => {
-                                  const content = event.target?.result as string;
-                                  setAddForm({ ...addForm, kubeconfig_content: content });
-                                };
-                                reader.readAsText(file);
-                              }
-                            }}
-                            className="w-full px-3 py-2 text-sm border border-gray-200/50 dark:border-slate-600/50 rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500/50 focus:border-transparent transition-all file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-primary-500/10 file:text-primary-600 dark:file:text-primary-400 hover:file:bg-primary-500/20"
-                          />
-                        </div>
-                        <p className="mt-1 text-[10px] text-gray-500">Upload your kubeconfig file from your machine</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Or Paste Kubeconfig Content
-                        </label>
-                        <textarea
-                          value={addForm.kubeconfig_content}
-                          onChange={(e) => setAddForm({ ...addForm, kubeconfig_content: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-200/50 dark:border-slate-600/50 rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500/50 focus:border-transparent transition-all font-mono text-xs"
-                          placeholder="apiVersion: v1
-kind: Config
-clusters:
-- cluster:
-    server: https://..."
-                          rows={6}
-                        />
-                        <p className="mt-1 text-[10px] text-gray-500">Paste the full kubeconfig YAML content</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Context Name (Optional)
-                        </label>
-                        <input
-                          type="text"
-                          value={addForm.context}
-                          onChange={(e) => setAddForm({ ...addForm, context: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-200/50 dark:border-slate-600/50 rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500/50 focus:border-transparent transition-all"
-                          placeholder="my-cluster-context"
-                        />
-                        <p className="mt-1 text-[10px] text-gray-500">Specify which context to use (leave empty for default)</p>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Token-based Fields */}
-                  {addForm.auth_type === 'token' && (
-                    <>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          API Server URL *
-                        </label>
-                        <input
-                          type="text"
-                          value={addForm.api_server}
-                          onChange={(e) => setAddForm({ ...addForm, api_server: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-200/50 dark:border-slate-600/50 rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500/50 focus:border-transparent transition-all"
-                          placeholder="https://kubernetes.example.com:6443"
-                          required={addForm.auth_type === 'token'}
-                        />
-                        <p className="mt-1 text-[10px] text-gray-500">Kubernetes API server endpoint</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Bearer Token *
-                        </label>
-                        <textarea
-                          value={addForm.bearer_token}
-                          onChange={(e) => setAddForm({ ...addForm, bearer_token: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-200/50 dark:border-slate-600/50 rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500/50 focus:border-transparent transition-all font-mono"
-                          placeholder="eyJhbGciOiJSUzI1NiIsImtpZCI6..."
-                          rows={3}
-                          required={addForm.auth_type === 'token'}
-                        />
-                        <p className="mt-1 text-[10px] text-gray-500">Service account token from the cluster</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          CA Certificate (Base64)
-                        </label>
-                        <textarea
-                          value={addForm.ca_cert}
-                          onChange={(e) => setAddForm({ ...addForm, ca_cert: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border border-gray-200/50 dark:border-slate-600/50 rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500/50 focus:border-transparent transition-all font-mono"
-                          placeholder="LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS..."
-                          rows={2}
-                        />
-                        <p className="mt-1 text-[10px] text-gray-500">Optional: Base64-encoded CA certificate</p>
-                      </div>
-
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="skip_tls"
-                          checked={addForm.skip_tls_verify}
-                          onChange={(e) => setAddForm({ ...addForm, skip_tls_verify: e.target.checked })}
-                          className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                        />
-                        <label htmlFor="skip_tls" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                          Skip TLS verification <span className="text-amber-500">(not recommended)</span>
-                        </label>
-                      </div>
-                    </>
-                  )}
-
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="is_default"
-                      checked={addForm.is_default}
-                      onChange={(e) => setAddForm({ ...addForm, is_default: e.target.checked })}
-                      className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                    />
-                    <label htmlFor="is_default" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                      Set as default cluster
-                    </label>
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-4">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      type="button"
-                      onClick={() => setShowAddModal(false)}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100/50 dark:bg-slate-700/50 rounded-xl hover:bg-gray-200/50 dark:hover:bg-slate-600/50 transition-all"
-                    >
-                      Cancel
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      type="submit"
-                      disabled={loading || !addForm.id || !addForm.name || (addForm.auth_type === 'token' && (!addForm.api_server || !addForm.bearer_token)) || (addForm.auth_type === 'kubeconfig_file' && !addForm.kubeconfig_content)}
-                      className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-500 to-primary-600 rounded-xl hover:from-primary-600 hover:to-primary-700 disabled:opacity-50 shadow-lg shadow-primary-500/25 transition-all"
-                    >
-                      {loading ? 'Adding...' : 'Add Cluster'}
-                    </motion.button>
-                  </div>
-                </form>
-              </motion.div>
+                <XMarkIcon style={{ width: 18, height: 18 }} />
+              </button>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* Edit Cluster Modal */}
-      <AnimatePresence>
-        {showEditModal && editingCluster && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 overflow-y-auto"
-          >
-            <div className="flex min-h-full items-center justify-center p-4">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-                onClick={() => { setShowEditModal(false); setEditingCluster(null); }}
-              />
-              <motion.div
-                variants={modalVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                className="relative bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl max-w-md w-full p-6 border border-white/20 dark:border-slate-700/50"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">Edit Cluster</h2>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => { setShowEditModal(false); setEditingCluster(null); }}
-                    className="p-1.5 rounded-lg hover:bg-gray-100/50 dark:hover:bg-slate-700/50 transition-colors"
+            {error && (
+              <div style={{ background: t.errorBg, border: `1px solid ${t.error}`, borderRadius: 6, padding: '8px 12px', marginBottom: 14, fontSize: 12, color: t.error }}>
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleAddCluster} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={labelStyle}>Cluster ID *</label>
+                <input
+                  type="text"
+                  value={addForm.id}
+                  onChange={(e) => setAddForm({ ...addForm, id: e.target.value })}
+                  style={inputStyle}
+                  placeholder="my-cluster"
+                  required
+                />
+                <p style={{ margin: '4px 0 0', fontSize: 10, color: t.textMuted }}>Unique identifier for this cluster</p>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Display Name *</label>
+                <input
+                  type="text"
+                  value={addForm.name}
+                  onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                  style={inputStyle}
+                  placeholder="My Production Cluster"
+                  required
+                />
+              </div>
+
+              {/* Auth type selector */}
+              <div>
+                <label style={labelStyle}>Authentication Method</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setAddForm({ ...addForm, auth_type: 'kubeconfig' })}
+                    style={authBtnStyle(addForm.auth_type === 'kubeconfig')}
                   >
-                    <XMarkIcon className="h-5 w-5 text-gray-500" />
-                  </motion.button>
+                    <DocumentTextIcon style={{ width: 18, height: 18 }} />
+                    Context
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddForm({ ...addForm, auth_type: 'kubeconfig_file' })}
+                    style={authBtnStyle(addForm.auth_type === 'kubeconfig_file')}
+                  >
+                    <ArrowUpTrayIcon style={{ width: 18, height: 18 }} />
+                    Upload File
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddForm({ ...addForm, auth_type: 'token' })}
+                    style={authBtnStyle(addForm.auth_type === 'token')}
+                  >
+                    <KeyIcon style={{ width: 18, height: 18 }} />
+                    Token
+                  </button>
                 </div>
+              </div>
 
-                <form onSubmit={handleUpdateCluster} className="space-y-4">
+              {/* Kubeconfig context fields */}
+              {addForm.auth_type === 'kubeconfig' && (
+                <>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Cluster ID
-                    </label>
-                    <input
-                      type="text"
-                      value={addForm.id}
-                      onChange={(e) => setAddForm({ ...addForm, id: e.target.value })}
-                      className="w-full px-3 py-2 text-sm border border-gray-200/50 dark:border-slate-600/50 rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500/50 focus:border-transparent transition-all"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Display Name
-                    </label>
-                    <input
-                      type="text"
-                      value={addForm.name}
-                      onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
-                      className="w-full px-3 py-2 text-sm border border-gray-200/50 dark:border-slate-600/50 rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500/50 focus:border-transparent transition-all"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Context
-                    </label>
+                    <label style={labelStyle}>Kubeconfig Context</label>
                     <select
                       value={addForm.context}
                       onChange={(e) => setAddForm({ ...addForm, context: e.target.value })}
-                      className="w-full px-3 py-2 text-sm border border-gray-200/50 dark:border-slate-600/50 rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500/50 focus:border-transparent transition-all"
+                      style={{ ...inputStyle, background: t.cardBg }}
                     >
                       <option value="">Select a context...</option>
                       {contexts.map((ctx) => (
-                        <option key={ctx.name} value={ctx.name}>
-                          {ctx.name}
-                        </option>
+                        <option key={ctx.name} value={ctx.name}>{ctx.name}</option>
                       ))}
                     </select>
+                    <p style={{ margin: '4px 0 0', fontSize: 10, color: t.textMuted }}>Select from available kubeconfig contexts</p>
                   </div>
 
-                  <div className="flex items-center">
+                  <div>
+                    <label style={labelStyle}>Kubeconfig Path</label>
+                    <input
+                      type="text"
+                      value={addForm.kubeconfig_path}
+                      onChange={(e) => setAddForm({ ...addForm, kubeconfig_path: e.target.value })}
+                      style={inputStyle}
+                      placeholder="~/.kube/config"
+                    />
+                    <p style={{ margin: '4px 0 0', fontSize: 10, color: t.textMuted }}>Leave empty to use default kubeconfig</p>
+                  </div>
+                </>
+              )}
+
+              {/* Kubeconfig file upload */}
+              {addForm.auth_type === 'kubeconfig_file' && (
+                <>
+                  <div>
+                    <label style={labelStyle}>Upload Kubeconfig File</label>
+                    <input
+                      type="file"
+                      accept=".yaml,.yml,.config,*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const content = event.target?.result as string;
+                            setAddForm({ ...addForm, kubeconfig_content: content });
+                          };
+                          reader.readAsText(file);
+                        }
+                      }}
+                      style={{ ...inputStyle, paddingTop: 4 }}
+                    />
+                    <p style={{ margin: '4px 0 0', fontSize: 10, color: t.textMuted }}>Upload your kubeconfig file from your machine</p>
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>Or Paste Kubeconfig Content</label>
+                    <textarea
+                      value={addForm.kubeconfig_content}
+                      onChange={(e) => setAddForm({ ...addForm, kubeconfig_content: e.target.value })}
+                      style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 11, minHeight: 100, resize: 'vertical' }}
+                      placeholder={`apiVersion: v1\nkind: Config\nclusters:\n- cluster:\n    server: https://...`}
+                      rows={6}
+                    />
+                    <p style={{ margin: '4px 0 0', fontSize: 10, color: t.textMuted }}>Paste the full kubeconfig YAML content</p>
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>Context Name (Optional)</label>
+                    <input
+                      type="text"
+                      value={addForm.context}
+                      onChange={(e) => setAddForm({ ...addForm, context: e.target.value })}
+                      style={inputStyle}
+                      placeholder="my-cluster-context"
+                    />
+                    <p style={{ margin: '4px 0 0', fontSize: 10, color: t.textMuted }}>Specify which context to use (leave empty for default)</p>
+                  </div>
+                </>
+              )}
+
+              {/* Token-based fields */}
+              {addForm.auth_type === 'token' && (
+                <>
+                  <div>
+                    <label style={labelStyle}>API Server URL *</label>
+                    <input
+                      type="text"
+                      value={addForm.api_server}
+                      onChange={(e) => setAddForm({ ...addForm, api_server: e.target.value })}
+                      style={{ ...inputStyle, fontFamily: 'monospace' }}
+                      placeholder="https://kubernetes.example.com:6443"
+                      required={addForm.auth_type === 'token'}
+                    />
+                    <p style={{ margin: '4px 0 0', fontSize: 10, color: t.textMuted }}>Kubernetes API server endpoint</p>
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>Bearer Token *</label>
+                    <textarea
+                      value={addForm.bearer_token}
+                      onChange={(e) => setAddForm({ ...addForm, bearer_token: e.target.value })}
+                      style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 11, minHeight: 64, resize: 'vertical' }}
+                      placeholder="eyJhbGciOiJSUzI1NiIsImtpZCI6..."
+                      rows={3}
+                      required={addForm.auth_type === 'token'}
+                    />
+                    <p style={{ margin: '4px 0 0', fontSize: 10, color: t.textMuted }}>Service account token from the cluster</p>
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>CA Certificate (Base64)</label>
+                    <textarea
+                      value={addForm.ca_cert}
+                      onChange={(e) => setAddForm({ ...addForm, ca_cert: e.target.value })}
+                      style={{ ...inputStyle, fontFamily: 'monospace', fontSize: 11, minHeight: 48, resize: 'vertical' }}
+                      placeholder="LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS..."
+                      rows={2}
+                    />
+                    <p style={{ margin: '4px 0 0', fontSize: 10, color: t.textMuted }}>Optional: Base64-encoded CA certificate</p>
+                  </div>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: t.text, cursor: 'pointer' }}>
                     <input
                       type="checkbox"
-                      id="edit_is_default"
-                      checked={addForm.is_default}
-                      onChange={(e) => setAddForm({ ...addForm, is_default: e.target.checked })}
-                      className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                      id="skip_tls"
+                      checked={addForm.skip_tls_verify}
+                      onChange={(e) => setAddForm({ ...addForm, skip_tls_verify: e.target.checked })}
                     />
-                    <label htmlFor="edit_is_default" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                      Set as default cluster
-                    </label>
-                  </div>
+                    Skip TLS verification{' '}
+                    <span style={{ color: t.warning, fontSize: 12 }}>(not recommended)</span>
+                  </label>
+                </>
+              )}
 
-                  <div className="flex justify-end gap-3 pt-4">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      type="button"
-                      onClick={() => { setShowEditModal(false); setEditingCluster(null); }}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100/50 dark:bg-slate-700/50 rounded-xl hover:bg-gray-200/50 dark:hover:bg-slate-600/50 transition-all"
-                    >
-                      Cancel
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      type="submit"
-                      disabled={loading || !addForm.id || !addForm.name}
-                      className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-primary-500 to-primary-600 rounded-xl hover:from-primary-600 hover:to-primary-700 disabled:opacity-50 shadow-lg shadow-primary-500/25 transition-all"
-                    >
-                      {loading ? 'Updating...' : 'Update Cluster'}
-                    </motion.button>
-                  </div>
-                </form>
-              </motion.div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: t.text, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  id="is_default"
+                  checked={addForm.is_default}
+                  onChange={(e) => setAddForm({ ...addForm, is_default: e.target.checked })}
+                />
+                Set as default cluster
+              </label>
 
-      {/* Health Details Modal */}
-      <AnimatePresence>
-        {showHealthModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 overflow-y-auto"
-          >
-            <div className="flex min-h-full items-center justify-center p-4">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-                onClick={() => { setShowHealthModal(false); setHealthData(null); }}
-              />
-              <motion.div
-                variants={modalVariants}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                className="relative bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-white/20 dark:border-slate-700/50"
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  style={btnSecondary}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || !addForm.id || !addForm.name || (addForm.auth_type === 'token' && (!addForm.api_server || !addForm.bearer_token)) || (addForm.auth_type === 'kubeconfig_file' && !addForm.kubeconfig_content)}
+                  style={{
+                    ...btnPrimary,
+                    opacity: loading || !addForm.id || !addForm.name ? 0.5 : 1,
+                  }}
+                >
+                  {loading ? 'Adding...' : 'Add Cluster'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Cluster Modal */}
+      {showEditModal && editingCluster && (
+        <div
+          style={modalOverlayStyle}
+          onClick={() => { setShowEditModal(false); setEditingCluster(null); }}
+        >
+          <div style={modalCardStyle} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: t.text }}>Edit Cluster</h2>
+              <button
+                onClick={() => { setShowEditModal(false); setEditingCluster(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: 4 }}
               >
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2.5 rounded-xl ${healthData?.healthy ? 'bg-success-500/10' : 'bg-danger-500/10'}`}>
-                      <HeartIcon className={`h-6 w-6 ${healthData?.healthy ? 'text-success-500' : 'text-danger-500'}`} />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-bold text-gray-900 dark:text-white">Cluster Health</h2>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{healthData?.cluster_id}</p>
-                    </div>
-                  </div>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => { setShowHealthModal(false); setHealthData(null); }}
-                    className="p-1.5 rounded-lg hover:bg-gray-100/50 dark:hover:bg-slate-700/50 transition-colors"
+                <XMarkIcon style={{ width: 18, height: 18 }} />
+              </button>
+            </div>
+
+            {error && (
+              <div style={{ background: t.errorBg, border: `1px solid ${t.error}`, borderRadius: 6, padding: '8px 12px', marginBottom: 14, fontSize: 12, color: t.error }}>
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateCluster} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={labelStyle}>Cluster ID</label>
+                <input
+                  type="text"
+                  value={addForm.id}
+                  onChange={(e) => setAddForm({ ...addForm, id: e.target.value })}
+                  style={inputStyle}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Display Name</label>
+                <input
+                  type="text"
+                  value={addForm.name}
+                  onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                  style={inputStyle}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Context</label>
+                <select
+                  value={addForm.context}
+                  onChange={(e) => setAddForm({ ...addForm, context: e.target.value })}
+                  style={{ ...inputStyle, background: t.cardBg }}
+                >
+                  <option value="">Select a context...</option>
+                  {contexts.map((ctx) => (
+                    <option key={ctx.name} value={ctx.name}>{ctx.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: t.text, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  id="edit_is_default"
+                  checked={addForm.is_default}
+                  onChange={(e) => setAddForm({ ...addForm, is_default: e.target.checked })}
+                />
+                Set as default cluster
+              </label>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
+                <button
+                  type="button"
+                  onClick={() => { setShowEditModal(false); setEditingCluster(null); }}
+                  style={btnSecondary}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || !addForm.id || !addForm.name}
+                  style={{ ...btnPrimary, opacity: loading || !addForm.id || !addForm.name ? 0.5 : 1 }}
+                >
+                  {loading ? 'Updating...' : 'Update Cluster'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Health Modal */}
+      {showHealthModal && (
+        <div
+          style={modalOverlayStyle}
+          onClick={() => { setShowHealthModal(false); setHealthData(null); }}
+        >
+          <div
+            style={{ ...modalCardStyle, maxWidth: 520 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    background: healthData?.healthy ? t.successBg : t.errorBg,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <HeartIcon style={{ width: 18, height: 18, color: healthData?.healthy ? t.success : t.error }} />
+                </div>
+                <div>
+                  <h2 style={{ margin: '0 0 2px', fontSize: 14, fontWeight: 600, color: t.text }}>Cluster Health</h2>
+                  <p style={{ margin: 0, fontSize: 11, color: t.textSub, fontFamily: 'monospace' }}>{healthData?.cluster_id}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowHealthModal(false); setHealthData(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: 4 }}
+              >
+                <XMarkIcon style={{ width: 18, height: 18 }} />
+              </button>
+            </div>
+
+            {loadingHealth ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 0' }}>
+                <ArrowPathIcon style={{ width: 24, height: 24, color: t.info, animation: 'spin 1s linear infinite' }} />
+              </div>
+            ) : healthData ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {/* Overall badge */}
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '6px 16px',
+                      borderRadius: 9999,
+                      fontSize: 13,
+                      fontWeight: 500,
+                      background: healthData.healthy ? t.successBg : t.errorBg,
+                      color: healthData.healthy ? t.success : t.error,
+                    }}
                   >
-                    <XMarkIcon className="h-5 w-5 text-gray-500" />
-                  </motion.button>
+                    {healthData.healthy ? (
+                      <CheckCircleIcon style={{ width: 16, height: 16 }} />
+                    ) : (
+                      <ExclamationCircleIcon style={{ width: 16, height: 16 }} />
+                    )}
+                    {healthData.healthy ? 'Healthy' : 'Unhealthy'}
+                  </span>
                 </div>
 
-                {loadingHealth ? (
-                  <div className="flex items-center justify-center py-12">
-                    <ArrowPathIcon className="h-8 w-8 text-primary-500 animate-spin" />
-                  </div>
-                ) : healthData ? (
-                  <div className="space-y-6">
-                    {/* Status Badge */}
-                    <div className="flex items-center justify-center">
-                      <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
-                        healthData.healthy
-                          ? 'bg-success-500/10 text-success-600 dark:text-success-400'
-                          : 'bg-danger-500/10 text-danger-600 dark:text-danger-400'
-                      }`}>
-                        {healthData.healthy ? (
-                          <CheckCircleIcon className="h-5 w-5" />
-                        ) : (
-                          <ExclamationCircleIcon className="h-5 w-5" />
-                        )}
-                        {healthData.healthy ? 'Healthy' : 'Unhealthy'}
-                      </span>
+                {/* Metrics grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  {[
+                    { icon: CpuChipIcon, label: 'Nodes', value: `${healthData.ready_nodes}/${healthData.node_count}`, sub: 'Ready' },
+                    { icon: CircleStackIcon, label: 'Pods', value: `${healthData.running_pods}/${healthData.total_pods}`, sub: 'Running' },
+                    { icon: ServerStackIcon, label: 'Namespaces', value: String(healthData.namespaces), sub: 'Total' },
+                    {
+                      icon: ClockIcon,
+                      label: 'Checked',
+                      value: new Date(healthData.checked_at).toLocaleTimeString(),
+                      sub: new Date(healthData.checked_at).toLocaleDateString(),
+                    },
+                  ].map((metric) => (
+                    <div
+                      key={metric.label}
+                      style={{
+                        background: t.mainBg,
+                        border: `1px solid ${t.cardBorder}`,
+                        borderRadius: 8,
+                        padding: '12px 14px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                        <metric.icon style={{ width: 14, height: 14, color: t.info }} />
+                        <span style={{ fontSize: 10, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          {metric.label}
+                        </span>
+                      </div>
+                      <p style={{ margin: '0 0 2px', fontSize: 20, fontWeight: 700, color: t.text, fontFamily: 'monospace' }}>
+                        {metric.value}
+                      </p>
+                      <p style={{ margin: 0, fontSize: 10, color: t.textMuted }}>{metric.sub}</p>
                     </div>
+                  ))}
+                </div>
 
-                    {/* Metrics Grid */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="p-4 rounded-xl bg-gray-50/50 dark:bg-slate-700/30 border border-gray-100/50 dark:border-slate-600/30">
-                        <div className="flex items-center gap-2 mb-2">
-                          <CpuChipIcon className="h-4 w-4 text-primary-500" />
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Nodes</span>
+                {/* Warnings */}
+                {healthData.warnings && healthData.warnings.length > 0 && (
+                  <div>
+                    <h3 style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 600, color: t.text }}>Warnings</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {healthData.warnings.map((warning, index) => (
+                        <div
+                          key={index}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 8,
+                            padding: '8px 12px',
+                            background: t.warningBg,
+                            border: `1px solid ${t.warning}`,
+                            borderRadius: 6,
+                          }}
+                        >
+                          <ExclamationCircleIcon style={{ width: 14, height: 14, color: t.warning, flexShrink: 0, marginTop: 1 }} />
+                          <span style={{ fontSize: 12, color: t.warning }}>{warning}</span>
                         </div>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {healthData.ready_nodes}/{healthData.node_count}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Ready</p>
-                      </div>
-
-                      <div className="p-4 rounded-xl bg-gray-50/50 dark:bg-slate-700/30 border border-gray-100/50 dark:border-slate-600/30">
-                        <div className="flex items-center gap-2 mb-2">
-                          <CircleStackIcon className="h-4 w-4 text-secondary-500" />
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Pods</span>
-                        </div>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {healthData.running_pods}/{healthData.total_pods}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Running</p>
-                      </div>
-
-                      <div className="p-4 rounded-xl bg-gray-50/50 dark:bg-slate-700/30 border border-gray-100/50 dark:border-slate-600/30">
-                        <div className="flex items-center gap-2 mb-2">
-                          <ServerStackIcon className="h-4 w-4 text-accent-500" />
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Namespaces</span>
-                        </div>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                          {healthData.namespaces}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Total</p>
-                      </div>
-
-                      <div className="p-4 rounded-xl bg-gray-50/50 dark:bg-slate-700/30 border border-gray-100/50 dark:border-slate-600/30">
-                        <div className="flex items-center gap-2 mb-2">
-                          <ClockIcon className="h-4 w-4 text-warning-500" />
-                          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Checked</span>
-                        </div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {new Date(healthData.checked_at).toLocaleTimeString()}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(healthData.checked_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Warnings */}
-                    {healthData.warnings && healthData.warnings.length > 0 && (
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-gray-900 dark:text-white">Warnings</h3>
-                        <div className="space-y-2">
-                          {healthData.warnings.map((warning, index) => (
-                            <div
-                              key={index}
-                              className="flex items-start gap-2 p-3 rounded-xl bg-warning-500/10 border border-warning-500/20"
-                            >
-                              <ExclamationCircleIcon className="h-4 w-4 text-warning-500 flex-shrink-0 mt-0.5" />
-                              <span className="text-sm text-warning-600 dark:text-warning-400">{warning}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Error */}
-                    {healthData.error && (
-                      <div className="p-3 rounded-xl bg-danger-500/10 border border-danger-500/20">
-                        <div className="flex items-start gap-2">
-                          <ExclamationCircleIcon className="h-4 w-4 text-danger-500 flex-shrink-0 mt-0.5" />
-                          <span className="text-sm text-danger-600 dark:text-danger-400">{healthData.error}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Refresh Button */}
-                    <div className="flex justify-center pt-2">
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => healthData && handleViewHealth(healthData.cluster_id)}
-                        disabled={loadingHealth}
-                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100/50 dark:bg-slate-700/50 rounded-xl hover:bg-gray-200/50 dark:hover:bg-slate-600/50 disabled:opacity-50 transition-all"
-                      >
-                        <ArrowPathIcon className={`h-4 w-4 ${loadingHealth ? 'animate-spin' : ''}`} />
-                        Refresh
-                      </motion.button>
+                      ))}
                     </div>
                   </div>
-                ) : null}
-              </motion.div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+                )}
+
+                {/* Error */}
+                {healthData.error && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 8,
+                      padding: '10px 12px',
+                      background: t.errorBg,
+                      border: `1px solid ${t.error}`,
+                      borderRadius: 6,
+                    }}
+                  >
+                    <ExclamationCircleIcon style={{ width: 14, height: 14, color: t.error, flexShrink: 0, marginTop: 1 }} />
+                    <span style={{ fontSize: 12, color: t.error }}>{healthData.error}</span>
+                  </div>
+                )}
+
+                {/* Refresh */}
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <button
+                    onClick={() => healthData && handleViewHealth(healthData.cluster_id)}
+                    disabled={loadingHealth}
+                    style={{ ...btnSecondary, opacity: loadingHealth ? 0.5 : 1 }}
+                  >
+                    <ArrowPathIcon style={{ width: 14, height: 14, ...(loadingHealth ? { animation: 'spin 1s linear infinite' } : {}) }} />
+                    Refresh
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

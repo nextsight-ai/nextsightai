@@ -24,6 +24,8 @@ import { useToast } from '../../contexts/ToastContext';
 import PermissionsInfo from '../common/PermissionsInfo';
 import { UserTableSkeleton, ConnectionError, EmptyState, PermissionDenied } from '../common/LoadingStates';
 import type { User, UserRole } from '../../types';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors } from '../../styles/linear-design';
 
 interface CreateUserData {
   username: string;
@@ -40,8 +42,6 @@ interface EditUserData {
   is_active?: boolean;
 }
 
-// Matrix permission structure for visual grid display
-// Each category has actions mapped to permission keys
 const PERMISSION_MATRIX = {
   columns: [
     { key: 'view', label: 'View', icon: 'eye' },
@@ -55,25 +55,25 @@ const PERMISSION_MATRIX = {
     {
       category: 'Kubernetes',
       prefix: 'k8s',
-      color: 'blue',
+      color: '#3b82f6',
       permissions: {
         view: 'k8s.view',
         create: 'k8s.create',
         edit: 'k8s.edit',
         delete: 'k8s.delete',
         execute: 'k8s.exec',
-        special: 'k8s.logs', // View Logs
+        special: 'k8s.logs',
       },
       specialLabel: 'Logs',
     },
     {
       category: 'GitOps (ArgoCD)',
       prefix: 'argocd',
-      color: 'orange',
+      color: '#f97316',
       permissions: {
         view: 'argocd.view',
         create: 'argocd.create',
-        edit: 'argocd.sync', // Sync is like edit
+        edit: 'argocd.sync',
         delete: 'argocd.delete',
         execute: null,
         special: 'argocd.rollback',
@@ -83,7 +83,7 @@ const PERMISSION_MATRIX = {
     {
       category: 'Helm',
       prefix: 'helm',
-      color: 'purple',
+      color: '#a855f7',
       permissions: {
         view: 'helm.view',
         create: 'helm.install',
@@ -97,7 +97,7 @@ const PERMISSION_MATRIX = {
     {
       category: 'Security',
       prefix: 'security',
-      color: 'red',
+      color: '#ef4444',
       permissions: {
         view: 'security.view',
         create: null,
@@ -111,9 +111,9 @@ const PERMISSION_MATRIX = {
     {
       category: 'Admin',
       prefix: 'admin',
-      color: 'gray',
+      color: '#6b7280',
       permissions: {
-        view: 'admin.audit', // Audit logs is view
+        view: 'admin.audit',
         create: 'admin.users',
         edit: 'admin.roles',
         delete: null,
@@ -125,7 +125,6 @@ const PERMISSION_MATRIX = {
   ],
 };
 
-// Flatten for legacy compatibility
 const PERMISSION_CATEGORIES = [
   {
     name: 'Kubernetes',
@@ -176,7 +175,6 @@ const PERMISSION_CATEGORIES = [
   },
 ];
 
-// Default role permissions
 const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   admin: ['*'],
   developer: [
@@ -201,7 +199,63 @@ const ROLES: { value: UserRole; label: string; color: string; description: strin
   { value: 'viewer', label: 'Viewer', color: 'gray', description: 'Read-only access' },
 ];
 
+function getRoleBadgeStyle(role: UserRole, t: ReturnType<typeof getThemeColors>): React.CSSProperties {
+  if (role === 'admin') return { background: t.badgeColors.red.bg, color: t.badgeColors.red.text };
+  if (role === 'developer') return { background: t.badgeColors.blue.bg, color: t.badgeColors.blue.text };
+  if (role === 'operator') return { background: t.badgeColors.amber.bg, color: t.badgeColors.amber.text };
+  return { background: t.cardBorder, color: t.textSub };
+}
+
+// Modal Component
+function Modal({
+  title,
+  children,
+  onClose,
+  size = 'md',
+  t,
+}: {
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  t: ReturnType<typeof getThemeColors>;
+}) {
+  const sizeMap = { sm: 480, md: 560, lg: 680, xl: 900 };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, overflowY: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+      <div
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)' }}
+        onClick={onClose}
+      />
+      <div style={{ position: 'relative', width: '100%', maxWidth: sizeMap[size], background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 16, padding: 24, boxShadow: '0 24px 64px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 600, color: t.text, margin: 0 }}>{title}</h3>
+          <button
+            onClick={onClose}
+            style={{ padding: 4, background: 'transparent', border: 'none', color: t.textMuted, cursor: 'pointer', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <XMarkIcon style={{ width: 18, height: 18 }} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// Error Alert
+function ErrorAlert({ message, t }: { message: string; t: ReturnType<typeof getThemeColors> }) {
+  return (
+    <div style={{ padding: '10px 14px', borderRadius: 8, background: t.errorBg, border: `1px solid ${t.error}33`, color: t.error, fontSize: 13, marginBottom: 16 }}>
+      {message}
+    </div>
+  );
+}
+
 export default function UserManagement() {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
   const { user: currentUser, hasRole } = useAuth();
   const toast = useToast();
   const [users, setUsers] = useState<User[]>([]);
@@ -210,7 +264,6 @@ export default function UserManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
 
-  // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -219,7 +272,6 @@ export default function UserManagement() {
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  // Form states
   const [createForm, setCreateForm] = useState<CreateUserData>({
     username: '',
     email: '',
@@ -232,11 +284,8 @@ export default function UserManagement() {
   const [formError, setFormError] = useState<string | null>(null);
   const [formLoading, setFormLoading] = useState(false);
 
-  // Custom permissions state
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const [useCustomPermissions, setUseCustomPermissions] = useState(false);
-
-  // Create user with permissions state
   const [createUseCustomPermissions, setCreateUseCustomPermissions] = useState(false);
   const [createUserPermissions, setCreateUserPermissions] = useState<string[]>([]);
 
@@ -271,12 +320,9 @@ export default function UserManagement() {
     e.preventDefault();
     setFormError(null);
     setFormLoading(true);
-
     try {
       const response = await authApi.createUser(createForm);
       const newUserId = response.data.id;
-
-      // If custom permissions are enabled, set them after user creation
       if (createUseCustomPermissions && createUserPermissions.length > 0) {
         try {
           await authApi.setUserPermissions(newUserId, {
@@ -290,15 +336,8 @@ export default function UserManagement() {
       } else {
         toast.success('User Created', `${createForm.username} has been created successfully`);
       }
-
       setShowCreateModal(false);
-      setCreateForm({
-        username: '',
-        email: '',
-        full_name: '',
-        password: '',
-        role: 'viewer',
-      });
+      setCreateForm({ username: '', email: '', full_name: '', password: '', role: 'viewer' });
       setCreateUseCustomPermissions(false);
       setCreateUserPermissions([]);
       fetchUsers();
@@ -314,11 +353,9 @@ export default function UserManagement() {
   const handleEditUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
-
     setFormError(null);
     setFormLoading(true);
     const username = selectedUser.username;
-
     try {
       await authApi.updateUser(selectedUser.id, editForm);
       setShowEditModal(false);
@@ -337,11 +374,9 @@ export default function UserManagement() {
 
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
-
     setFormError(null);
     setFormLoading(true);
     const username = selectedUser.username;
-
     try {
       await authApi.deleteUser(selectedUser.id);
       setShowDeleteModal(false);
@@ -360,11 +395,9 @@ export default function UserManagement() {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
-
     setFormError(null);
     setFormLoading(true);
     const username = selectedUser.username;
-
     try {
       await authApi.resetUserPassword(selectedUser.id, { new_password: newPassword });
       setShowResetPasswordModal(false);
@@ -382,26 +415,20 @@ export default function UserManagement() {
 
   const handleSavePermissions = async () => {
     if (!selectedUser) return;
-
     setFormLoading(true);
     setFormError(null);
     const username = selectedUser.username;
-
     try {
       await authApi.setUserPermissions(selectedUser.id, {
         use_custom_permissions: useCustomPermissions,
         permissions: useCustomPermissions ? userPermissions : [],
       });
-
       if (useCustomPermissions) {
         toast.success('Permissions Updated', `Custom permissions saved for ${username}`);
       } else {
         toast.info('Permissions Reset', `${username} now uses role-based permissions`);
       }
-
-      // Refresh users list to get updated permissions
       await fetchUsers();
-
       setShowPermissionsModal(false);
       setSelectedUser(null);
     } catch (err: unknown) {
@@ -415,12 +442,7 @@ export default function UserManagement() {
 
   const openEditModal = (user: User) => {
     setSelectedUser(user);
-    setEditForm({
-      email: user.email || '',
-      full_name: user.full_name || '',
-      role: user.role,
-      is_active: user.is_active,
-    });
+    setEditForm({ email: user.email || '', full_name: user.full_name || '', role: user.role, is_active: user.is_active });
     setFormError(null);
     setShowEditModal(true);
   };
@@ -447,15 +469,12 @@ export default function UserManagement() {
     setSelectedUser(user);
     setFormError(null);
     setFormLoading(true);
-
     try {
-      // Fetch user permissions from API
       const response = await authApi.getUserPermissions(user.id);
       setUseCustomPermissions(response.data.use_custom_permissions);
       setUserPermissions(response.data.permissions);
       setShowPermissionsModal(true);
-    } catch (err) {
-      // Fall back to local data if API fails
+    } catch {
       const hasCustom = user.use_custom_permissions || false;
       setUseCustomPermissions(hasCustom);
       setUserPermissions(
@@ -471,372 +490,332 @@ export default function UserManagement() {
 
   const togglePermission = (permission: string) => {
     setUserPermissions((prev) =>
-      prev.includes(permission)
-        ? prev.filter((p) => p !== permission)
-        : [...prev, permission]
+      prev.includes(permission) ? prev.filter((p) => p !== permission) : [...prev, permission]
     );
   };
 
   const toggleCreatePermission = (permission: string) => {
     setCreateUserPermissions((prev) =>
-      prev.includes(permission)
-        ? prev.filter((p) => p !== permission)
-        : [...prev, permission]
+      prev.includes(permission) ? prev.filter((p) => p !== permission) : [...prev, permission]
     );
   };
 
-  const getRoleColor = (role: UserRole) => {
-    const roleConfig = ROLES.find((r) => r.value === role);
-    switch (roleConfig?.color) {
-      case 'red':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-      case 'blue':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
-      case 'yellow':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
-    }
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    background: 'transparent',
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 6,
+    padding: '7px 10px',
+    color: t.text,
+    fontSize: 13,
+    outline: 'none',
+    boxSizing: 'border-box',
   };
 
-  const getRoleBorderColor = (role: UserRole) => {
-    switch (role) {
-      case 'admin':
-        return 'border-red-500';
-      case 'developer':
-        return 'border-blue-500';
-      case 'operator':
-        return 'border-yellow-500';
-      default:
-        return 'border-gray-500';
-    }
+  const selectStyle: React.CSSProperties = {
+    ...inputStyle,
+    cursor: 'pointer',
+  };
+
+  const thStyle: React.CSSProperties = {
+    fontSize: 10,
+    fontWeight: 500,
+    color: t.textSub,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    padding: '10px 14px',
+    textAlign: 'left',
+  };
+
+  const primaryBtnStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '8px 16px',
+    background: t.info,
+    color: '#fff',
+    border: 'none',
+    borderRadius: 6,
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: 'pointer',
+  };
+
+  const secondaryBtnStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '8px 16px',
+    background: 'transparent',
+    color: t.text,
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 6,
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: 'pointer',
   };
 
   if (!hasRole('admin')) {
     return (
-      <div className="p-6">
-        <PermissionDenied
-          resource="User Management"
-          requiredRole="Administrator"
-        />
+      <div style={{ padding: 24 }}>
+        <PermissionDenied resource="User Management" requiredRole="Administrator" />
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Current Admin Profile Card */}
-      {currentUser && (
-        <div className="bg-gradient-to-r from-primary-500/10 via-purple-500/10 to-blue-500/10 dark:from-primary-900/30 dark:via-purple-900/30 dark:to-blue-900/30 rounded-xl border border-primary-200 dark:border-primary-800/50 p-4 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary-500 via-purple-500 to-blue-600 flex items-center justify-center shadow-lg shadow-primary-500/30">
-                <span className="text-2xl font-bold text-white">
-                  {currentUser.username.charAt(0).toUpperCase()}
-                </span>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                    {currentUser.full_name || currentUser.username}
-                  </h2>
-                  <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 uppercase">
-                    {currentUser.role}
-                  </span>
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                    Logged In
+    <div style={{ color: t.text }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 1400, margin: '0 auto' }}>
+        {/* Current Admin Profile Card */}
+        {currentUser && (
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 56, height: 56, borderRadius: 12, background: t.infoBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 22, fontWeight: 700, color: t.info }}>
+                    {currentUser.username.charAt(0).toUpperCase()}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">@{currentUser.username}</p>
-                {currentUser.email && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-0.5">
-                    <EnvelopeIcon className="h-3.5 w-3.5" />
-                    {currentUser.email}
-                  </p>
-                )}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>
+                      {currentUser.full_name || currentUser.username}
+                    </span>
+                    <span style={{ ...getRoleBadgeStyle(currentUser.role, t), padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+                      {currentUser.role.toUpperCase()}
+                    </span>
+                    <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11, background: t.successBg, color: t.success }}>
+                      Logged In
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: t.textSub }}>@{currentUser.username}</div>
+                  {currentUser.email && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: t.textMuted, marginTop: 2 }}>
+                      <EnvelopeIcon style={{ width: 12, height: 12 }} />
+                      {currentUser.email}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="sm:ml-auto flex flex-wrap gap-2">
-              <div className="px-3 py-1.5 bg-white/60 dark:bg-slate-800/60 rounded-lg border border-gray-200 dark:border-slate-700">
-                <p className="text-xs text-gray-500 dark:text-gray-400">User ID</p>
-                <p className="text-sm font-mono text-gray-700 dark:text-gray-300">{currentUser.id.slice(0, 8)}...</p>
-              </div>
-              <div className="px-3 py-1.5 bg-white/60 dark:bg-slate-800/60 rounded-lg border border-gray-200 dark:border-slate-700">
-                <p className="text-xs text-gray-500 dark:text-gray-400">Permissions</p>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {currentUser.role === 'admin' ? 'Full Access' : currentUser.use_custom_permissions ? 'Custom' : 'Role-based'}
-                </p>
-              </div>
-              <div className="px-3 py-1.5 bg-white/60 dark:bg-slate-800/60 rounded-lg border border-gray-200 dark:border-slate-700">
-                <p className="text-xs text-gray-500 dark:text-gray-400">Total Users</p>
-                <p className="text-sm font-bold text-primary-600 dark:text-primary-400">{users.length}</p>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {[
+                  { label: 'User ID', value: `${currentUser.id.slice(0, 8)}...` },
+                  { label: 'Permissions', value: currentUser.role === 'admin' ? 'Full Access' : currentUser.use_custom_permissions ? 'Custom' : 'Role-based' },
+                  { label: 'Total Users', value: String(users.length) },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ padding: '8px 12px', background: t.mainBg, border: `1px solid ${t.cardBorder}`, borderRadius: 8 }}>
+                    <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: t.text, fontFamily: label === 'User ID' ? "'SF Mono', monospace" : undefined }}>{value}</div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <UserIcon className="h-7 w-7 text-primary-600" />
-            User Management
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Manage users, roles, and permissions
-          </p>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <UserIcon style={{ width: 22, height: 22, color: t.info }} />
+              <h1 style={{ fontSize: 20, fontWeight: 700, color: t.text, margin: 0 }}>User Management</h1>
+            </div>
+            <div style={{ fontSize: 13, color: t.textSub }}>Manage users, roles, and permissions</div>
+          </div>
+          <button
+            onClick={() => { setFormError(null); setShowCreateModal(true); }}
+            style={primaryBtnStyle}
+          >
+            <PlusIcon style={{ width: 16, height: 16 }} />
+            Add User
+          </button>
         </div>
-        <button
-          onClick={() => {
-            setFormError(null);
-            setShowCreateModal(true);
-          }}
-          className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors shadow-sm"
-        >
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Add User
-        </button>
-      </div>
 
-      {/* Filters */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+        {/* Filters */}
+        <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: 16, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
+            <MagnifyingGlassIcon style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: t.textMuted }} />
             <input
               type="text"
               placeholder="Search users..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              style={{ ...inputStyle, paddingLeft: 32 }}
             />
           </div>
           <select
             value={selectedRole}
             onChange={(e) => setSelectedRole(e.target.value)}
-            className="px-4 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            style={{ ...selectStyle, minWidth: 140 }}
           >
             <option value="all">All Roles</option>
             {ROLES.map((role) => (
-              <option key={role.value} value={role.value}>
-                {role.label}
-              </option>
+              <option key={role.value} value={role.value}>{role.label}</option>
             ))}
           </select>
         </div>
-      </div>
 
-      {/* Error Banner */}
-      {error && (
-        <ConnectionError
-          service="User Management API"
-          onRetry={fetchUsers}
-          retrying={loading}
-        />
-      )}
+        {/* Error Banner */}
+        {error && (
+          <ConnectionError service="User Management API" onRetry={fetchUsers} retrying={loading} />
+        )}
 
-      {/* Users Table */}
-      {loading ? (
-        <UserTableSkeleton />
-      ) : (
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
-          {filteredUsers.length === 0 ? (
-            <EmptyState
-              title="No users found"
-              message={searchQuery || selectedRole !== 'all'
-                ? "Try adjusting your search or filter criteria"
-                : "Get started by creating the first user"
-              }
-              icon={<UserIcon className="h-8 w-8" />}
-              action={searchQuery || selectedRole !== 'all' ? {
-                label: 'Clear Filters',
-                onClick: () => {
-                  setSearchQuery('');
-                  setSelectedRole('all');
+        {/* Users Table */}
+        {loading ? (
+          <UserTableSkeleton />
+        ) : (
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 10, overflow: 'hidden' }}>
+            {filteredUsers.length === 0 ? (
+              <EmptyState
+                title="No users found"
+                message={searchQuery || selectedRole !== 'all'
+                  ? 'Try adjusting your search or filter criteria'
+                  : 'Get started by creating the first user'
                 }
-              } : {
-                label: 'Add User',
-                onClick: () => setShowCreateModal(true)
-              }}
-            />
-          ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-slate-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    <span className="flex items-center gap-1.5">
-                      Role
-                      <PermissionsInfo iconOnly buttonClassName="text-gray-400 hover:text-primary-500" />
-                    </span>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Last Login
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <button
-                          onClick={() => openProfileModal(user)}
-                          className="h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center hover:ring-2 hover:ring-primary-500 transition-all"
-                        >
-                          <span className="text-primary-600 dark:text-primary-400 font-medium">
-                            {user.username.charAt(0).toUpperCase()}
-                          </span>
-                        </button>
-                        <div className="ml-4">
-                          <div className="flex items-center gap-2">
+                icon={<UserIcon style={{ width: 28, height: 28 }} />}
+                action={searchQuery || selectedRole !== 'all' ? {
+                  label: 'Clear Filters',
+                  onClick: () => { setSearchQuery(''); setSelectedRole('all'); }
+                } : {
+                  label: 'Add User',
+                  onClick: () => setShowCreateModal(true)
+                }}
+              />
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: t.mainBg, borderBottom: `1px solid ${t.cardBorder}` }}>
+                      <th style={thStyle}>User</th>
+                      <th style={thStyle}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          Role
+                          <PermissionsInfo iconOnly buttonClassName="text-gray-400 hover:text-primary-500" />
+                        </span>
+                      </th>
+                      <th style={thStyle}>Status</th>
+                      <th style={thStyle}>Last Login</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.map((user, idx) => (
+                      <tr
+                        key={user.id}
+                        style={{ borderBottom: idx < filteredUsers.length - 1 ? `1px solid ${t.cardBorder}` : 'none' }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = t.mainBg; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent'; }}
+                      >
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                             <button
                               onClick={() => openProfileModal(user)}
-                              className="text-sm font-medium text-gray-900 dark:text-white hover:text-primary-600 dark:hover:text-primary-400"
+                              style={{ width: 36, height: 36, borderRadius: '50%', background: t.infoBg, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
                             >
-                              {user.username}
+                              <span style={{ fontSize: 14, fontWeight: 600, color: t.info }}>
+                                {user.username.charAt(0).toUpperCase()}
+                              </span>
                             </button>
-                            {user.id === currentUser?.id && (
-                              <span className="text-xs bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300 px-2 py-0.5 rounded">
-                                You
-                              </span>
-                            )}
-                            {user.use_custom_permissions && (
-                              <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-0.5 rounded">
-                                Custom
-                              </span>
-                            )}
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <button
+                                  onClick={() => openProfileModal(user)}
+                                  style={{ fontSize: 13, fontWeight: 500, color: t.text, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                                >
+                                  {user.username}
+                                </button>
+                                {user.id === currentUser?.id && (
+                                  <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: t.infoBg, color: t.info }}>You</span>
+                                )}
+                                {user.use_custom_permissions && (
+                                  <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 3, background: t.badgeColors.purple.bg, color: t.badgeColors.purple.text }}>Custom</span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: 12, color: t.textSub }}>{user.email || user.full_name || 'No email'}</div>
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            {user.email || user.full_name || 'No email'}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <span style={{ ...getRoleBadgeStyle(user.role, t), padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 500 }}>
+                            {ROLES.find((r) => r.value === user.role)?.label || user.role}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          {user.is_active ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: t.success, fontSize: 13 }}>
+                              <CheckCircleIcon style={{ width: 15, height: 15 }} />
+                              Active
+                            </span>
+                          ) : (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: t.error, fontSize: 13 }}>
+                              <XCircleIcon style={{ width: 15, height: 15 }} />
+                              Inactive
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 14px', fontSize: 12, color: t.textSub }}>
+                          {user.last_login
+                            ? new Date(user.last_login).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : 'Never'}
+                        </td>
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
+                            {[
+                              { icon: EyeIcon, color: t.info, title: 'View profile', onClick: () => openProfileModal(user), disabled: false },
+                              { icon: AdjustmentsHorizontalIcon, color: t.badgeColors.purple.text, title: 'Manage permissions', onClick: () => openPermissionsModal(user), disabled: false },
+                              { icon: PencilSquareIcon, color: t.info, title: 'Edit user', onClick: () => openEditModal(user), disabled: false },
+                              { icon: KeyIcon, color: t.warning, title: 'Reset password', onClick: () => openResetPasswordModal(user), disabled: user.id === currentUser?.id },
+                              { icon: TrashIcon, color: t.error, title: 'Delete user', onClick: () => openDeleteModal(user), disabled: user.id === currentUser?.id },
+                            ].map(({ icon: Icon, color, title, onClick, disabled }) => (
+                              <button
+                                key={title}
+                                onClick={onClick}
+                                disabled={disabled}
+                                title={title}
+                                style={{ padding: 7, background: 'transparent', border: 'none', color: disabled ? t.textMuted : color, cursor: disabled ? 'not-allowed' : 'pointer', borderRadius: 6, opacity: disabled ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              >
+                                <Icon style={{ width: 16, height: 16 }} />
+                              </button>
+                            ))}
                           </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(
-                          user.role
-                        )}`}
-                      >
-                        {ROLES.find((r) => r.value === user.role)?.label || user.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {user.is_active ? (
-                        <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
-                          <CheckCircleIcon className="h-4 w-4" />
-                          <span className="text-sm">Active</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
-                          <XCircleIcon className="h-4 w-4" />
-                          <span className="text-sm">Inactive</span>
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {user.last_login
-                        ? new Date(user.last_login).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : 'Never'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => openProfileModal(user)}
-                          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                          title="View profile"
-                        >
-                          <EyeIcon className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => openPermissionsModal(user)}
-                          className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-colors"
-                          title="Manage permissions"
-                        >
-                          <AdjustmentsHorizontalIcon className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => openEditModal(user)}
-                          className="p-2 text-gray-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded-lg transition-colors"
-                          title="Edit user"
-                        >
-                          <PencilSquareIcon className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => openResetPasswordModal(user)}
-                          disabled={user.id === currentUser?.id}
-                          className="p-2 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Reset password"
-                        >
-                          <KeyIcon className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => openDeleteModal(user)}
-                          disabled={user.id === currentUser?.id}
-                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Delete user"
-                        >
-                          <TrashIcon className="h-5 w-5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
       {/* View Profile Modal */}
       {showProfileModal && selectedUser && (
-        <Modal title="User Profile" onClose={() => setShowProfileModal(false)} size="lg">
-          <div className="space-y-6">
+        <Modal title="User Profile" onClose={() => setShowProfileModal(false)} size="lg" t={t}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Profile Header */}
-            <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-primary-50 to-purple-50 dark:from-primary-900/20 dark:to-purple-900/20 rounded-xl">
-              <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg border-4 ${getRoleBorderColor(selectedUser.role)}`}>
-                <span className="text-white font-bold text-2xl">
-                  {selectedUser.username.charAt(0).toUpperCase()}
-                </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 16, background: t.mainBg, borderRadius: 10 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 12, background: t.infoBg, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${t.info}` }}>
+                <span style={{ fontSize: 22, fontWeight: 700, color: t.info }}>{selectedUser.username.charAt(0).toUpperCase()}</span>
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {selectedUser.full_name || selectedUser.username}
-                  </h3>
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(selectedUser.role)}`}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: t.text }}>{selectedUser.full_name || selectedUser.username}</span>
+                  <span style={{ ...getRoleBadgeStyle(selectedUser.role, t), padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 500 }}>
                     {ROLES.find((r) => r.value === selectedUser.role)?.label}
                   </span>
                 </div>
-                <p className="text-gray-500 dark:text-gray-400">@{selectedUser.username}</p>
+                <div style={{ fontSize: 12, color: t.textSub }}>@{selectedUser.username}</div>
               </div>
-              <div className="text-right">
+              <div>
                 {selectedUser.is_active ? (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm font-medium">
-                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: t.successBg, color: t.success, borderRadius: 20, fontSize: 12, fontWeight: 500 }}>
+                    <span style={{ width: 6, height: 6, background: t.success, borderRadius: '50%' }} />
                     Active
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-sm font-medium">
-                    <span className="w-2 h-2 bg-red-500 rounded-full" />
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: t.errorBg, color: t.error, borderRadius: 20, fontSize: 12, fontWeight: 500 }}>
+                    <span style={{ width: 6, height: 6, background: t.error, borderRadius: '50%' }} />
                     Inactive
                   </span>
                 )}
@@ -844,204 +823,151 @@ export default function UserManagement() {
             </div>
 
             {/* Profile Details */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-1">
-                  <IdentificationIcon className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wide font-medium">User ID</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {[
+                { Icon: IdentificationIcon, label: 'User ID', value: selectedUser.id, mono: true },
+                { Icon: EnvelopeIcon, label: 'Email', value: selectedUser.email || 'Not provided', mono: false },
+                {
+                  Icon: ClockIcon, label: 'Member Since',
+                  value: selectedUser.created_at
+                    ? new Date(selectedUser.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                    : 'Unknown',
+                  mono: false,
+                },
+                {
+                  Icon: ClockIcon, label: 'Last Login',
+                  value: selectedUser.last_login
+                    ? new Date(selectedUser.last_login).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : 'Never',
+                  mono: false,
+                },
+              ].map(({ Icon, label, value, mono }) => (
+                <div key={label} style={{ padding: 12, background: t.mainBg, borderRadius: 8, border: `1px solid ${t.cardBorder}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    <Icon style={{ width: 13, height: 13, color: t.textSub }} />
+                    <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 500, color: t.textSub }}>{label}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: t.text, fontFamily: mono ? "'SF Mono', monospace" : undefined, overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
                 </div>
-                <p className="text-sm font-mono text-gray-900 dark:text-white truncate">
-                  {selectedUser.id}
-                </p>
-              </div>
-              <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-1">
-                  <EnvelopeIcon className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wide font-medium">Email</span>
-                </div>
-                <p className="text-sm text-gray-900 dark:text-white">
-                  {selectedUser.email || 'Not provided'}
-                </p>
-              </div>
-              <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-1">
-                  <ClockIcon className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wide font-medium">Member Since</span>
-                </div>
-                <p className="text-sm text-gray-900 dark:text-white">
-                  {selectedUser.created_at
-                    ? new Date(selectedUser.created_at).toLocaleDateString('en-US', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })
-                    : 'Unknown'}
-                </p>
-              </div>
-              <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-1">
-                  <ClockIcon className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wide font-medium">Last Login</span>
-                </div>
-                <p className="text-sm text-gray-900 dark:text-white">
-                  {selectedUser.last_login
-                    ? new Date(selectedUser.last_login).toLocaleDateString('en-US', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : 'Never'}
-                </p>
-              </div>
+              ))}
             </div>
 
             {/* Permissions Summary */}
-            <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                  <ShieldCheckIcon className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wide font-medium">Permissions</span>
+            <div style={{ padding: 14, background: t.mainBg, border: `1px solid ${t.cardBorder}`, borderRadius: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <ShieldCheckIcon style={{ width: 14, height: 14, color: t.textSub }} />
+                  <span style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 500, color: t.textSub }}>Permissions</span>
                 </div>
                 {selectedUser.use_custom_permissions && (
-                  <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-0.5 rounded">
-                    Custom Permissions
-                  </span>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 3, background: t.badgeColors.purple.bg, color: t.badgeColors.purple.text }}>Custom Permissions</span>
                 )}
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+              <div style={{ fontSize: 13, color: t.text, marginBottom: 8 }}>
                 {selectedUser.role === 'admin'
                   ? 'Full system access with all permissions'
                   : `${(selectedUser.custom_permissions || DEFAULT_ROLE_PERMISSIONS[selectedUser.role] || []).length} permissions granted`}
-              </p>
+              </div>
               <button
-                onClick={() => {
-                  setShowProfileModal(false);
-                  openPermissionsModal(selectedUser);
-                }}
-                className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
+                onClick={() => { setShowProfileModal(false); openPermissionsModal(selectedUser); }}
+                style={{ fontSize: 13, color: t.info, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
               >
                 View & Edit Permissions
               </button>
             </div>
 
             {/* Actions */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 12, borderTop: `1px solid ${t.cardBorder}` }}>
               <button
-                onClick={() => {
-                  setShowProfileModal(false);
-                  openEditModal(selectedUser);
-                }}
-                className="px-4 py-2 text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded-lg transition-colors"
+                onClick={() => { setShowProfileModal(false); openEditModal(selectedUser); }}
+                style={{ ...secondaryBtnStyle, color: t.info }}
               >
                 Edit Profile
               </button>
-              <button
-                onClick={() => setShowProfileModal(false)}
-                className="px-4 py-2 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-lg transition-colors"
-              >
-                Close
-              </button>
+              <button onClick={() => setShowProfileModal(false)} style={secondaryBtnStyle}>Close</button>
             </div>
           </div>
         </Modal>
       )}
 
-      {/* Permissions Modal - Matrix Style */}
+      {/* Permissions Modal */}
       {showPermissionsModal && selectedUser && (
-        <Modal
-          title={`Permission Matrix: ${selectedUser.username}`}
-          onClose={() => setShowPermissionsModal(false)}
-          size="xl"
-        >
-          <div className="space-y-4">
-            {formError && <ErrorAlert message={formError} />}
+        <Modal title={`Permission Matrix: ${selectedUser.username}`} onClose={() => setShowPermissionsModal(false)} size="xl" t={t}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {formError && <ErrorAlert message={formError} t={t} />}
 
             {/* User Info Header */}
-            <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-primary-50 to-purple-50 dark:from-primary-900/20 dark:to-purple-900/20 rounded-lg">
-              <div className={`w-10 h-10 rounded-lg bg-gradient-to-br from-primary-500 to-purple-500 flex items-center justify-center`}>
-                <span className="text-white font-bold">{selectedUser.username.charAt(0).toUpperCase()}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, background: t.mainBg, borderRadius: 8, border: `1px solid ${t.cardBorder}` }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: t.infoBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: t.info }}>{selectedUser.username.charAt(0).toUpperCase()}</span>
               </div>
-              <div className="flex-1">
-                <p className="font-medium text-gray-900 dark:text-white">{selectedUser.full_name || selectedUser.username}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Role: <span className={`font-medium px-1.5 py-0.5 rounded ${getRoleColor(selectedUser.role)}`}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: t.text }}>{selectedUser.full_name || selectedUser.username}</div>
+                <div style={{ fontSize: 11, color: t.textSub }}>
+                  Role:{' '}
+                  <span style={{ ...getRoleBadgeStyle(selectedUser.role, t), padding: '1px 6px', borderRadius: 3, fontSize: 10 }}>
                     {ROLES.find(r => r.value === selectedUser.role)?.label}
                   </span>
-                </p>
+                </div>
               </div>
             </div>
 
             {/* Custom vs Role Toggle */}
-            <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg border-2 border-dashed border-gray-200 dark:border-slate-600">
-              <label className="flex items-center justify-between cursor-pointer">
+            <div style={{ padding: 14, background: t.mainBg, borderRadius: 8, border: `2px dashed ${t.cardBorder}` }}>
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                    <AdjustmentsHorizontalIcon className="h-5 w-5 text-purple-500" />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500, color: t.text, fontSize: 13 }}>
+                    <AdjustmentsHorizontalIcon style={{ width: 16, height: 16, color: t.badgeColors.purple.text }} />
                     Enable Custom Permissions
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Override role defaults and assign granular permissions per category
-                  </p>
-                </div>
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={useCustomPermissions}
-                    onChange={(e) => {
-                      setUseCustomPermissions(e.target.checked);
-                      if (!e.target.checked) {
-                        setUserPermissions(DEFAULT_ROLE_PERMISSIONS[selectedUser.role] || []);
-                      }
-                    }}
-                    className="sr-only"
-                  />
-                  <div className={`w-14 h-7 rounded-full transition-colors ${useCustomPermissions ? 'bg-purple-600' : 'bg-gray-300 dark:bg-slate-600'}`}>
-                    <div className={`w-6 h-6 bg-white rounded-full shadow-lg transform transition-transform ${useCustomPermissions ? 'translate-x-7' : 'translate-x-0.5'} mt-0.5`} />
                   </div>
+                  <div style={{ fontSize: 12, color: t.textSub, marginTop: 4 }}>
+                    Override role defaults and assign granular permissions per category
+                  </div>
+                </div>
+                <div
+                  style={{ width: 44, height: 24, borderRadius: 12, background: useCustomPermissions ? t.badgeColors.purple.text : t.cardBorder, position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+                  onClick={() => {
+                    const next = !useCustomPermissions;
+                    setUseCustomPermissions(next);
+                    if (!next) setUserPermissions(DEFAULT_ROLE_PERMISSIONS[selectedUser.role] || []);
+                  }}
+                >
+                  <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: useCustomPermissions ? 23 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
                 </div>
               </label>
             </div>
 
             {!useCustomPermissions && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center gap-2">
-                <ShieldCheckIcon className="h-5 w-5 text-blue-500 flex-shrink-0" />
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  Using default <span className="font-semibold">{ROLES.find(r => r.value === selectedUser.role)?.label}</span> role permissions.
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: t.infoBg, border: `1px solid ${t.info}33`, borderRadius: 8 }}>
+                <ShieldCheckIcon style={{ width: 16, height: 16, color: t.info, flexShrink: 0 }} />
+                <div style={{ fontSize: 12, color: t.info }}>
+                  Using default <strong>{ROLES.find(r => r.value === selectedUser.role)?.label}</strong> role permissions.
                   Enable custom permissions above to modify individual access.
-                </p>
+                </div>
               </div>
             )}
 
             {/* Matrix Permission Grid */}
-            <div className="border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full">
+            <div style={{ border: `1px solid ${t.cardBorder}`, borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr className="bg-gray-100 dark:bg-slate-700">
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider border-b border-r border-gray-200 dark:border-slate-600 sticky left-0 bg-gray-100 dark:bg-slate-700 z-10 min-w-[140px]">
-                        Category
-                      </th>
+                    <tr style={{ background: t.mainBg, borderBottom: `1px solid ${t.cardBorder}` }}>
+                      <th style={{ ...thStyle, borderRight: `1px solid ${t.cardBorder}`, minWidth: 130, position: 'sticky', left: 0, background: t.mainBg, zIndex: 10 }}>Category</th>
                       {PERMISSION_MATRIX.columns.map((col) => (
-                        <th
-                          key={col.key}
-                          className="px-3 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-slate-600 min-w-[80px]"
-                        >
-                          <div className="flex flex-col items-center gap-1">
-                            {col.key === 'view' && <EyeIcon className="h-4 w-4" />}
-                            {col.key === 'create' && <PlusIcon className="h-4 w-4" />}
-                            {col.key === 'edit' && <PencilSquareIcon className="h-4 w-4" />}
-                            {col.key === 'delete' && <TrashIcon className="h-4 w-4" />}
-                            {col.key === 'execute' && <KeyIcon className="h-4 w-4" />}
-                            {col.key === 'special' && <ShieldCheckIcon className="h-4 w-4" />}
+                        <th key={col.key} style={{ ...thStyle, textAlign: 'center', minWidth: 72 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                            {col.key === 'view' && <EyeIcon style={{ width: 13, height: 13 }} />}
+                            {col.key === 'create' && <PlusIcon style={{ width: 13, height: 13 }} />}
+                            {col.key === 'edit' && <PencilSquareIcon style={{ width: 13, height: 13 }} />}
+                            {col.key === 'delete' && <TrashIcon style={{ width: 13, height: 13 }} />}
+                            {col.key === 'execute' && <KeyIcon style={{ width: 13, height: 13 }} />}
+                            {col.key === 'special' && <ShieldCheckIcon style={{ width: 13, height: 13 }} />}
                             <span>{col.label}</span>
                           </div>
                         </th>
                       ))}
-                      <th className="px-3 py-3 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200 dark:border-slate-600 min-w-[60px]">
-                        All
-                      </th>
+                      <th style={{ ...thStyle, textAlign: 'center', minWidth: 52 }}>All</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1049,23 +975,14 @@ export default function UserManagement() {
                       const rowPermKeys = Object.values(row.permissions).filter(Boolean) as string[];
                       const allRowChecked = rowPermKeys.every(p => userPermissions.includes('*') || userPermissions.includes(p));
                       const someRowChecked = rowPermKeys.some(p => userPermissions.includes('*') || userPermissions.includes(p));
+                      const rowBg = rowIndex % 2 === 0 ? t.cardBg : t.mainBg;
 
                       return (
-                        <tr
-                          key={row.category}
-                          className={`${rowIndex % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-gray-50 dark:bg-slate-800/50'} hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors`}
-                        >
-                          <td className={`px-4 py-3 border-r border-gray-200 dark:border-slate-600 sticky left-0 z-10 ${rowIndex % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-gray-50 dark:bg-slate-800/50'}`}>
-                            <div className="flex items-center gap-2">
-                              <div className={`w-3 h-3 rounded-full bg-${row.color}-500`} style={{
-                                backgroundColor: row.color === 'blue' ? '#3b82f6' :
-                                  row.color === 'orange' ? '#f97316' :
-                                  row.color === 'purple' ? '#a855f7' :
-                                  row.color === 'red' ? '#ef4444' : '#6b7280'
-                              }} />
-                              <span className="font-medium text-gray-900 dark:text-white text-sm">
-                                {row.category}
-                              </span>
+                        <tr key={row.category} style={{ borderBottom: `1px solid ${t.cardBorder}` }}>
+                          <td style={{ padding: '10px 14px', borderRight: `1px solid ${t.cardBorder}`, position: 'sticky', left: 0, background: rowBg, zIndex: 5 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div style={{ width: 10, height: 10, borderRadius: '50%', background: row.color, flexShrink: 0 }} />
+                              <span style={{ fontSize: 12, fontWeight: 500, color: t.text }}>{row.category}</span>
                             </div>
                           </td>
                           {PERMISSION_MATRIX.columns.map((col) => {
@@ -1075,70 +992,37 @@ export default function UserManagement() {
                             const tooltipLabel = col.key === 'special' && row.specialLabel ? row.specialLabel : null;
 
                             return (
-                              <td key={col.key} className="px-3 py-3 text-center border-gray-200 dark:border-slate-600">
+                              <td key={col.key} style={{ padding: '10px 6px', textAlign: 'center', background: rowBg }}>
                                 {permKey ? (
-                                  <div className="flex flex-col items-center">
-                                    <label className={`relative inline-flex items-center ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-                                      <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                        disabled={isDisabled}
-                                        onChange={() => permKey && togglePermission(permKey)}
-                                        className="sr-only"
-                                      />
-                                      <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-all ${
-                                        isChecked
-                                          ? 'bg-green-500 text-white shadow-sm'
-                                          : 'bg-gray-200 dark:bg-slate-600 text-gray-400 dark:text-slate-400'
-                                      } ${isDisabled ? 'opacity-50' : 'hover:scale-110'}`}>
-                                        {isChecked ? (
-                                          <CheckCircleIcon className="h-4 w-4" />
-                                        ) : (
-                                          <XCircleIcon className="h-4 w-4" />
-                                        )}
-                                      </div>
-                                    </label>
-                                    {tooltipLabel && (
-                                      <span className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{tooltipLabel}</span>
-                                    )}
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <div
+                                      onClick={() => !isDisabled && permKey && togglePermission(permKey)}
+                                      style={{ width: 22, height: 22, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: isDisabled ? 'not-allowed' : 'pointer', opacity: isDisabled ? 0.5 : 1, background: isChecked ? t.success : t.cardBorder, color: isChecked ? '#fff' : t.textMuted, transition: 'background 0.15s' }}
+                                    >
+                                      {isChecked ? <CheckCircleIcon style={{ width: 14, height: 14 }} /> : <XCircleIcon style={{ width: 14, height: 14 }} />}
+                                    </div>
+                                    {tooltipLabel && <span style={{ fontSize: 9, color: t.textMuted, marginTop: 2 }}>{tooltipLabel}</span>}
                                   </div>
                                 ) : (
-                                  <span className="text-gray-300 dark:text-slate-600">—</span>
+                                  <span style={{ color: t.textMuted, fontSize: 14 }}>—</span>
                                 )}
                               </td>
                             );
                           })}
-                          <td className="px-3 py-3 text-center border-gray-200 dark:border-slate-600">
-                            <label className={`relative inline-flex items-center ${!useCustomPermissions ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-                              <input
-                                type="checkbox"
-                                checked={allRowChecked}
-                                disabled={!useCustomPermissions || userPermissions.includes('*')}
-                                onChange={() => {
-                                  if (allRowChecked) {
-                                    setUserPermissions(prev => prev.filter(p => !rowPermKeys.includes(p)));
-                                  } else {
-                                    setUserPermissions(prev => [...new Set([...prev, ...rowPermKeys])]);
-                                  }
-                                }}
-                                className="sr-only"
-                              />
-                              <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-all ${
-                                allRowChecked
-                                  ? 'bg-purple-500 text-white shadow-sm'
-                                  : someRowChecked
-                                  ? 'bg-purple-200 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300'
-                                  : 'bg-gray-200 dark:bg-slate-600 text-gray-400'
-                              } ${!useCustomPermissions ? 'opacity-50' : 'hover:scale-110'}`}>
-                                {allRowChecked ? (
-                                  <CheckCircleIcon className="h-4 w-4" />
-                                ) : someRowChecked ? (
-                                  <div className="w-2 h-2 bg-current rounded-sm" />
-                                ) : (
-                                  <XCircleIcon className="h-4 w-4" />
-                                )}
-                              </div>
-                            </label>
+                          <td style={{ padding: '10px 6px', textAlign: 'center', background: rowBg }}>
+                            <div
+                              onClick={() => {
+                                if (!useCustomPermissions || userPermissions.includes('*')) return;
+                                if (allRowChecked) {
+                                  setUserPermissions(prev => prev.filter(p => !rowPermKeys.includes(p)));
+                                } else {
+                                  setUserPermissions(prev => [...new Set([...prev, ...rowPermKeys])]);
+                                }
+                              }}
+                              style={{ width: 22, height: 22, borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: (!useCustomPermissions || userPermissions.includes('*')) ? 'not-allowed' : 'pointer', opacity: (!useCustomPermissions || userPermissions.includes('*')) ? 0.5 : 1, margin: '0 auto', background: allRowChecked ? t.badgeColors.purple.text : someRowChecked ? t.badgeColors.purple.bg : t.cardBorder, color: allRowChecked ? '#fff' : someRowChecked ? t.badgeColors.purple.text : t.textMuted, transition: 'background 0.15s' }}
+                            >
+                              {allRowChecked ? <CheckCircleIcon style={{ width: 14, height: 14 }} /> : someRowChecked ? <div style={{ width: 8, height: 8, background: 'currentColor', borderRadius: 2 }} /> : <XCircleIcon style={{ width: 14, height: 14 }} />}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1148,429 +1032,238 @@ export default function UserManagement() {
               </div>
 
               {/* Legend */}
-              <div className="px-4 py-2 bg-gray-50 dark:bg-slate-700/50 border-t border-gray-200 dark:border-slate-600 flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-4 h-4 rounded bg-green-500 flex items-center justify-center">
-                    <CheckCircleIcon className="h-3 w-3 text-white" />
+              <div style={{ padding: '8px 14px', background: t.mainBg, borderTop: `1px solid ${t.cardBorder}`, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                {[
+                  { label: 'Granted', bg: t.success, color: '#fff', Icon: CheckCircleIcon },
+                  { label: 'Denied', bg: t.cardBorder, color: t.textMuted, Icon: XCircleIcon },
+                  { label: 'Row All', bg: t.badgeColors.purple.text, color: '#fff', Icon: CheckCircleIcon },
+                ].map(({ label, bg, color, Icon }) => (
+                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: t.textSub }}>
+                    <div style={{ width: 14, height: 14, borderRadius: 3, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon style={{ width: 10, height: 10, color }} />
+                    </div>
+                    <span>{label}</span>
                   </div>
-                  <span>Granted</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-4 h-4 rounded bg-gray-200 dark:bg-slate-600 flex items-center justify-center">
-                    <XCircleIcon className="h-3 w-3 text-gray-400" />
-                  </div>
-                  <span>Denied</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-gray-300 dark:text-slate-600">—</span>
+                ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: t.textSub }}>
+                  <span style={{ color: t.textMuted }}>—</span>
                   <span>N/A</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-4 h-4 rounded bg-purple-500 flex items-center justify-center">
-                    <CheckCircleIcon className="h-3 w-3 text-white" />
-                  </div>
-                  <span>Row All</span>
                 </div>
               </div>
             </div>
 
             {/* Quick Actions */}
             {useCustomPermissions && (
-              <div className="flex flex-wrap gap-2 pt-2">
-                <button
-                  onClick={() => {
-                    const allPerms = PERMISSION_CATEGORIES.flatMap(c => c.permissions.map(p => p.key));
-                    setUserPermissions(allPerms);
-                  }}
-                  className="text-xs px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors font-medium"
-                >
-                  Grant All
-                </button>
-                <button
-                  onClick={() => setUserPermissions([])}
-                  className="text-xs px-3 py-1.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors font-medium"
-                >
-                  Revoke All
-                </button>
-                <button
-                  onClick={() => setUserPermissions(DEFAULT_ROLE_PERMISSIONS[selectedUser.role] || [])}
-                  className="text-xs px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors font-medium"
-                >
-                  Reset to {ROLES.find(r => r.value === selectedUser.role)?.label} Default
-                </button>
-                <button
-                  onClick={() => {
-                    // Grant view-only permissions
-                    const viewPerms = PERMISSION_MATRIX.rows
-                      .map(r => r.permissions.view)
-                      .filter(Boolean) as string[];
-                    setUserPermissions(viewPerms);
-                  }}
-                  className="text-xs px-3 py-1.5 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors font-medium"
-                >
-                  View Only
-                </button>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {[
+                  { label: 'Grant All', onClick: () => { const all = PERMISSION_CATEGORIES.flatMap(c => c.permissions.map(p => p.key)); setUserPermissions(all); }, color: t.success, bg: t.successBg },
+                  { label: 'Revoke All', onClick: () => setUserPermissions([]), color: t.error, bg: t.errorBg },
+                  { label: `Reset to ${ROLES.find(r => r.value === selectedUser.role)?.label} Default`, onClick: () => setUserPermissions(DEFAULT_ROLE_PERMISSIONS[selectedUser.role] || []), color: t.info, bg: t.infoBg },
+                  { label: 'View Only', onClick: () => { const view = PERMISSION_MATRIX.rows.map(r => r.permissions.view).filter(Boolean) as string[]; setUserPermissions(view); }, color: t.textSub, bg: t.mainBg },
+                ].map(({ label, onClick, color, bg }) => (
+                  <button key={label} onClick={onClick} style={{ fontSize: 11, padding: '5px 12px', borderRadius: 5, background: bg, color, border: `1px solid ${color}33`, cursor: 'pointer', fontWeight: 500 }}>
+                    {label}
+                  </button>
+                ))}
               </div>
             )}
 
             {/* Permission Summary */}
-            <div className="p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {useCustomPermissions ? 'Custom' : 'Role-based'} permissions:
-                </span>
-                <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                  {userPermissions.includes('*') ? 'Full Access' : `${userPermissions.length} permissions`}
-                </span>
-              </div>
+            <div style={{ padding: '10px 14px', background: t.mainBg, borderRadius: 6, border: `1px solid ${t.cardBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
+              <span style={{ color: t.textSub }}>{useCustomPermissions ? 'Custom' : 'Role-based'} permissions:</span>
+              <span style={{ fontWeight: 600, color: t.text }}>
+                {userPermissions.includes('*') ? 'Full Access' : `${userPermissions.length} permissions`}
+              </span>
             </div>
 
             {/* Actions */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
-              <button
-                onClick={() => setShowPermissionsModal(false)}
-                disabled={formLoading}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 12, borderTop: `1px solid ${t.cardBorder}` }}>
+              <button onClick={() => setShowPermissionsModal(false)} disabled={formLoading} style={{ ...secondaryBtnStyle, opacity: formLoading ? 0.5 : 1 }}>Cancel</button>
               <button
                 onClick={handleSavePermissions}
                 disabled={formLoading}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                style={{ ...primaryBtnStyle, opacity: formLoading ? 0.5 : 1 }}
               >
-                {formLoading ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheckIcon className="h-4 w-4" />
-                    Save Permissions
-                  </>
-                )}
+                <ShieldCheckIcon style={{ width: 15, height: 15 }} />
+                {formLoading ? 'Saving...' : 'Save Permissions'}
               </button>
             </div>
           </div>
         </Modal>
       )}
 
-      {/* Create User Modal with Permissions */}
+      {/* Create User Modal */}
       {showCreateModal && (
-        <Modal title="Create New User" onClose={() => setShowCreateModal(false)} size="xl">
-          <form onSubmit={handleCreateUser} className="space-y-4">
-            {formError && <ErrorAlert message={formError} />}
+        <Modal title="Create New User" onClose={() => setShowCreateModal(false)} size="xl" t={t}>
+          <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {formError && <ErrorAlert message={formError} t={t} />}
 
-            {/* Basic Info Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Username *
-                </label>
-                <input
-                  type="text"
-                  required
-                  minLength={3}
-                  value={createForm.username}
-                  onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Enter username"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={createForm.email}
-                  onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Enter email"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={createForm.full_name}
-                  onChange={(e) => setCreateForm({ ...createForm, full_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Enter full name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Password *
-                </label>
-                <input
-                  type="password"
-                  required
-                  minLength={8}
-                  value={createForm.password}
-                  onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Enter password"
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Min 8 chars, uppercase, lowercase, digit, special char
-                </p>
-              </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              {[
+                { label: 'Username *', field: 'username', type: 'text', required: true, placeholder: 'Enter username', minLength: 3 },
+                { label: 'Email', field: 'email', type: 'email', required: false, placeholder: 'Enter email' },
+                { label: 'Full Name', field: 'full_name', type: 'text', required: false, placeholder: 'Enter full name' },
+                { label: 'Password *', field: 'password', type: 'password', required: true, placeholder: 'Enter password', minLength: 8 },
+              ].map(({ label, field, type, required, placeholder, minLength }) => (
+                <div key={field}>
+                  <div style={{ fontSize: 12, fontWeight: 500, color: t.text, marginBottom: 6 }}>{label}</div>
+                  <input
+                    type={type}
+                    required={required}
+                    minLength={minLength}
+                    value={(createForm as any)[field]}
+                    onChange={(e) => setCreateForm({ ...createForm, [field]: e.target.value })}
+                    placeholder={placeholder}
+                    style={inputStyle}
+                  />
+                  {field === 'password' && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>Min 8 chars, uppercase, lowercase, digit, special char</div>}
+                </div>
+              ))}
             </div>
 
             {/* Role Selection */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Role *
-              </label>
+              <div style={{ fontSize: 12, fontWeight: 500, color: t.text, marginBottom: 6 }}>Role *</div>
               <select
                 value={createForm.role}
                 onChange={(e) => {
                   const newRole = e.target.value as UserRole;
                   setCreateForm({ ...createForm, role: newRole });
-                  // Reset custom permissions when role changes
-                  if (!createUseCustomPermissions) {
-                    setCreateUserPermissions(DEFAULT_ROLE_PERMISSIONS[newRole] || []);
-                  }
+                  if (!createUseCustomPermissions) setCreateUserPermissions(DEFAULT_ROLE_PERMISSIONS[newRole] || []);
                 }}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                style={selectStyle}
               >
                 {ROLES.map((role) => (
-                  <option key={role.value} value={role.value}>
-                    {role.label} - {role.description}
-                  </option>
+                  <option key={role.value} value={role.value}>{role.label} - {role.description}</option>
                 ))}
               </select>
             </div>
 
-            {/* Permission Matrix Section */}
-            <div className="border-t border-gray-200 dark:border-slate-700 pt-4">
-              <div className="p-3 bg-gray-50 dark:bg-slate-700/50 rounded-lg border-2 border-dashed border-gray-200 dark:border-slate-600 mb-4">
-                <label className="flex items-center justify-between cursor-pointer">
+            {/* Permission Section */}
+            <div style={{ borderTop: `1px solid ${t.cardBorder}`, paddingTop: 14 }}>
+              <div style={{ padding: 12, background: t.mainBg, borderRadius: 8, border: `2px dashed ${t.cardBorder}`, marginBottom: 14 }}>
+                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
                   <div>
-                    <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                      <AdjustmentsHorizontalIcon className="h-5 w-5 text-purple-500" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 500, color: t.text, fontSize: 13 }}>
+                      <AdjustmentsHorizontalIcon style={{ width: 16, height: 16, color: t.badgeColors.purple.text }} />
                       Set Custom Permissions
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                      Override default {ROLES.find(r => r.value === createForm.role)?.label} role permissions
-                    </p>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={createUseCustomPermissions}
-                      onChange={(e) => {
-                        setCreateUseCustomPermissions(e.target.checked);
-                        if (!e.target.checked) {
-                          setCreateUserPermissions([]);
-                        } else {
-                          setCreateUserPermissions(DEFAULT_ROLE_PERMISSIONS[createForm.role] || []);
-                        }
-                      }}
-                      className="sr-only"
-                    />
-                    <div className={`w-12 h-6 rounded-full transition-colors ${createUseCustomPermissions ? 'bg-purple-600' : 'bg-gray-300 dark:bg-slate-600'}`}>
-                      <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${createUseCustomPermissions ? 'translate-x-6' : 'translate-x-0.5'} mt-0.5`} />
                     </div>
+                    <div style={{ fontSize: 12, color: t.textSub, marginTop: 2 }}>
+                      Override default {ROLES.find(r => r.value === createForm.role)?.label} role permissions
+                    </div>
+                  </div>
+                  <div
+                    style={{ width: 38, height: 22, borderRadius: 11, background: createUseCustomPermissions ? t.badgeColors.purple.text : t.cardBorder, position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+                    onClick={() => {
+                      const next = !createUseCustomPermissions;
+                      setCreateUseCustomPermissions(next);
+                      if (!next) {
+                        setCreateUserPermissions([]);
+                      } else {
+                        setCreateUserPermissions(DEFAULT_ROLE_PERMISSIONS[createForm.role] || []);
+                      }
+                    }}
+                  >
+                    <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: createUseCustomPermissions ? 19 : 3, transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
                   </div>
                 </label>
               </div>
 
               {createUseCustomPermissions && (
                 <>
-                  {/* Compact Permission Matrix */}
-                  <div className="border border-gray-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto max-h-64">
-                      <table className="w-full text-sm">
-                        <thead className="sticky top-0">
-                          <tr className="bg-gray-100 dark:bg-slate-700">
-                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase border-b border-r border-gray-200 dark:border-slate-600 sticky left-0 bg-gray-100 dark:bg-slate-700 z-10">
-                              Category
-                            </th>
-                            {PERMISSION_MATRIX.columns.map((col) => (
-                              <th key={col.key} className="px-2 py-2 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase border-b border-gray-200 dark:border-slate-600 min-w-[60px]">
-                                {col.label}
-                              </th>
-                            ))}
-                            <th className="px-2 py-2 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase border-b border-gray-200 dark:border-slate-600">
-                              All
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {PERMISSION_MATRIX.rows.map((row, rowIndex) => {
-                            const rowPermKeys = Object.values(row.permissions).filter(Boolean) as string[];
-                            const allRowChecked = rowPermKeys.every(p => createUserPermissions.includes(p));
-                            const someRowChecked = rowPermKeys.some(p => createUserPermissions.includes(p));
+                  <div style={{ border: `1px solid ${t.cardBorder}`, borderRadius: 8, overflow: 'hidden', maxHeight: 260, overflowY: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead style={{ position: 'sticky', top: 0, zIndex: 5 }}>
+                        <tr style={{ background: t.mainBg, borderBottom: `1px solid ${t.cardBorder}` }}>
+                          <th style={{ ...thStyle, borderRight: `1px solid ${t.cardBorder}`, position: 'sticky', left: 0, background: t.mainBg, zIndex: 10 }}>Category</th>
+                          {PERMISSION_MATRIX.columns.map((col) => (
+                            <th key={col.key} style={{ ...thStyle, textAlign: 'center', minWidth: 56 }}>{col.label}</th>
+                          ))}
+                          <th style={{ ...thStyle, textAlign: 'center' }}>All</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {PERMISSION_MATRIX.rows.map((row, rowIndex) => {
+                          const rowPermKeys = Object.values(row.permissions).filter(Boolean) as string[];
+                          const allRowChecked = rowPermKeys.every(p => createUserPermissions.includes(p));
+                          const someRowChecked = rowPermKeys.some(p => createUserPermissions.includes(p));
+                          const rowBg = rowIndex % 2 === 0 ? t.cardBg : t.mainBg;
 
-                            return (
-                              <tr key={row.category} className={`${rowIndex % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-gray-50 dark:bg-slate-800/50'}`}>
-                                <td className={`px-3 py-2 border-r border-gray-200 dark:border-slate-600 sticky left-0 z-10 ${rowIndex % 2 === 0 ? 'bg-white dark:bg-slate-800' : 'bg-gray-50 dark:bg-slate-800/50'}`}>
-                                  <div className="flex items-center gap-1.5">
-                                    <div className="w-2 h-2 rounded-full" style={{
-                                      backgroundColor: row.color === 'blue' ? '#3b82f6' :
-                                        row.color === 'orange' ? '#f97316' :
-                                        row.color === 'purple' ? '#a855f7' :
-                                        row.color === 'red' ? '#ef4444' : '#6b7280'
-                                    }} />
-                                    <span className="font-medium text-gray-900 dark:text-white text-xs whitespace-nowrap">
-                                      {row.category}
-                                    </span>
-                                  </div>
-                                </td>
-                                {PERMISSION_MATRIX.columns.map((col) => {
-                                  const permKey = row.permissions[col.key as keyof typeof row.permissions];
-                                  const isChecked = permKey ? createUserPermissions.includes(permKey) : false;
-
-                                  return (
-                                    <td key={col.key} className="px-2 py-2 text-center">
-                                      {permKey ? (
-                                        <label className="cursor-pointer inline-flex">
-                                          <input
-                                            type="checkbox"
-                                            checked={isChecked}
-                                            onChange={() => permKey && toggleCreatePermission(permKey)}
-                                            className="sr-only"
-                                          />
-                                          <div className={`w-5 h-5 rounded flex items-center justify-center transition-all ${
-                                            isChecked
-                                              ? 'bg-green-500 text-white'
-                                              : 'bg-gray-200 dark:bg-slate-600 text-gray-400'
-                                          } hover:scale-110`}>
-                                            {isChecked ? (
-                                              <CheckCircleIcon className="h-3.5 w-3.5" />
-                                            ) : (
-                                              <XCircleIcon className="h-3.5 w-3.5" />
-                                            )}
-                                          </div>
-                                        </label>
-                                      ) : (
-                                        <span className="text-gray-300 dark:text-slate-600 text-xs">—</span>
-                                      )}
-                                    </td>
-                                  );
-                                })}
-                                <td className="px-2 py-2 text-center">
-                                  <label className="cursor-pointer inline-flex">
-                                    <input
-                                      type="checkbox"
-                                      checked={allRowChecked}
-                                      onChange={() => {
-                                        if (allRowChecked) {
-                                          setCreateUserPermissions(prev => prev.filter(p => !rowPermKeys.includes(p)));
-                                        } else {
-                                          setCreateUserPermissions(prev => [...new Set([...prev, ...rowPermKeys])]);
-                                        }
-                                      }}
-                                      className="sr-only"
-                                    />
-                                    <div className={`w-5 h-5 rounded flex items-center justify-center transition-all ${
-                                      allRowChecked
-                                        ? 'bg-purple-500 text-white'
-                                        : someRowChecked
-                                        ? 'bg-purple-200 dark:bg-purple-900/50 text-purple-600'
-                                        : 'bg-gray-200 dark:bg-slate-600 text-gray-400'
-                                    } hover:scale-110`}>
-                                      {allRowChecked ? (
-                                        <CheckCircleIcon className="h-3.5 w-3.5" />
-                                      ) : someRowChecked ? (
-                                        <div className="w-1.5 h-1.5 bg-current rounded-sm" />
-                                      ) : (
-                                        <XCircleIcon className="h-3.5 w-3.5" />
-                                      )}
-                                    </div>
-                                  </label>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                          return (
+                            <tr key={row.category} style={{ borderBottom: `1px solid ${t.cardBorder}` }}>
+                              <td style={{ padding: '8px 12px', borderRight: `1px solid ${t.cardBorder}`, position: 'sticky', left: 0, background: rowBg, zIndex: 5 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: row.color, flexShrink: 0 }} />
+                                  <span style={{ fontSize: 11, fontWeight: 500, color: t.text, whiteSpace: 'nowrap' }}>{row.category}</span>
+                                </div>
+                              </td>
+                              {PERMISSION_MATRIX.columns.map((col) => {
+                                const permKey = row.permissions[col.key as keyof typeof row.permissions];
+                                const isChecked = permKey ? createUserPermissions.includes(permKey) : false;
+                                return (
+                                  <td key={col.key} style={{ padding: '8px 4px', textAlign: 'center', background: rowBg }}>
+                                    {permKey ? (
+                                      <div
+                                        onClick={() => permKey && toggleCreatePermission(permKey)}
+                                        style={{ width: 20, height: 20, borderRadius: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: isChecked ? t.success : t.cardBorder, color: isChecked ? '#fff' : t.textMuted }}
+                                      >
+                                        {isChecked ? <CheckCircleIcon style={{ width: 12, height: 12 }} /> : <XCircleIcon style={{ width: 12, height: 12 }} />}
+                                      </div>
+                                    ) : (
+                                      <span style={{ fontSize: 12, color: t.textMuted }}>—</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                              <td style={{ padding: '8px 4px', textAlign: 'center', background: rowBg }}>
+                                <div
+                                  onClick={() => {
+                                    if (allRowChecked) {
+                                      setCreateUserPermissions(prev => prev.filter(p => !rowPermKeys.includes(p)));
+                                    } else {
+                                      setCreateUserPermissions(prev => [...new Set([...prev, ...rowPermKeys])]);
+                                    }
+                                  }}
+                                  style={{ width: 20, height: 20, borderRadius: 4, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', margin: '0 auto', background: allRowChecked ? t.badgeColors.purple.text : someRowChecked ? t.badgeColors.purple.bg : t.cardBorder, color: allRowChecked ? '#fff' : someRowChecked ? t.badgeColors.purple.text : t.textMuted }}
+                                >
+                                  {allRowChecked ? <CheckCircleIcon style={{ width: 12, height: 12 }} /> : someRowChecked ? <div style={{ width: 6, height: 6, background: 'currentColor', borderRadius: 1 }} /> : <XCircleIcon style={{ width: 12, height: 12 }} />}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
 
-                  {/* Quick Actions */}
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const allPerms = PERMISSION_CATEGORIES.flatMap(c => c.permissions.map(p => p.key));
-                        setCreateUserPermissions(allPerms);
-                      }}
-                      className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-900/50"
-                    >
-                      Grant All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCreateUserPermissions([])}
-                      className="text-xs px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-900/50"
-                    >
-                      Revoke All
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCreateUserPermissions(DEFAULT_ROLE_PERMISSIONS[createForm.role] || [])}
-                      className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50"
-                    >
-                      Role Default
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const viewPerms = PERMISSION_MATRIX.rows.map(r => r.permissions.view).filter(Boolean) as string[];
-                        setCreateUserPermissions(viewPerms);
-                      }}
-                      className="text-xs px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-slate-600"
-                    >
-                      View Only
-                    </button>
-                    <span className="ml-auto text-xs text-gray-500 dark:text-gray-400 self-center">
-                      {createUserPermissions.length} permissions selected
-                    </span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10, alignItems: 'center' }}>
+                    {[
+                      { label: 'Grant All', onClick: () => { const all = PERMISSION_CATEGORIES.flatMap(c => c.permissions.map(p => p.key)); setCreateUserPermissions(all); }, color: t.success, bg: t.successBg },
+                      { label: 'Revoke All', onClick: () => setCreateUserPermissions([]), color: t.error, bg: t.errorBg },
+                      { label: 'Role Default', onClick: () => setCreateUserPermissions(DEFAULT_ROLE_PERMISSIONS[createForm.role] || []), color: t.info, bg: t.infoBg },
+                      { label: 'View Only', onClick: () => { const view = PERMISSION_MATRIX.rows.map(r => r.permissions.view).filter(Boolean) as string[]; setCreateUserPermissions(view); }, color: t.textSub, bg: t.mainBg },
+                    ].map(({ label, onClick, color, bg }) => (
+                      <button type="button" key={label} onClick={onClick} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 4, background: bg, color, border: `1px solid ${color}33`, cursor: 'pointer' }}>
+                        {label}
+                      </button>
+                    ))}
+                    <span style={{ marginLeft: 'auto', fontSize: 11, color: t.textSub }}>{createUserPermissions.length} permissions selected</span>
                   </div>
                 </>
               )}
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 12, borderTop: `1px solid ${t.cardBorder}` }}>
               <button
                 type="button"
-                onClick={() => {
-                  setShowCreateModal(false);
-                  setCreateUseCustomPermissions(false);
-                  setCreateUserPermissions([]);
-                }}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                onClick={() => { setShowCreateModal(false); setCreateUseCustomPermissions(false); setCreateUserPermissions([]); }}
+                style={secondaryBtnStyle}
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={formLoading}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-              >
-                {formLoading ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <PlusIcon className="h-4 w-4" />
-                    Create User
-                  </>
-                )}
+              <button type="submit" disabled={formLoading} style={{ ...primaryBtnStyle, opacity: formLoading ? 0.5 : 1 }}>
+                <PlusIcon style={{ width: 15, height: 15 }} />
+                {formLoading ? 'Creating...' : 'Create User'}
               </button>
             </div>
           </form>
@@ -1579,87 +1272,61 @@ export default function UserManagement() {
 
       {/* Edit User Modal */}
       {showEditModal && selectedUser && (
-        <Modal title={`Edit User: ${selectedUser.username}`} onClose={() => setShowEditModal(false)}>
-          <form onSubmit={handleEditUser} className="space-y-4">
-            {formError && <ErrorAlert message={formError} />}
+        <Modal title={`Edit User: ${selectedUser.username}`} onClose={() => setShowEditModal(false)} t={t}>
+          <form onSubmit={handleEditUser} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {formError && <ErrorAlert message={formError} t={t} />}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Email
-              </label>
+              <div style={{ fontSize: 12, fontWeight: 500, color: t.text, marginBottom: 6 }}>Email</div>
               <input
                 type="email"
                 value={editForm.email || ''}
                 onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Enter email"
+                style={inputStyle}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Full Name
-              </label>
+              <div style={{ fontSize: 12, fontWeight: 500, color: t.text, marginBottom: 6 }}>Full Name</div>
               <input
                 type="text"
                 value={editForm.full_name || ''}
                 onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Enter full name"
+                style={inputStyle}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Role
-              </label>
+              <div style={{ fontSize: 12, fontWeight: 500, color: t.text, marginBottom: 6 }}>Role</div>
               <select
                 value={editForm.role || selectedUser.role}
                 onChange={(e) => setEditForm({ ...editForm, role: e.target.value as UserRole })}
                 disabled={selectedUser.id === currentUser?.id}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:opacity-50"
+                style={{ ...selectStyle, opacity: selectedUser.id === currentUser?.id ? 0.5 : 1 }}
               >
-                {ROLES.map((role) => (
-                  <option key={role.value} value={role.value}>
-                    {role.label}
-                  </option>
-                ))}
+                {ROLES.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
               </select>
               {selectedUser.id === currentUser?.id && (
-                <p className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
-                  You cannot change your own role
-                </p>
+                <div style={{ marginTop: 4, fontSize: 11, color: t.warning }}>You cannot change your own role</div>
               )}
             </div>
             <div>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                 <input
                   type="checkbox"
                   checked={editForm.is_active ?? selectedUser.is_active}
                   onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
                   disabled={selectedUser.id === currentUser?.id}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-slate-600 rounded disabled:opacity-50"
+                  style={{ width: 15, height: 15, cursor: selectedUser.id === currentUser?.id ? 'not-allowed' : 'pointer' }}
                 />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Active Account
-                </span>
+                <span style={{ fontSize: 13, fontWeight: 500, color: t.text }}>Active Account</span>
               </label>
               {selectedUser.id === currentUser?.id && (
-                <p className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">
-                  You cannot deactivate your own account
-                </p>
+                <div style={{ marginTop: 4, fontSize: 11, color: t.warning }}>You cannot deactivate your own account</div>
               )}
             </div>
-            <div className="flex justify-end gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={formLoading}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-              >
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 12 }}>
+              <button type="button" onClick={() => setShowEditModal(false)} style={secondaryBtnStyle}>Cancel</button>
+              <button type="submit" disabled={formLoading} style={{ ...primaryBtnStyle, opacity: formLoading ? 0.5 : 1 }}>
                 {formLoading ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
@@ -1669,33 +1336,24 @@ export default function UserManagement() {
 
       {/* Delete User Modal */}
       {showDeleteModal && selectedUser && (
-        <Modal title="Delete User" onClose={() => setShowDeleteModal(false)}>
-          <div className="space-y-4">
-            {formError && <ErrorAlert message={formError} />}
-            <div className="flex items-center gap-4 p-4 bg-red-50 dark:bg-red-900/30 rounded-lg">
-              <ExclamationTriangleIcon className="h-10 w-10 text-red-500 flex-shrink-0" />
+        <Modal title="Delete User" onClose={() => setShowDeleteModal(false)} t={t}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {formError && <ErrorAlert message={formError} t={t} />}
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: 14, background: t.errorBg, border: `1px solid ${t.error}33`, borderRadius: 8 }}>
+              <ExclamationTriangleIcon style={{ width: 32, height: 32, color: t.error, flexShrink: 0 }} />
               <div>
-                <p className="text-red-800 dark:text-red-200 font-medium">
-                  Are you sure you want to delete this user?
-                </p>
-                <p className="text-red-600 dark:text-red-300 text-sm mt-1">
-                  User <span className="font-semibold">{selectedUser.username}</span> will be permanently deleted.
-                  This action cannot be undone.
-                </p>
+                <div style={{ fontSize: 14, fontWeight: 500, color: t.text, marginBottom: 4 }}>Are you sure you want to delete this user?</div>
+                <div style={{ fontSize: 13, color: t.error }}>
+                  User <strong>{selectedUser.username}</strong> will be permanently deleted. This action cannot be undone.
+                </div>
               </div>
             </div>
-            <div className="flex justify-end gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" onClick={() => setShowDeleteModal(false)} style={secondaryBtnStyle}>Cancel</button>
               <button
                 onClick={handleDeleteUser}
                 disabled={formLoading}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                style={{ ...primaryBtnStyle, background: t.error, opacity: formLoading ? 0.5 : 1 }}
               >
                 {formLoading ? 'Deleting...' : 'Delete User'}
               </button>
@@ -1706,38 +1364,28 @@ export default function UserManagement() {
 
       {/* Reset Password Modal */}
       {showResetPasswordModal && selectedUser && (
-        <Modal title={`Reset Password: ${selectedUser.username}`} onClose={() => setShowResetPasswordModal(false)}>
-          <form onSubmit={handleResetPassword} className="space-y-4">
-            {formError && <ErrorAlert message={formError} />}
+        <Modal title={`Reset Password: ${selectedUser.username}`} onClose={() => setShowResetPasswordModal(false)} t={t}>
+          <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {formError && <ErrorAlert message={formError} t={t} />}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                New Password *
-              </label>
+              <div style={{ fontSize: 12, fontWeight: 500, color: t.text, marginBottom: 6 }}>New Password *</div>
               <input
                 type="password"
                 required
                 minLength={8}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Enter new password"
+                style={inputStyle}
               />
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Min 8 chars, uppercase, lowercase, digit, special char (!@#$%^&*)
-              </p>
+              <div style={{ marginTop: 4, fontSize: 11, color: t.textMuted }}>Min 8 chars, uppercase, lowercase, digit, special char (!@#$%^&*)</div>
             </div>
-            <div className="flex justify-end gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => setShowResetPasswordModal(false)}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 12 }}>
+              <button type="button" onClick={() => setShowResetPasswordModal(false)} style={secondaryBtnStyle}>Cancel</button>
               <button
                 type="submit"
                 disabled={formLoading}
-                className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                style={{ ...primaryBtnStyle, background: t.warning, opacity: formLoading ? 0.5 : 1 }}
               >
                 {formLoading ? 'Resetting...' : 'Reset Password'}
               </button>
@@ -1745,58 +1393,6 @@ export default function UserManagement() {
           </form>
         </Modal>
       )}
-    </div>
-  );
-}
-
-// Reusable Modal Component
-function Modal({
-  title,
-  children,
-  onClose,
-  size = 'md',
-}: {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
-}) {
-  const sizeClasses = {
-    sm: 'max-w-sm',
-    md: 'max-w-lg',
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl',
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-        {/* Backdrop */}
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 dark:bg-slate-900 dark:bg-opacity-75 transition-opacity" onClick={onClose} />
-
-        {/* Modal Panel */}
-        <div className={`relative inline-block w-full ${sizeClasses[size]} p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white dark:bg-slate-800 shadow-xl rounded-2xl`}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
-            <button
-              onClick={onClose}
-              className="p-1 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700"
-            >
-              <XMarkIcon className="h-5 w-5" />
-            </button>
-          </div>
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Error Alert Component
-function ErrorAlert({ message }: { message: string }) {
-  return (
-    <div className="rounded-lg bg-red-50 dark:bg-red-900/30 p-3 border border-red-200 dark:border-red-800">
-      <p className="text-sm text-red-700 dark:text-red-300">{message}</p>
     </div>
   );
 }

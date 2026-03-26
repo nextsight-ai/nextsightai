@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   UserCircleIcon,
   KeyIcon,
@@ -10,24 +9,14 @@ import {
   EyeSlashIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
-import PageHeader from '../common/PageHeader';
-
-// Animation variants
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors } from '../../styles/linear-design';
 
 export default function ProfileSettings() {
   const { user, changePassword } = useAuth();
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+
   const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
 
   // Password change form
@@ -54,13 +43,11 @@ export default function ProfileSettings() {
     setPasswordError(null);
     setPasswordSuccess(false);
 
-    // Validate passwords match
     if (newPassword !== confirmPassword) {
       setPasswordError('New passwords do not match');
       return;
     }
 
-    // Validate password requirements
     const failedRequirement = passwordRequirements.find((req) => !req.test(newPassword));
     if (failedRequirement) {
       setPasswordError(`Password requirement not met: ${failedRequirement.label}`);
@@ -82,462 +69,408 @@ export default function ProfileSettings() {
     }
   };
 
-  const getRoleColor = (role: string) => {
+  const getRoleBadgeStyle = (role: string) => {
     switch (role) {
       case 'admin':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+        return { background: t.errorBg, color: t.error, border: `1px solid ${t.error}` };
       case 'developer':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+        return { background: t.infoBg, color: t.info, border: `1px solid ${t.info}` };
       case 'operator':
-        return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
+        return { background: t.warningBg, color: t.warning, border: `1px solid ${t.warning}` };
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+        return { background: t.cardBg, color: t.textMuted, border: `1px solid ${t.cardBorder}` };
     }
   };
 
+  const inputStyle = {
+    background: 'transparent',
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 6,
+    padding: '8px 12px',
+    color: t.text,
+    fontSize: 13,
+    outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box' as const,
+  };
+
+  const cardStyle = {
+    background: t.cardBg,
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 12,
+    padding: 20,
+  };
+
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="space-y-6"
-    >
+    <div style={{ color: t.text }}>
       {/* Header */}
-      <PageHeader
-        title="Account Settings"
-        description="Manage your profile and security settings"
-        icon={UserCircleIcon}
-        iconColor="blue"
-      />
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+          <UserCircleIcon style={{ width: 22, height: 22, color: t.info }} />
+          <h1 style={{ fontSize: 20, fontWeight: 600, color: t.text, margin: 0 }}>Account Settings</h1>
+        </div>
+        <p style={{ fontSize: 13, color: t.textMuted, margin: 0, paddingLeft: 34 }}>
+          Manage your profile and security settings
+        </p>
+      </div>
 
       {/* Tabs */}
-      <motion.div
-        variants={itemVariants}
-        className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-slate-700/50 p-1.5 inline-flex gap-1"
-      >
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+      <div style={{ display: 'inline-flex', gap: 4, background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: 4, marginBottom: 24 }}>
+        <button
           onClick={() => setActiveTab('profile')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-            activeTab === 'profile'
-              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25'
-              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-slate-700/50'
-          }`}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+            cursor: 'pointer', border: 'none',
+            background: activeTab === 'profile' ? t.info : 'transparent',
+            color: activeTab === 'profile' ? '#fff' : t.textSub,
+          }}
         >
-          <UserCircleIcon className="h-4 w-4" />
+          <UserCircleIcon style={{ width: 16, height: 16 }} />
           Profile
-        </motion.button>
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+        </button>
+        <button
           onClick={() => setActiveTab('security')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-            activeTab === 'security'
-              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25'
-              : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100/50 dark:hover:bg-slate-700/50'
-          }`}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+            cursor: 'pointer', border: 'none',
+            background: activeTab === 'security' ? t.info : 'transparent',
+            color: activeTab === 'security' ? '#fff' : t.textSub,
+          }}
         >
-          <ShieldCheckIcon className="h-4 w-4" />
+          <ShieldCheckIcon style={{ width: 16, height: 16 }} />
           Security
-        </motion.button>
-      </motion.div>
+        </button>
+      </div>
 
       {/* Profile Tab */}
-      <AnimatePresence mode="wait">
-        {activeTab === 'profile' && user && (
-          <motion.div
-            key="profile"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-6"
-          >
-            {/* User Info Card */}
-            <motion.div
-              variants={itemVariants}
-              className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/50 dark:border-slate-700/50 p-6"
-            >
-              <div className="flex items-start gap-6">
-                {/* Avatar */}
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-3xl">
-                    {user.username.charAt(0).toUpperCase()}
+      {activeTab === 'profile' && user && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* User Info Card */}
+          <div style={cardStyle}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20 }}>
+              {/* Avatar */}
+              <div style={{
+                width: 72, height: 72, borderRadius: 16,
+                background: t.infoBg, border: `2px solid ${t.info}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <span style={{ color: t.info, fontWeight: 700, fontSize: 28 }}>
+                  {user.username.charAt(0).toUpperCase()}
+                </span>
+              </div>
+
+              {/* Info */}
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <h2 style={{ fontSize: 18, fontWeight: 700, color: t.text, margin: 0 }}>
+                    {user.full_name || user.username}
+                  </h2>
+                  <span style={{
+                    ...getRoleBadgeStyle(user.role),
+                    padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500, textTransform: 'capitalize',
+                  }}>
+                    {user.role}
                   </span>
                 </div>
+                <p style={{ fontSize: 13, color: t.textMuted, margin: 0 }}>@{user.username}</p>
+                {user.email && (
+                  <p style={{ fontSize: 13, color: t.textMuted, margin: '4px 0 0' }}>{user.email}</p>
+                )}
+              </div>
+            </div>
 
-                {/* Info */}
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                      {user.full_name || user.username}
-                    </h2>
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getRoleColor(
-                        user.role
-                      )}`}
-                    >
-                      {user.role}
-                    </span>
-                  </div>
-                  <p className="text-gray-500 dark:text-gray-400">@{user.username}</p>
-                  {user.email && (
-                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{user.email}</p>
-                  )}
+            {/* Stats */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16,
+              marginTop: 20, paddingTop: 20, borderTop: `1px solid ${t.cardBorder}`,
+            }}>
+              <div>
+                <p style={{ fontSize: 10, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, margin: 0 }}>Status</p>
+                <p style={{ fontSize: 13, fontWeight: 500, color: t.success, margin: '4px 0 0', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: t.success, display: 'inline-block' }} />
+                  Active
+                </p>
+              </div>
+              <div>
+                <p style={{ fontSize: 10, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, margin: 0 }}>Role Level</p>
+                <p style={{ fontSize: 13, fontWeight: 500, color: t.text, margin: '4px 0 0' }}>
+                  {user.role === 'admin' ? '4 (Highest)' : user.role === 'developer' ? '3' : user.role === 'operator' ? '2' : '1'}
+                </p>
+              </div>
+              <div>
+                <p style={{ fontSize: 10, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, margin: 0 }}>Member Since</p>
+                <p style={{ fontSize: 13, fontWeight: 500, color: t.text, margin: '4px 0 0' }}>
+                  {user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <p style={{ fontSize: 10, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, margin: 0 }}>Last Login</p>
+                <p style={{ fontSize: 13, fontWeight: 500, color: t.text, margin: '4px 0 0' }}>
+                  {user.last_login
+                    ? new Date(user.last_login).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : 'Just now'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Role Permissions Info */}
+          <div style={cardStyle}>
+            <h3 style={{ fontSize: 15, fontWeight: 600, color: t.text, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <KeyIcon style={{ width: 18, height: 18, color: t.textMuted }} />
+              Your Permissions
+            </h3>
+            <p style={{ fontSize: 13, color: t.textSub, margin: '0 0 16px' }}>
+              Based on your <span style={{ fontWeight: 500, textTransform: 'capitalize' }}>{user.role}</span> role, you have access to:
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+              {user.role === 'admin' && (
+                <PermissionItem label="Full System Access" description="All permissions granted" t={t} />
+              )}
+              {(user.role === 'admin' || user.role === 'developer') && (
+                <>
+                  <PermissionItem label="Kubernetes Management" description="Create, edit, delete resources" t={t} />
+                  <PermissionItem label="GitOps Deployments" description="Sync and manage ArgoCD apps" t={t} />
+                  <PermissionItem label="Helm Operations" description="Install and manage charts" t={t} />
+                </>
+              )}
+              {user.role === 'operator' && (
+                <>
+                  <PermissionItem label="View & Monitor" description="Access dashboards and metrics" t={t} />
+                  <PermissionItem label="Operations" description="Scale, restart, exec into pods" t={t} />
+                  <PermissionItem label="Alert Management" description="Configure and manage alerts" t={t} />
+                </>
+              )}
+              {user.role === 'viewer' && (
+                <>
+                  <PermissionItem label="View Resources" description="Read-only access to all resources" t={t} />
+                  <PermissionItem label="View Logs" description="Access container logs" t={t} />
+                  <PermissionItem label="View Metrics" description="Access monitoring dashboards" t={t} />
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Security Tab */}
+      {activeTab === 'security' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Change Password Card */}
+          <div style={cardStyle}>
+            <h3 style={{ fontSize: 15, fontWeight: 600, color: t.text, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <KeyIcon style={{ width: 18, height: 18, color: t.textMuted }} />
+              Change Password
+            </h3>
+
+            {/* Success Message */}
+            {passwordSuccess && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: t.successBg, border: `1px solid ${t.success}`,
+                borderRadius: 8, padding: '10px 14px', marginBottom: 16,
+              }}>
+                <CheckCircleIcon style={{ width: 18, height: 18, color: t.success, flexShrink: 0 }} />
+                <p style={{ fontSize: 13, fontWeight: 500, color: t.success, margin: 0 }}>
+                  Password changed successfully!
+                </p>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {passwordError && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: t.errorBg, border: `1px solid ${t.error}`,
+                borderRadius: 8, padding: '10px 14px', marginBottom: 16,
+              }}>
+                <ExclamationCircleIcon style={{ width: 18, height: 18, color: t.error, flexShrink: 0 }} />
+                <p style={{ fontSize: 13, fontWeight: 500, color: t.error, margin: 0 }}>
+                  {passwordError}
+                </p>
+              </div>
+            )}
+
+            <form onSubmit={handlePasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Current Password */}
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSub, marginBottom: 6 }}>
+                  Current Password
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    required
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    style={{ ...inputStyle, paddingRight: 40 }}
+                    placeholder="Enter current password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    style={{
+                      position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: 0,
+                      display: 'flex', alignItems: 'center',
+                    }}
+                  >
+                    {showCurrentPassword
+                      ? <EyeSlashIcon style={{ width: 16, height: 16 }} />
+                      : <EyeIcon style={{ width: 16, height: 16 }} />}
+                  </button>
                 </div>
               </div>
 
-              {/* Stats */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-200/50 dark:border-slate-700/50">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Status
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Active
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Role Level
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-                    {user.role === 'admin'
-                      ? '4 (Highest)'
-                      : user.role === 'developer'
-                      ? '3'
-                      : user.role === 'operator'
-                      ? '2'
-                      : '1'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Member Since
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-                    {user.created_at
-                      ? new Date(user.created_at).toLocaleDateString('en-US', {
-                          month: 'short',
-                          year: 'numeric',
-                        })
-                      : 'N/A'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    Last Login
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-                    {user.last_login
-                      ? new Date(user.last_login).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
-                      : 'Just now'}
-                  </p>
+              {/* New Password */}
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSub, marginBottom: 6 }}>
+                  New Password
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    style={{ ...inputStyle, paddingRight: 40 }}
+                    placeholder="Enter new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    style={{
+                      position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: 0,
+                      display: 'flex', alignItems: 'center',
+                    }}
+                  >
+                    {showNewPassword
+                      ? <EyeSlashIcon style={{ width: 16, height: 16 }} />
+                      : <EyeIcon style={{ width: 16, height: 16 }} />}
+                  </button>
                 </div>
               </div>
-            </motion.div>
 
-            {/* Role Permissions Info */}
-            <motion.div
-              variants={itemVariants}
-              className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/50 dark:border-slate-700/50 p-6"
-            >
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <KeyIcon className="h-5 w-5 text-gray-500" />
-                Your Permissions
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Based on your <span className="font-medium capitalize">{user.role}</span> role, you
-                have access to:
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {user.role === 'admin' && (
-                  <PermissionItem label="Full System Access" description="All permissions granted" />
-                )}
-                {(user.role === 'admin' || user.role === 'developer') && (
-                  <>
-                    <PermissionItem label="Kubernetes Management" description="Create, edit, delete resources" />
-                    <PermissionItem label="GitOps Deployments" description="Sync and manage ArgoCD apps" />
-                    <PermissionItem label="Helm Operations" description="Install and manage charts" />
-                  </>
-                )}
-                {user.role === 'operator' && (
-                  <>
-                    <PermissionItem label="View & Monitor" description="Access dashboards and metrics" />
-                    <PermissionItem label="Operations" description="Scale, restart, exec into pods" />
-                    <PermissionItem label="Alert Management" description="Configure and manage alerts" />
-                  </>
-                )}
-                {user.role === 'viewer' && (
-                  <>
-                    <PermissionItem label="View Resources" description="Read-only access to all resources" />
-                    <PermissionItem label="View Logs" description="Access container logs" />
-                    <PermissionItem label="View Metrics" description="Access monitoring dashboards" />
-                  </>
+              {/* Password Requirements */}
+              {newPassword && (
+                <div style={{ padding: '10px 14px', background: t.mainBg, border: `1px solid ${t.cardBorder}`, borderRadius: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 500, color: t.textSub, margin: '0 0 8px' }}>
+                    Password Requirements:
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4 }}>
+                    {passwordRequirements.map((req) => {
+                      const passed = req.test(newPassword);
+                      return (
+                        <div
+                          key={req.label}
+                          style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, color: passed ? t.success : t.textMuted }}
+                        >
+                          {passed
+                            ? <CheckCircleIcon style={{ width: 12, height: 12 }} />
+                            : <span style={{ width: 12, height: 12, borderRadius: '50%', border: `1px solid currentColor`, display: 'inline-block', flexShrink: 0 }} />}
+                          {req.label}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Confirm Password */}
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSub, marginBottom: 6 }}>
+                  Confirm New Password
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    style={{
+                      ...inputStyle,
+                      paddingRight: 40,
+                      borderColor: confirmPassword && confirmPassword !== newPassword ? t.error : t.cardBorder,
+                    }}
+                    placeholder="Confirm new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={{
+                      position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                      background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: 0,
+                      display: 'flex', alignItems: 'center',
+                    }}
+                  >
+                    {showConfirmPassword
+                      ? <EyeSlashIcon style={{ width: 16, height: 16 }} />
+                      : <EyeIcon style={{ width: 16, height: 16 }} />}
+                  </button>
+                </div>
+                {confirmPassword && confirmPassword !== newPassword && (
+                  <p style={{ marginTop: 4, fontSize: 11, color: t.error }}>Passwords do not match</p>
                 )}
               </div>
-            </motion.div>
-          </motion.div>
-        )}
 
-        {/* Security Tab */}
-        {activeTab === 'security' && (
-          <motion.div
-            key="security"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.2 }}
-            className="space-y-6"
-          >
-            {/* Change Password Card */}
-            <motion.div
-              variants={itemVariants}
-              className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/50 dark:border-slate-700/50 p-6"
-            >
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <KeyIcon className="h-5 w-5 text-gray-500" />
-                Change Password
-              </h3>
+              <div style={{ paddingTop: 8 }}>
+                <button
+                  type="submit"
+                  disabled={passwordLoading || (confirmPassword !== '' && confirmPassword !== newPassword)}
+                  style={{
+                    padding: '9px 20px', background: t.info, color: '#fff',
+                    border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 500,
+                    cursor: passwordLoading ? 'not-allowed' : 'pointer',
+                    opacity: (passwordLoading || (confirmPassword !== '' && confirmPassword !== newPassword)) ? 0.5 : 1,
+                  }}
+                >
+                  {passwordLoading ? 'Changing Password...' : 'Change Password'}
+                </button>
+              </div>
+            </form>
+          </div>
 
-              {/* Success Message */}
-              <AnimatePresence>
-                {passwordSuccess && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="mb-4 rounded-xl bg-emerald-50/80 dark:bg-emerald-900/30 backdrop-blur-sm p-4 border border-emerald-200/50 dark:border-emerald-800/50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <CheckCircleIcon className="h-5 w-5 text-emerald-500" />
-                      <p className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
-                        Password changed successfully!
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Error Message */}
-              <AnimatePresence>
-                {passwordError && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="mb-4 rounded-xl bg-red-50/80 dark:bg-red-900/30 backdrop-blur-sm p-4 border border-red-200/50 dark:border-red-800/50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <ExclamationCircleIcon className="h-5 w-5 text-red-500" />
-                      <p className="text-sm font-medium text-red-800 dark:text-red-200">
-                        {passwordError}
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <form onSubmit={handlePasswordChange} className="space-y-4">
-                {/* Current Password */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Current Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showCurrentPassword ? 'text' : 'password'}
-                      required
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="w-full px-4 py-2.5 pr-12 border border-gray-200/50 dark:border-slate-600/50 rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      placeholder="Enter current password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      {showCurrentPassword ? (
-                        <EyeSlashIcon className="h-5 w-5" />
-                      ) : (
-                        <EyeIcon className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* New Password */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    New Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showNewPassword ? 'text' : 'password'}
-                      required
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full px-4 py-2.5 pr-12 border border-gray-200/50 dark:border-slate-600/50 rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      placeholder="Enter new password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      {showNewPassword ? (
-                        <EyeSlashIcon className="h-5 w-5" />
-                      ) : (
-                        <EyeIcon className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Password Requirements */}
-                <AnimatePresence>
-                  {newPassword && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="p-3 bg-gray-50/80 dark:bg-slate-700/50 backdrop-blur-sm rounded-xl"
-                    >
-                      <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                        Password Requirements:
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                        {passwordRequirements.map((req) => {
-                          const passed = req.test(newPassword);
-                          return (
-                            <div
-                              key={req.label}
-                              className={`text-xs flex items-center gap-1 transition-colors ${
-                                passed
-                                  ? 'text-emerald-600 dark:text-emerald-400'
-                                  : 'text-gray-500 dark:text-gray-400'
-                              }`}
-                            >
-                              {passed ? (
-                                <CheckCircleIcon className="h-3.5 w-3.5" />
-                              ) : (
-                                <span className="w-3.5 h-3.5 rounded-full border border-current" />
-                              )}
-                              {req.label}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Confirm Password */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Confirm New Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      required
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className={`w-full px-4 py-2.5 pr-12 border rounded-xl bg-white/50 dark:bg-slate-700/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                        confirmPassword && confirmPassword !== newPassword
-                          ? 'border-red-300/50 dark:border-red-600/50'
-                          : 'border-gray-200/50 dark:border-slate-600/50'
-                      }`}
-                      placeholder="Confirm new password"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      {showConfirmPassword ? (
-                        <EyeSlashIcon className="h-5 w-5" />
-                      ) : (
-                        <EyeIcon className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                  {confirmPassword && confirmPassword !== newPassword && (
-                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                      Passwords do not match
-                    </p>
-                  )}
-                </div>
-
-                <div className="pt-4">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    type="submit"
-                    disabled={passwordLoading || (confirmPassword !== '' && confirmPassword !== newPassword)}
-                    className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl font-medium shadow-lg shadow-blue-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {passwordLoading ? 'Changing Password...' : 'Change Password'}
-                  </motion.button>
-                </div>
-              </form>
-            </motion.div>
-
-            {/* Security Tips */}
-            <motion.div
-              variants={itemVariants}
-              className="bg-blue-50/80 dark:bg-blue-900/20 backdrop-blur-sm rounded-xl border border-blue-200/50 dark:border-blue-800/50 p-6"
-            >
-              <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-200 mb-3 flex items-center gap-2">
-                <ShieldCheckIcon className="h-5 w-5" />
-                Security Tips
-              </h3>
-              <ul className="space-y-2 text-sm text-blue-700 dark:text-blue-300">
-                <li className="flex items-start gap-2">
-                  <CheckCircleIcon className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  Use a unique password that you don't use elsewhere
+          {/* Security Tips */}
+          <div style={{ ...cardStyle, background: t.infoBg, borderColor: t.info }}>
+            <h3 style={{ fontSize: 15, fontWeight: 600, color: t.info, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <ShieldCheckIcon style={{ width: 18, height: 18 }} />
+              Security Tips
+            </h3>
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                "Use a unique password that you don't use elsewhere",
+                'Avoid using personal information in your password',
+                'Consider using a password manager for secure storage',
+                'Change your password regularly for better security',
+              ].map((tip) => (
+                <li key={tip} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: t.info }}>
+                  <CheckCircleIcon style={{ width: 16, height: 16, flexShrink: 0, marginTop: 1 }} />
+                  {tip}
                 </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircleIcon className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  Avoid using personal information in your password
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircleIcon className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  Consider using a password manager for secure storage
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircleIcon className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  Change your password regularly for better security
-                </li>
-              </ul>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
-function PermissionItem({ label, description }: { label: string; description: string }) {
+function PermissionItem({ label, description, t }: { label: string; description: string; t: ReturnType<typeof getThemeColors> }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="flex items-start gap-2 p-3 bg-gray-50/80 dark:bg-slate-700/50 backdrop-blur-sm rounded-xl"
-    >
-      <CheckCircleIcon className="h-5 w-5 text-emerald-500 mt-0.5 flex-shrink-0" />
+    <div style={{
+      display: 'flex', alignItems: 'flex-start', gap: 8,
+      padding: '10px 12px', background: 'transparent',
+      border: `1px solid ${t.cardBorder}`, borderRadius: 8,
+    }}>
+      <CheckCircleIcon style={{ width: 16, height: 16, color: t.success, marginTop: 2, flexShrink: 0 }} />
       <div>
-        <p className="text-sm font-medium text-gray-900 dark:text-white">{label}</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
+        <p style={{ fontSize: 13, fontWeight: 500, color: t.text, margin: 0 }}>{label}</p>
+        <p style={{ fontSize: 11, color: t.textMuted, margin: '2px 0 0' }}>{description}</p>
       </div>
-    </motion.div>
+    </div>
   );
 }

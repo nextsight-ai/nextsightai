@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
 import {
   MagnifyingGlassIcon,
   PlayIcon,
@@ -20,7 +19,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import GlassCard from '../common/GlassCard';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors, mono } from '../../styles/linear-design';
 import { prometheusApi, getRelativeTime } from '../../services/prometheusApi';
 import type { QueryResult, MetricSample, MetricMetadata, StackStatus } from '../../types/prometheus';
 
@@ -58,6 +58,9 @@ interface ChartData {
 }
 
 export default function MetricsExplorer() {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+
   const [query, setQuery] = useState('');
   const [timeRange, setTimeRange] = useState(TIME_RANGES[1].value); // Default 1h
   const [step, setStep] = useState('60s');
@@ -204,26 +207,52 @@ export default function MetricsExplorer() {
     m.help.toLowerCase().includes(metricSearch.toLowerCase())
   );
 
+  const selectStyle: React.CSSProperties = {
+    background: 'transparent',
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 6,
+    padding: '4px 8px',
+    color: t.text,
+    fontSize: 11,
+    cursor: 'pointer',
+  };
+
   // If Prometheus is not installed, show message
   if (stackStatus === 'not_installed') {
     return (
-      <GlassCard>
-        <div className="p-8 text-center">
-          <ExclamationTriangleIcon className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+      <div style={{
+        background: t.cardBg,
+        border: `1px solid ${t.cardBorder}`,
+        borderRadius: 12,
+        padding: 20,
+      }}>
+        <div style={{ padding: 32, textAlign: 'center' }}>
+          <ExclamationTriangleIcon style={{ width: 48, height: 48, color: t.warning, margin: '0 auto 16px' }} />
+          <h3 style={{ fontSize: 18, fontWeight: 600, color: t.text, marginBottom: 8 }}>
             Prometheus Not Installed
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">
+          <p style={{ color: t.textSub, marginBottom: 16 }}>
             Please deploy the Prometheus stack first to use the Metrics Explorer.
           </p>
           <a
             href="/monitoring/prometheus/setup"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 16px',
+              background: t.info,
+              color: '#fff',
+              borderRadius: 8,
+              textDecoration: 'none',
+              fontSize: 14,
+              fontWeight: 500,
+            }}
           >
             Deploy Prometheus
           </a>
         </div>
-      </GlassCard>
+      </div>
     );
   }
 
@@ -231,287 +260,424 @@ export default function MetricsExplorer() {
   const seriesLabels = result?.result.map((sample, idx) => getMetricLabel(sample, idx)) || [];
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {/* Query Input */}
-      <GlassCard>
-        <div className="p-4">
-          <div className="flex items-center gap-2 mb-4">
-            <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">PromQL Query</h3>
-          </div>
+      <div style={{
+        background: t.cardBg,
+        border: `1px solid ${t.cardBorder}`,
+        borderRadius: 12,
+        padding: 20,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <MagnifyingGlassIcon style={{ width: 20, height: 20, color: t.textMuted }} />
+          <h3 style={{ fontSize: 15, fontWeight: 600, color: t.text }}>PromQL Query</h3>
+        </div>
 
-          {/* Query Editor */}
-          <div className="relative">
-            <textarea
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Enter PromQL query... (Ctrl+Enter to execute)"
-              className="w-full h-24 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white font-mono text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-            />
-            <button
-              onClick={() => setShowMetricBrowser(!showMetricBrowser)}
-              className="absolute top-2 right-2 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              title="Browse metrics"
+        {/* Query Editor */}
+        <div style={{ position: 'relative' }}>
+          <textarea
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Enter PromQL query... (Ctrl+Enter to execute)"
+            style={{
+              width: '100%',
+              height: 96,
+              background: t.cardBg,
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 8,
+              padding: '8px 40px 8px 12px',
+              color: t.text,
+              fontSize: 13,
+              fontFamily: mono.fontFamily,
+              resize: 'none',
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+          <button
+            onClick={() => setShowMetricBrowser(!showMetricBrowser)}
+            title="Browse metrics"
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              padding: 6,
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: t.textMuted,
+            }}
+          >
+            <ChartBarIcon style={{ width: 20, height: 20 }} />
+          </button>
+        </div>
+
+        {/* Controls Row */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16, marginTop: 16 }}>
+          {/* Time Range */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ClockIcon style={{ width: 16, height: 16, color: t.textMuted }} />
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(parseInt(e.target.value))}
+              style={selectStyle}
             >
-              <ChartBarIcon className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Controls Row */}
-          <div className="flex flex-wrap items-center gap-4 mt-4">
-            {/* Time Range */}
-            <div className="flex items-center gap-2">
-              <ClockIcon className="w-4 h-4 text-gray-400" />
-              <select
-                value={timeRange}
-                onChange={(e) => setTimeRange(parseInt(e.target.value))}
-                className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
-              >
-                {TIME_RANGES.map((range) => (
-                  <option key={range.label} value={range.value}>
-                    Last {range.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Step */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">Step:</span>
-              <select
-                value={step}
-                onChange={(e) => setStep(e.target.value)}
-                className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white"
-              >
-                <option value="15s">15s</option>
-                <option value="30s">30s</option>
-                <option value="60s">1m</option>
-                <option value="300s">5m</option>
-              </select>
-            </div>
-
-            {/* View Mode */}
-            <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-slate-700 rounded-lg">
-              <button
-                onClick={() => setViewMode('chart')}
-                className={`p-1.5 rounded ${viewMode === 'chart' ? 'bg-white dark:bg-slate-600 shadow' : ''}`}
-              >
-                <ChartBarIcon className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('table')}
-                className={`p-1.5 rounded ${viewMode === 'table' ? 'bg-white dark:bg-slate-600 shadow' : ''}`}
-              >
-                <TableCellsIcon className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex-1" />
-
-            {/* Execute Button */}
-            <button
-              onClick={executeQuery}
-              disabled={loading || !query.trim()}
-              className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <ArrowPathIcon className="w-4 h-4 animate-spin" />
-              ) : (
-                <PlayIcon className="w-4 h-4" />
-              )}
-              Execute
-            </button>
-          </div>
-
-          {/* Example Queries */}
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-gray-500 mb-2">Example queries:</p>
-            <div className="flex flex-wrap gap-2">
-              {EXAMPLE_QUERIES.map((eq) => (
-                <button
-                  key={eq.label}
-                  onClick={() => selectExampleQuery(eq.query)}
-                  className="px-2 py-1 text-xs bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-slate-600"
-                >
-                  {eq.label}
-                </button>
+              {TIME_RANGES.map((range) => (
+                <option key={range.label} value={range.value}>
+                  Last {range.label}
+                </option>
               ))}
-            </div>
+            </select>
+          </div>
+
+          {/* Step */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, color: t.textSub }}>Step:</span>
+            <select
+              value={step}
+              onChange={(e) => setStep(e.target.value)}
+              style={selectStyle}
+            >
+              <option value="15s">15s</option>
+              <option value="30s">30s</option>
+              <option value="60s">1m</option>
+              <option value="300s">5m</option>
+            </select>
+          </div>
+
+          {/* View Mode Toggle */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            padding: 3,
+            background: t.cardBg,
+            border: `1px solid ${t.cardBorder}`,
+            borderRadius: 8,
+          }}>
+            <button
+              onClick={() => setViewMode('chart')}
+              title="Chart view"
+              style={{
+                padding: 6,
+                borderRadius: 6,
+                border: 'none',
+                cursor: 'pointer',
+                background: viewMode === 'chart' ? t.info : 'transparent',
+                color: viewMode === 'chart' ? '#fff' : t.textMuted,
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <ChartBarIcon style={{ width: 16, height: 16 }} />
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              title="Table view"
+              style={{
+                padding: 6,
+                borderRadius: 6,
+                border: 'none',
+                cursor: 'pointer',
+                background: viewMode === 'table' ? t.info : 'transparent',
+                color: viewMode === 'table' ? '#fff' : t.textMuted,
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              <TableCellsIcon style={{ width: 16, height: 16 }} />
+            </button>
+          </div>
+
+          <div style={{ flex: 1 }} />
+
+          {/* Execute Button */}
+          <button
+            onClick={executeQuery}
+            disabled={loading || !query.trim()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: t.info,
+              color: '#fff',
+              border: 'none',
+              borderRadius: 6,
+              padding: '6px 14px',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: loading || !query.trim() ? 'not-allowed' : 'pointer',
+              opacity: loading || !query.trim() ? 0.5 : 1,
+            }}
+          >
+            {loading ? (
+              <ArrowPathIcon style={{ width: 16, height: 16, animation: 'spin 1s linear infinite' }} />
+            ) : (
+              <PlayIcon style={{ width: 16, height: 16 }} />
+            )}
+            Execute
+          </button>
+        </div>
+
+        {/* Example Queries */}
+        <div style={{
+          marginTop: 16,
+          paddingTop: 16,
+          borderTop: `1px solid ${t.cardBorder}`,
+        }}>
+          <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 8 }}>Example queries:</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {EXAMPLE_QUERIES.map((eq) => (
+              <button
+                key={eq.label}
+                onClick={() => selectExampleQuery(eq.query)}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: 11,
+                  background: t.cardBg,
+                  border: `1px solid ${t.cardBorder}`,
+                  borderRadius: 6,
+                  color: t.textSub,
+                  cursor: 'pointer',
+                }}
+              >
+                {eq.label}
+              </button>
+            ))}
           </div>
         </div>
-      </GlassCard>
+      </div>
 
       {/* Metric Browser Modal */}
       {showMetricBrowser && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 50,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0,0,0,0.6)',
+          }}
           onClick={() => setShowMetricBrowser(false)}
         >
-          <motion.div
-            initial={{ scale: 0.95 }}
-            animate={{ scale: 1 }}
-            className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden"
+          <div
+            style={{
+              background: t.cardBg,
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 12,
+              width: '100%',
+              maxWidth: 640,
+              maxHeight: '80vh',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Metric Browser</h3>
+            <div style={{
+              padding: 16,
+              borderBottom: `1px solid ${t.cardBorder}`,
+            }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: t.text, marginBottom: 8 }}>Metric Browser</h3>
               <input
                 type="text"
                 value={metricSearch}
                 onChange={(e) => setMetricSearch(e.target.value)}
                 placeholder="Search metrics..."
-                className="w-full mt-2 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-700 text-sm"
                 autoFocus
+                style={{
+                  width: '100%',
+                  background: t.cardBg,
+                  border: `1px solid ${t.cardBorder}`,
+                  borderRadius: 8,
+                  padding: '8px 12px',
+                  color: t.text,
+                  fontSize: 13,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
               />
             </div>
-            <div className="p-4 overflow-y-auto max-h-[60vh]">
+            <div style={{ padding: 16, overflowY: 'auto', flex: 1 }}>
               {filteredMetrics.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">No metrics found</p>
+                <p style={{ color: t.textMuted, textAlign: 'center', padding: '16px 0' }}>No metrics found</p>
               ) : (
-                <div className="space-y-2">
-                  {filteredMetrics.slice(0, 100).map((metric) => (
-                    <button
-                      key={metric.metric_name}
-                      onClick={() => selectMetric(metric.metric_name)}
-                      className="w-full text-left p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700"
-                    >
-                      <p className="font-mono text-sm text-gray-900 dark:text-white">
-                        {metric.metric_name}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1 truncate">{metric.help}</p>
-                      <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded ${
-                        metric.type === 'counter' ? 'bg-blue-100 text-blue-700' :
-                        metric.type === 'gauge' ? 'bg-green-100 text-green-700' :
-                        metric.type === 'histogram' ? 'bg-purple-100 text-purple-700' :
-                        'bg-gray-100 text-gray-700'
-                      }`}>
-                        {metric.type}
-                      </span>
-                    </button>
-                  ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {filteredMetrics.slice(0, 100).map((metric) => {
+                    const typeBadgeStyle: React.CSSProperties = {
+                      display: 'inline-block',
+                      marginTop: 4,
+                      padding: '2px 8px',
+                      fontSize: 10,
+                      borderRadius: 4,
+                      ...(metric.type === 'counter'
+                        ? { background: 'rgba(59,130,246,0.15)', color: '#60A5FA' }
+                        : metric.type === 'gauge'
+                        ? { background: 'rgba(34,197,94,0.15)', color: '#4ADE80' }
+                        : metric.type === 'histogram'
+                        ? { background: 'rgba(139,92,246,0.15)', color: '#A78BFA' }
+                        : { background: t.cardBorder, color: t.textSub }),
+                    };
+                    return (
+                      <button
+                        key={metric.metric_name}
+                        onClick={() => selectMetric(metric.metric_name)}
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: 12,
+                          borderRadius: 8,
+                          border: `1px solid ${t.cardBorder}`,
+                          background: 'transparent',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <p style={{ ...mono, fontSize: 13, color: t.text }}>
+                          {metric.metric_name}
+                        </p>
+                        <p style={{ fontSize: 11, color: t.textMuted, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {metric.help}
+                        </p>
+                        <span style={typeBadgeStyle}>{metric.type}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       )}
 
       {/* Results */}
       {result && (
-        <GlassCard>
-          <div className="p-4">
-            {result.status === 'error' ? (
-              <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <ExclamationTriangleIcon className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-red-800 dark:text-red-300">Query Error</p>
-                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">{result.error}</p>
-                  </div>
+        <div style={{
+          background: t.cardBg,
+          border: `1px solid ${t.cardBorder}`,
+          borderRadius: 12,
+          padding: 20,
+        }}>
+          {result.status === 'error' ? (
+            <div style={{
+              padding: 16,
+              background: 'rgba(239,68,68,0.1)',
+              border: `1px solid rgba(239,68,68,0.2)`,
+              borderRadius: 8,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <ExclamationTriangleIcon style={{ width: 20, height: 20, color: t.error, flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <p style={{ fontWeight: 500, color: t.error }}>Query Error</p>
+                  <p style={{ fontSize: 13, color: t.textSub, marginTop: 4 }}>{result.error}</p>
                 </div>
               </div>
-            ) : result.result.length === 0 ? (
-              <div className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-lg text-center">
-                <InformationCircleIcon className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-gray-500">No data returned for this query</p>
+            </div>
+          ) : result.result.length === 0 ? (
+            <div style={{
+              padding: 16,
+              background: t.cardBg,
+              borderRadius: 8,
+              textAlign: 'center',
+            }}>
+              <InformationCircleIcon style={{ width: 32, height: 32, color: t.textMuted, margin: '0 auto 8px' }} />
+              <p style={{ color: t.textSub }}>No data returned for this query</p>
+            </div>
+          ) : viewMode === 'chart' ? (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <h4 style={{ fontWeight: 500, color: t.text, fontSize: 14 }}>
+                  {result.result.length} series returned
+                </h4>
+                <span style={{ fontSize: 11, color: t.textMuted }}>
+                  {chartData.length} data points
+                </span>
               </div>
-            ) : viewMode === 'chart' ? (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-medium text-gray-900 dark:text-white">
-                    {result.result.length} series returned
-                  </h4>
-                  <span className="text-xs text-gray-500">
-                    {chartData.length} data points
-                  </span>
-                </div>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
-                      <XAxis
-                        dataKey="time"
-                        tick={{ fill: '#9ca3af', fontSize: 11 }}
-                        tickLine={{ stroke: '#4b5563' }}
+              <div style={{ height: 320 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                    <XAxis
+                      dataKey="time"
+                      tick={{ fill: '#9ca3af', fontSize: 11 }}
+                      tickLine={{ stroke: '#4b5563' }}
+                    />
+                    <YAxis
+                      tick={{ fill: '#9ca3af', fontSize: 11 }}
+                      tickLine={{ stroke: '#4b5563' }}
+                      tickFormatter={(value) => {
+                        if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}G`;
+                        if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                        if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+                        return value.toFixed(2);
+                      }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'rgba(30, 41, 59, 0.95)',
+                        border: '1px solid #475569',
+                        borderRadius: '8px',
+                      }}
+                      labelStyle={{ color: '#e2e8f0' }}
+                      itemStyle={{ color: '#e2e8f0' }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '12px' }} />
+                    {seriesLabels.slice(0, 10).map((label, idx) => (
+                      <Line
+                        key={label}
+                        type="monotone"
+                        dataKey={label}
+                        stroke={COLORS[idx % COLORS.length]}
+                        strokeWidth={1.5}
+                        dot={false}
+                        activeDot={{ r: 4 }}
                       />
-                      <YAxis
-                        tick={{ fill: '#9ca3af', fontSize: 11 }}
-                        tickLine={{ stroke: '#4b5563' }}
-                        tickFormatter={(value) => {
-                          if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}G`;
-                          if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                          if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-                          return value.toFixed(2);
-                        }}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'rgba(30, 41, 59, 0.95)',
-                          border: '1px solid #475569',
-                          borderRadius: '8px',
-                        }}
-                        labelStyle={{ color: '#e2e8f0' }}
-                        itemStyle={{ color: '#e2e8f0' }}
-                      />
-                      <Legend wrapperStyle={{ fontSize: '12px' }} />
-                      {seriesLabels.slice(0, 10).map((label, idx) => (
-                        <Line
-                          key={label}
-                          type="monotone"
-                          dataKey={label}
-                          stroke={COLORS[idx % COLORS.length]}
-                          strokeWidth={1.5}
-                          dot={false}
-                          activeDot={{ r: 4 }}
-                        />
-                      ))}
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-                {seriesLabels.length > 10 && (
-                  <p className="text-xs text-gray-500 mt-2 text-center">
-                    Showing first 10 of {seriesLabels.length} series
-                  </p>
-                )}
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-700">
-                      <th className="text-left py-2 px-3 font-medium text-gray-500">Labels</th>
-                      <th className="text-right py-2 px-3 font-medium text-gray-500">Value</th>
-                      <th className="text-right py-2 px-3 font-medium text-gray-500">Timestamp</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.result.map((sample, idx) => {
-                      const lastValue = sample.values?.[sample.values.length - 1] || sample.value;
-                      return (
-                        <tr key={idx} className="border-b border-gray-100 dark:border-gray-800">
-                          <td className="py-2 px-3">
-                            <code className="text-xs text-gray-600 dark:text-gray-300">
-                              {JSON.stringify(sample.metric)}
-                            </code>
-                          </td>
-                          <td className="text-right py-2 px-3 font-mono text-gray-900 dark:text-white">
-                            {lastValue ? parseFloat(lastValue.value).toFixed(4) : '-'}
-                          </td>
-                          <td className="text-right py-2 px-3 text-gray-500">
-                            {lastValue ? getRelativeTime(new Date(lastValue.timestamp * 1000)) : '-'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </GlassCard>
+              {seriesLabels.length > 10 && (
+                <p style={{ fontSize: 11, color: t.textMuted, marginTop: 8, textAlign: 'center' }}>
+                  Showing first 10 of {seriesLabels.length} series
+                </p>
+              )}
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${t.cardBorder}` }}>
+                    <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 500, color: t.textSub }}>Labels</th>
+                    <th style={{ textAlign: 'right', padding: '8px 12px', fontWeight: 500, color: t.textSub }}>Value</th>
+                    <th style={{ textAlign: 'right', padding: '8px 12px', fontWeight: 500, color: t.textSub }}>Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.result.map((sample, idx) => {
+                    const lastValue = sample.values?.[sample.values.length - 1] || sample.value;
+                    return (
+                      <tr key={idx} style={{ borderBottom: `1px solid ${t.cardBorder}` }}>
+                        <td style={{ padding: '8px 12px' }}>
+                          <code style={{ fontSize: 11, color: t.textSub, ...mono }}>
+                            {JSON.stringify(sample.metric)}
+                          </code>
+                        </td>
+                        <td style={{ textAlign: 'right', padding: '8px 12px', ...mono, color: t.text }}>
+                          {lastValue ? parseFloat(lastValue.value).toFixed(4) : '-'}
+                        </td>
+                        <td style={{ textAlign: 'right', padding: '8px 12px', color: t.textMuted }}>
+                          {lastValue ? getRelativeTime(new Date(lastValue.timestamp * 1000)) : '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
