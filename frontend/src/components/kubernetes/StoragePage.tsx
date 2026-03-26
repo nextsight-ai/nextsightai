@@ -1,38 +1,16 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import {
-  CircleStackIcon,
-  ArrowPathIcon,
-  MagnifyingGlassIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
-  ExclamationTriangleIcon,
-  CubeIcon,
-  ServerIcon,
-  Cog6ToothIcon,
-  DocumentTextIcon,
-} from '@heroicons/react/24/outline';
+import React, { useState, useEffect } from 'react';
+import { ArrowPathIcon, MagnifyingGlassIcon, CheckCircleIcon, XCircleIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import ResourceDetailWindow, { type RDWResource } from './ResourceDetailWindow';
 import { kubernetesApi } from '../../services/api';
-import { logger } from '../../utils/logger';
-import GlassCard from '../common/GlassCard';
-import type { PVC, Namespace } from '../../types';
+import type { PVC } from '../../types';
+import K8sHeader from './K8sHeader';
+import { useNamespace } from '../../contexts/NamespaceContext';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors, mono, createCard } from '../../styles/linear-design';
 
-// Animation variants
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.08 },
-  },
-};
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
+type StorageTab = 'pvcs' | 'pvs' | 'storageclasses';
 
-// Mock PV type since it's not in the types file
 interface PV {
   name: string;
   capacity: string;
@@ -44,7 +22,6 @@ interface PV {
   age: string;
 }
 
-// Mock Storage Class type
 interface StorageClass {
   name: string;
   provisioner: string;
@@ -54,91 +31,17 @@ interface StorageClass {
   allowVolumeExpansion: boolean;
 }
 
-// Status Badge Component
-function StatusBadge({ status }: { status: string }) {
-  const config: Record<string, { bg: string; text: string; icon: React.ElementType }> = {
-    Bound: { bg: 'bg-emerald-100 dark:bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', icon: CheckCircleIcon },
-    Available: { bg: 'bg-blue-100 dark:bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', icon: CheckCircleIcon },
-    Pending: { bg: 'bg-amber-100 dark:bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', icon: ClockIcon },
-    Released: { bg: 'bg-gray-100 dark:bg-gray-500/10', text: 'text-gray-600 dark:text-gray-400', icon: ExclamationTriangleIcon },
-    Failed: { bg: 'bg-red-100 dark:bg-red-500/10', text: 'text-red-600 dark:text-red-400', icon: XCircleIcon },
-  };
-
-  const { bg, text, icon: Icon } = config[status] || config.Pending;
-
-  return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${bg} ${text}`}>
-      <Icon className="h-3.5 w-3.5" />
-      {status}
-    </span>
-  );
-}
-
-// Access Mode Badge
-function AccessModeBadge({ mode }: { mode: string }) {
-  const shortMode = mode === 'ReadWriteOnce' ? 'RWO' : mode === 'ReadOnlyMany' ? 'ROX' : mode === 'ReadWriteMany' ? 'RWX' : mode;
-
-  return (
-    <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-lg">
-      {shortMode}
-    </span>
-  );
-}
-
-// KPI Card Component
-function KPICard({
-  title,
-  value,
-  subtitle,
-  icon: Icon,
-  color,
-  index,
-}: {
-  title: string;
-  value: number | string;
-  subtitle?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  color: 'blue' | 'green' | 'amber' | 'purple';
-  index: number;
-}) {
-  const colorClasses = {
-    blue: { bg: 'bg-blue-100 dark:bg-blue-500/10', icon: 'text-blue-600 dark:text-blue-400' },
-    green: { bg: 'bg-emerald-100 dark:bg-emerald-500/10', icon: 'text-emerald-600 dark:text-emerald-400' },
-    amber: { bg: 'bg-amber-100 dark:bg-amber-500/10', icon: 'text-amber-600 dark:text-amber-400' },
-    purple: { bg: 'bg-purple-100 dark:bg-purple-500/10', icon: 'text-purple-600 dark:text-purple-400' },
-  };
-
-  const colors = colorClasses[color];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
-    >
-      <GlassCard className="p-4">
-        <div className="flex items-center gap-3">
-          <div className={`p-2.5 rounded-xl ${colors.bg}`}>
-            <Icon className={`h-5 w-5 ${colors.icon}`} />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{title}</p>
-            {subtitle && <p className="text-[10px] text-gray-400">{subtitle}</p>}
-          </div>
-        </div>
-      </GlassCard>
-    </motion.div>
-  );
-}
-
 export default function StoragePage() {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+  const isDark = theme === 'dark';
+  const card = createCard(t, isDark);
+  const { selectedNamespace } = useNamespace();
+  const [activeTab, setActiveTab] = useState<StorageTab>('pvcs');
   const [loading, setLoading] = useState(true);
   const [pvcs, setPVCs] = useState<PVC[]>([]);
   const [pvs, setPVs] = useState<PV[]>([]);
   const [storageClasses, setStorageClasses] = useState<StorageClass[]>([]);
-  const [namespaces, setNamespaces] = useState<Namespace[]>([]);
-  const [selectedNamespace, setSelectedNamespace] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -148,15 +51,13 @@ export default function StoragePage() {
   async function fetchData() {
     setLoading(true);
     try {
-      const [pvcsRes, pvsRes, storageClassesRes, namespacesRes] = await Promise.all([
+      const [pvcsRes, pvsRes, storageClassesRes] = await Promise.all([
         kubernetesApi.getPVCs().catch(() => ({ data: [] })),
         kubernetesApi.getPVs().catch(() => ({ data: [] })),
         kubernetesApi.getStorageClasses().catch(() => ({ data: [] })),
-        kubernetesApi.getNamespaces().catch(() => ({ data: [] })),
       ]);
 
       setPVCs(pvcsRes.data);
-      setNamespaces(namespacesRes.data);
 
       // Transform PV data from backend format
       const transformedPVs: PV[] = (pvsRes.data || []).map((pv: any) => ({
@@ -182,13 +83,12 @@ export default function StoragePage() {
       }));
       setStorageClasses(transformedStorageClasses);
     } catch (error) {
-      logger.error('Failed to fetch storage data', error);
+      console.error('Failed to fetch storage data', error);
     } finally {
       setLoading(false);
     }
   }
 
-  // Helper to calculate age from timestamp
   function calculateAge(timestamp?: string): string {
     if (!timestamp) return 'Unknown';
     const created = new Date(timestamp);
@@ -202,301 +102,483 @@ export default function StoragePage() {
     return `${Math.floor(diffDays / 365)}y`;
   }
 
-  // Filter PVCs
   const filteredPVCs = pvcs.filter(pvc => {
     const matchesNamespace = !selectedNamespace || pvc.namespace === selectedNamespace;
     const matchesSearch = !searchQuery || pvc.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesNamespace && matchesSearch;
   });
 
-  // Calculate stats
-  const totalCapacity = pvs.reduce((acc, pv) => {
-    const sizeMatch = pv.capacity.match(/(\d+)/);
-    return acc + (sizeMatch ? parseInt(sizeMatch[1]) : 0);
-  }, 0);
+  const filteredPVs = pvs.filter(pv => {
+    const matchesSearch = !searchQuery || pv.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
+  });
 
-  const boundPVCs = pvcs.filter(p => p.status === 'Bound').length;
-  const availablePVs = pvs.filter(p => p.status === 'Available').length;
+  const filteredStorageClasses = storageClasses.filter(sc => {
+    const matchesSearch = !searchQuery || sc.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
+  });
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Bound':
+      case 'Available':
+        return '#22c55e';
+      case 'Pending':
+        return '#eab308';
+      case 'Released':
+        return '#9ca3af';
+      case 'Failed':
+        return '#ef4444';
+      default:
+        return '#9ca3af';
+    }
+  };
+
+  const getAccessModeShort = (mode: string) => {
+    if (mode === 'ReadWriteOnce') return 'RWO';
+    if (mode === 'ReadOnlyMany') return 'ROX';
+    if (mode === 'ReadWriteMany') return 'RWX';
+    return mode;
+  };
+
+  const tabs = [
+    { id: 'pvcs' as StorageTab, name: 'PVCs', count: filteredPVCs.length },
+    { id: 'pvs' as StorageTab, name: 'PVs', count: filteredPVs.length },
+    { id: 'storageclasses' as StorageTab, name: 'Storage Classes', count: filteredStorageClasses.length },
+  ];
+
+  const [rdw, setRdw] = useState<{ resources: RDWResource[]; activeId: string; forceRestore: number } | null>(null);
+
+  function openPanel(kind: string, namespace: string, name: string, resourceObj?: any) {
+    const id = `${kind}/${namespace || '_'}/${name}`;
+    setRdw(prev => {
+      if (!prev) return { resources: [{ id, kind, name, namespace, resourceObj }], activeId: id, forceRestore: 0 };
+      if (prev.resources.some(r => r.id === id)) return { ...prev, activeId: id, forceRestore: prev.forceRestore + 1 };
+      return { ...prev, resources: [...prev.resources, { id, kind, name, namespace, resourceObj }], activeId: id, forceRestore: prev.forceRestore + 1 };
+    });
+  }
+
+  function closeRdwTab(id: string) {
+    setRdw(prev => {
+      if (!prev) return null;
+      const resources = prev.resources.filter(r => r.id !== id);
+      if (!resources.length) return null;
+      return { ...prev, resources, activeId: prev.activeId === id ? resources[resources.length - 1].id : prev.activeId };
+    });
+  }
+
+  const iconBtn: React.CSSProperties = {
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '4px 5px',
+    borderRadius: 6,
+    color: t.textMuted,
+    display: 'inline-flex',
+    alignItems: 'center',
+    transition: 'background 0.12s, color 0.12s',
+  };
 
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="space-y-6"
-    >
-      {/* Header */}
-      <motion.div variants={itemVariants}>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600">
-              <CircleStackIcon className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Storage</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Manage persistent volumes and claims
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', color: t.text, overflow: 'hidden' }}>
+      {/* K8s Header */}
+      <K8sHeader
+        title="Storage"
+        subtitle="Persistent Volumes, PVCs, and Storage Classes"
+        rightContent={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ position: 'relative' }}>
+              <MagnifyingGlassIcon style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 12, height: 12, color: t.textSub }} />
               <input
                 type="text"
-                placeholder="Search storage..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2.5 text-sm border border-gray-200/50 dark:border-slate-700/50 rounded-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 w-64"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: `1px solid ${t.sidebarBorder}`,
+                  paddingLeft: 24,
+                  paddingRight: 4,
+                  paddingTop: 2,
+                  paddingBottom: 2,
+                  fontSize: 12,
+                  color: t.text,
+                  outline: 'none',
+                  width: 200,
+                  letterSpacing: 0.2,
+                }}
               />
             </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+
+            <button
               onClick={fetchData}
               disabled={loading}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-medium shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all disabled:opacity-50"
+              style={{
+              background: 'none',
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 6,
+              padding: '5px 8px',
+              cursor: loading ? 'wait' : 'pointer',
+              color: t.textSub,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              fontSize: 11,
+            }}
             >
-              <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </motion.button>
+              <ArrowPathIcon style={{ width: 12, height: 12 }} />
+              {loading ? 'Refreshing...' : 'Refresh'}
+            </button>
           </div>
-        </div>
-      </motion.div>
+        }
+      />
 
-      {/* KPI Cards */}
-      <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard title="Total PVCs" value={pvcs.length} icon={CubeIcon} color="blue" index={0} />
-          <KPICard title="Bound PVCs" value={boundPVCs} subtitle={`${pvcs.length - boundPVCs} pending`} icon={CheckCircleIcon} color="green" index={1} />
-          <KPICard title="Persistent Volumes" value={pvs.length} subtitle={`${availablePVs} available`} icon={ServerIcon} color="purple" index={2} />
-          <KPICard title="Total Capacity" value={`${totalCapacity}Gi`} icon={CircleStackIcon} color="amber" index={3} />
+      {/* Tabs */}
+      <div style={{ flexShrink: 0, padding: '0 32px', borderBottom: `1px solid ${t.cardBorder}` }}>
+        <div style={{ display: 'flex', gap: 24 }}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                borderBottom: activeTab === tab.id ? `2px solid ${t.info}` : '2px solid transparent',
+                padding: '12px 0',
+                marginBottom: -1,
+                color: activeTab === tab.id ? t.text : t.textSub,
+                fontSize: 12,
+                fontWeight: 500,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                transition: 'all 0.2s',
+                letterSpacing: 0.2,
+              }}
+            >
+              {tab.name}
+              <span style={{ ...mono, fontSize: 10, padding: '1px 6px', borderRadius: 9999, background: activeTab === tab.id ? t.infoBg : t.cardBorder, color: activeTab === tab.id ? t.info : t.textMuted, fontWeight: 500 }}>{tab.count}</span>
+            </button>
+          ))}
         </div>
-      </motion.div>
+      </div>
 
-      {/* Main Content Grid */}
-      <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* PVC List (60%) */}
-          <div className="lg:col-span-3">
-            <GlassCard className="overflow-hidden">
-              <div className="p-4 border-b border-gray-200/50 dark:border-slate-700/50 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CubeIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Persistent Volume Claims</h2>
-                  <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full">
-                    {filteredPVCs.length}
-                  </span>
+      {/* Main Content */}
+      <main style={{ flex: 1, overflow: 'auto', padding: '24px 32px', position: 'relative' }}>
+        {loading && (
+          <div style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0,
+            height: 2,
+            background: `linear-gradient(90deg, transparent, ${t.info}, transparent)`,
+            animation: 'slideProgress 1s ease-in-out infinite',
+          }} />
+        )}
+        <style>{`@keyframes slideProgress { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }`}</style>
+        {activeTab === 'pvcs' && (
+          <section>
+            <div style={{ ...card }}>
+              {/* Table Header */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 1fr 80px 100px 100px 70px',
+                gap: 12,
+                padding: '9px 18px',
+                borderBottom: `1px solid ${t.cardBorder}`,
+                fontSize: 11,
+                fontWeight: 400,
+                color: t.textMuted,
+                background: t.cardBg,
+                borderRadius: '12px 12px 0 0',
+              }}>
+                <div>Name</div>
+                <div>Namespace</div>
+                <div style={{ textAlign: 'right' }}>Size</div>
+                <div>Mode</div>
+                <div>Status</div>
+                <div></div>
+              </div>
+
+              {/* Table Rows */}
+              {filteredPVCs.length === 0 ? (
+                <div style={{ padding: '48px 18px', textAlign: 'center', color: t.textMuted, fontSize: 12, letterSpacing: 0.2 }}>
+                  No PVCs found
                 </div>
-                <select
-                  value={selectedNamespace}
-                  onChange={(e) => setSelectedNamespace(e.target.value)}
-                  className="text-xs px-3 py-1.5 border border-gray-200/50 dark:border-slate-700/50 rounded-lg bg-white/80 dark:bg-slate-800/80 text-gray-700 dark:text-gray-300"
-                >
-                  <option value="">All Namespaces</option>
-                  {namespaces.map((ns) => (
-                    <option key={ns.name} value={ns.name}>{ns.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Namespace</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Size</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Mode</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-slate-700/50">
-                    {loading && filteredPVCs.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-12 text-center">
-                          <ArrowPathIcon className="h-8 w-8 mx-auto animate-spin text-blue-500" />
-                          <p className="mt-3 text-sm text-gray-500">Loading PVCs...</p>
-                        </td>
-                      </tr>
-                    ) : filteredPVCs.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-12 text-center">
-                          <CubeIcon className="h-8 w-8 mx-auto text-gray-400" />
-                          <p className="mt-3 text-sm text-gray-500">No PVCs found</p>
-                        </td>
-                      </tr>
-                    ) : (
-                      filteredPVCs.map((pvc) => (
-                        <motion.tr
-                          key={`${pvc.namespace}-${pvc.name}`}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
-                        >
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <CubeIcon className="h-4 w-4 text-blue-500" />
-                              <span className="text-sm font-medium text-gray-900 dark:text-white">{pvc.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-400 rounded-lg">
-                              {pvc.namespace}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                            {pvc.capacity || '10Gi'}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex gap-1">
-                              {pvc.access_modes.map((mode, idx) => (
-                                <AccessModeBadge key={idx} mode={mode} />
-                              ))}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <StatusBadge status={pvc.status} />
-                          </td>
-                        </motion.tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </GlassCard>
-          </div>
-
-          {/* PV List (40%) */}
-          <div className="lg:col-span-2">
-            <GlassCard className="overflow-hidden">
-              <div className="p-4 border-b border-gray-200/50 dark:border-slate-700/50 flex items-center gap-2">
-                <ServerIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Persistent Volumes</h2>
-                <span className="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-full">
-                  {pvs.length}
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Size</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reclaim</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-slate-700/50">
-                    {pvs.map((pv) => (
-                      <motion.tr
-                        key={pv.name}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <ServerIcon className="h-4 w-4 text-purple-500" />
-                            <span className="text-sm font-medium text-gray-900 dark:text-white">{pv.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                          {pv.capacity}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-xs px-2 py-0.5 rounded-lg ${
-                            pv.reclaimPolicy === 'Retain'
-                              ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                              : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-400'
-                          }`}>
-                            {pv.reclaimPolicy}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <StatusBadge status={pv.status} />
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </GlassCard>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Storage Classes (Full Width) */}
-      <motion.div variants={itemVariants}>
-        <GlassCard className="overflow-hidden">
-          <div className="p-4 border-b border-gray-200/50 dark:border-slate-700/50 flex items-center gap-2">
-            <Cog6ToothIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Storage Classes</h2>
-            <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-400 rounded-full">
-              {storageClasses.length}
-            </span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Provisioner</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reclaim Policy</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Binding Mode</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Expansion</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-slate-700/50">
-                {storageClasses.map((sc) => (
-                  <motion.tr
-                    key={sc.name}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors"
+              ) : (
+                filteredPVCs.map((pvc, i) => (
+                  <div
+                    key={`${pvc.namespace}-${pvc.name}`}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '2fr 1fr 80px 100px 100px 70px',
+                      gap: 12,
+                      padding: '11px 18px',
+                      borderBottom: i < filteredPVCs.length - 1 ? `1px solid ${t.cardBorder}` : 'none',
+                      fontSize: 11,
+                      color: t.text,
+                      transition: 'background 0.2s',
+                      letterSpacing: 0.2,
+                      alignItems: 'center',
+                    }}
                   >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Cog6ToothIcon className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-900 dark:text-white">{sc.name}</span>
-                        {sc.isDefault && (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full font-medium">
-                            DEFAULT
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs font-mono text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
-                        {sc.provisioner}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pvc.name}</div>
+                      {pvc.storage_class && <div style={{ fontSize: 9, color: t.textMuted, ...mono, marginTop: 1 }}>{pvc.storage_class}</div>}
+                    </div>
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {pvc.namespace}
+                    </div>
+                    <div style={{ textAlign: 'right', ...mono }}>
+                      {pvc.capacity || '10Gi'}
+                    </div>
+                    <div>
+                      {pvc.access_modes.map((mode, idx) => (
+                        <span key={idx} style={{
+                          display: 'inline-block',
+                          padding: '2px 6px',
+                          fontSize: 9,
+                          color: '#8b5cf6',
+                          border: '1px solid #8b5cf633',
+                          background: '#8b5cf611',
+                          borderRadius: 4,
+                          marginRight: 4,
+                          ...mono,
+                        }}>
+                          {getAccessModeShort(mode)}
+                        </span>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: '50%',
+                        background: getStatusColor(pvc.status),
+                      }} />
+                      <span>{pvc.status}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
+                      <button
+                        title="View Details"
+                        onClick={(e) => { e.stopPropagation(); openPanel('PersistentVolumeClaim', pvc.namespace, pvc.name); }}
+                        style={iconBtn}
+                        onMouseEnter={e => { e.currentTarget.style.background = t.navHoverBg; e.currentTarget.style.color = t.text; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}
+                      >
+                        <DocumentTextIcon style={{ width: 14, height: 14 }} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'pvs' && (
+          <section>
+            <div style={{ ...card }}>
+              {/* Table Header */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 80px 100px 100px 70px',
+                gap: 12,
+                padding: '9px 18px',
+                borderBottom: `1px solid ${t.cardBorder}`,
+                fontSize: 11,
+                fontWeight: 400,
+                color: t.textMuted,
+                background: t.cardBg,
+                borderRadius: '12px 12px 0 0',
+              }}>
+                <div>Name</div>
+                <div style={{ textAlign: 'right' }}>Size</div>
+                <div>Reclaim</div>
+                <div>Status</div>
+                <div></div>
+              </div>
+
+              {/* Table Rows */}
+              {filteredPVs.length === 0 ? (
+                <div style={{ padding: '48px 18px', textAlign: 'center', color: t.textMuted, fontSize: 12, letterSpacing: 0.2 }}>
+                  No PVs found
+                </div>
+              ) : (
+                filteredPVs.map((pv, i) => (
+                  <div
+                    key={pv.name}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '2fr 80px 100px 100px 70px',
+                      gap: 12,
+                      padding: '11px 18px',
+                      borderBottom: i < filteredPVs.length - 1 ? `1px solid ${t.cardBorder}` : 'none',
+                      fontSize: 11,
+                      color: t.text,
+                      transition: 'background 0.2s',
+                      letterSpacing: 0.2,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pv.name}</div>
+                      {pv.claim && <div style={{ fontSize: 9, color: t.textMuted, ...mono, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>→ {pv.claim}</div>}
+                    </div>
+                    <div style={{ textAlign: 'right', ...mono }}>
+                      {pv.capacity}
+                    </div>
+                    <div>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '2px 6px',
+                        fontSize: 9,
+                        color: pv.reclaimPolicy === 'Retain' ? '#eab308' : '#9ca3af',
+                        border: `1px solid ${pv.reclaimPolicy === 'Retain' ? '#eab30833' : '#9ca3af33'}`,
+                        background: pv.reclaimPolicy === 'Retain' ? '#eab30811' : '#9ca3af11',
+                        borderRadius: 4,
+                        ...mono,
+                      }}>
+                        {pv.reclaimPolicy}
                       </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-lg ${
-                        sc.reclaimPolicy === 'Retain'
-                          ? 'bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                          : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-400'
-                      }`}>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: '50%',
+                        background: getStatusColor(pv.status),
+                      }} />
+                      <span>{pv.status}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
+                      <button
+                        title="View Details"
+                        onClick={(e) => { e.stopPropagation(); openPanel('PersistentVolume', '', pv.name); }}
+                        style={iconBtn}
+                        onMouseEnter={e => { e.currentTarget.style.background = t.navHoverBg; e.currentTarget.style.color = t.text; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}
+                      >
+                        <DocumentTextIcon style={{ width: 14, height: 14 }} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'storageclasses' && (
+          <section>
+            <div style={{ ...card }}>
+              {/* Table Header */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 2fr 120px 120px 80px',
+                gap: 12,
+                padding: '9px 18px',
+                borderBottom: `1px solid ${t.cardBorder}`,
+                fontSize: 11,
+                fontWeight: 400,
+                color: t.textMuted,
+                background: t.cardBg,
+                borderRadius: '12px 12px 0 0',
+              }}>
+                <div>Name</div>
+                <div>Provisioner</div>
+                <div>Reclaim Policy</div>
+                <div>Binding Mode</div>
+                <div style={{ textAlign: 'center' }}>Expansion</div>
+              </div>
+
+              {/* Table Rows */}
+              {filteredStorageClasses.length === 0 ? (
+                <div style={{ padding: '48px 18px', textAlign: 'center', color: t.textMuted, fontSize: 12, letterSpacing: 0.2 }}>
+                  No Storage Classes found
+                </div>
+              ) : (
+                filteredStorageClasses.map((sc, i) => (
+                  <div
+                    key={sc.name}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '2fr 2fr 120px 120px 80px',
+                      gap: 12,
+                      padding: '11px 18px',
+                      borderBottom: i < filteredStorageClasses.length - 1 ? `1px solid ${t.cardBorder}` : 'none',
+                      fontSize: 11,
+                      color: t.text,
+                      cursor: 'pointer',
+                      transition: 'background 0.2s',
+                      letterSpacing: 0.2,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {sc.name}
+                      </span>
+                      {sc.isDefault && (
+                        <span style={{
+                          padding: '2px 6px',
+                          fontSize: 9,
+                          color: '#3b82f6',
+                          border: '1px solid #3b82f633',
+                          background: '#3b82f611',
+                          borderRadius: 4,
+                          ...mono,
+                        }}>
+                          DEFAULT
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...mono, fontSize: 10, color: t.textSub }}>
+                      {sc.provisioner}
+                    </div>
+                    <div>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '2px 6px',
+                        fontSize: 9,
+                        color: sc.reclaimPolicy === 'Retain' ? '#eab308' : '#9ca3af',
+                        border: `1px solid ${sc.reclaimPolicy === 'Retain' ? '#eab30833' : '#9ca3af33'}`,
+                        background: sc.reclaimPolicy === 'Retain' ? '#eab30811' : '#9ca3af11',
+                        borderRadius: 4,
+                        ...mono,
+                      }}>
                         {sc.reclaimPolicy}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                    </div>
+                    <div style={{ fontSize: 11 }}>
                       {sc.volumeBindingMode}
-                    </td>
-                    <td className="px-4 py-3">
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
                       {sc.allowVolumeExpansion ? (
-                        <CheckCircleIcon className="h-5 w-5 text-emerald-500" />
+                        <CheckCircleIcon style={{ width: 16, height: 16, color: '#22c55e' }} />
                       ) : (
-                        <XCircleIcon className="h-5 w-5 text-gray-400" />
+                        <XCircleIcon style={{ width: 16, height: 16, color: '#9ca3af' }} />
                       )}
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </GlassCard>
-      </motion.div>
-    </motion.div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+        </section>
+        )}
+      </main>
+
+      {/* Resource Detail Window */}
+      {rdw && (
+        <ResourceDetailWindow
+          resources={rdw.resources}
+          activeId={rdw.activeId}
+          onActiveChange={id => setRdw(prev => prev ? { ...prev, activeId: id } : null)}
+          onCloseTab={closeRdwTab}
+          onClose={() => setRdw(null)}
+          forceRestore={rdw.forceRestore}
+        />
+      )}
+    </div>
   );
 }

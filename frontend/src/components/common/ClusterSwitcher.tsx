@@ -1,141 +1,137 @@
 import { useState, useRef, useEffect } from 'react';
 import { useCluster } from '../../contexts/ClusterContext';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors, mono } from '../../styles/linear-design';
 import { logger } from '../../utils/logger';
-import {
-  ServerStackIcon,
-  CheckIcon,
-  ChevronDownIcon,
-} from '@heroicons/react/24/outline';
+import { ServerStackIcon, CheckIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+
+
+function statusColor(status: string) {
+  if (status === 'connected') return '#22c55e';
+  if (status === 'error') return '#ef4444';
+  if (status === 'disconnected') return '#6b7280';
+  return '#eab308';
+}
 
 export default function ClusterSwitcher() {
   const { clusters, activeCluster, loading, setActiveCluster } = useCluster();
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+  const isDark = theme === 'dark';
+
   const [isOpen, setIsOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setIsOpen(false);
     }
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
-  const handleClusterSwitch = async (clusterId: string) => {
-    if (clusterId === activeCluster?.id) {
-      setIsOpen(false);
-      return;
-    }
-
+  const handleSwitch = async (clusterId: string) => {
+    if (clusterId === activeCluster?.id) { setIsOpen(false); return; }
     try {
       setSwitching(true);
       await setActiveCluster(clusterId);
       setIsOpen(false);
-      // Optionally refresh the page or trigger a global state refresh
       window.location.reload();
-    } catch (error) {
-      logger.error('Failed to switch cluster', error);
+    } catch (err) {
+      logger.error('Failed to switch cluster', err);
     } finally {
       setSwitching(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'connected':
-        return 'bg-green-500';
-      case 'disconnected':
-        return 'bg-gray-400';
-      case 'error':
-        return 'bg-red-500';
-      default:
-        return 'bg-yellow-500';
-    }
-  };
-
   if (loading) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-        <ServerStackIcon className="h-5 w-5 animate-pulse" />
-        <span>Loading...</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: t.textMuted }}>
+        <ServerStackIcon style={{ width: 13, height: 13 }} />
+        Loading…
       </div>
     );
   }
 
-  if (clusters.length === 0) {
-    return null;
-  }
+  if (clusters.length === 0) return null;
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div style={{ position: 'relative' }} ref={ref}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         disabled={switching}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-100/80 dark:bg-slate-800/80 hover:bg-gray-200/80 dark:hover:bg-slate-700/80 transition-all duration-300 border border-gray-200/50 dark:border-slate-700/50 shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 7,
+          background: 'transparent', border: 'none',
+          cursor: 'pointer', padding: '3px 0',
+          fontSize: 12, fontWeight: 500, color: t.text,
+        }}
       >
-        <ServerStackIcon className="h-4 w-4" />
-        <span className="flex items-center gap-1.5">
-          <span
-            className={`h-2 w-2 rounded-full ${getStatusColor(activeCluster?.status || 'unknown')}`}
-          />
-          <span className="hidden sm:inline">{activeCluster?.name || 'Select Cluster'}</span>
+        <ServerStackIcon style={{ width: 13, height: 13, color: '#3b82f6', flexShrink: 0 }} />
+        <span style={{
+          width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+          background: statusColor(activeCluster?.status || 'unknown'),
+          boxShadow: `0 0 5px ${statusColor(activeCluster?.status || 'unknown')}`,
+        }} />
+        <span style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {activeCluster?.name || 'Select cluster'}
         </span>
-        <ChevronDownIcon
-          className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-        />
+        <ChevronDownIcon style={{ width: 12, height: 12, color: t.textMuted, flexShrink: 0, transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'none' }} />
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-72 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-600 z-[9999]">
-          <div className="p-2 border-b border-gray-100 dark:border-slate-700">
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-2">
-              Kubernetes Clusters
-            </p>
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 9999,
+          background: t.cardBg,
+          border: `1px solid ${t.cardBorder}`,
+          borderRadius: 10,
+          boxShadow: isDark ? '0 8px 24px rgba(0,0,0,0.4)' : '0 8px 24px rgba(0,0,0,0.12)',
+          minWidth: 240, overflow: 'hidden',
+        }}>
+          <div style={{ padding: '8px 12px 6px', borderBottom: `1px solid ${t.cardBorder}` }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
+              Clusters
+            </span>
           </div>
-          <div className="max-h-80 overflow-y-auto py-1">
-            {clusters.map((cluster) => (
-              <button
-                key={cluster.id}
-                onClick={() => handleClusterSwitch(cluster.id)}
-                disabled={switching}
-                className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors ${
-                  cluster.id === activeCluster?.id
-                    ? 'bg-primary-50 dark:bg-primary-900/30'
-                    : ''
-                }`}
-              >
-                <span
-                  className={`h-2.5 w-2.5 rounded-full ${getStatusColor(cluster.status)}`}
-                />
-                <div className="flex-1 text-left">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {cluster.name}
-                    </span>
-                    {cluster.is_default && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-gray-200 dark:bg-slate-600 text-gray-600 dark:text-gray-300">
-                        Default
+          <div style={{ maxHeight: 280, overflowY: 'auto' }}>
+            {clusters.map((cluster) => {
+              const active = cluster.id === activeCluster?.id;
+              return (
+                <button
+                  key={cluster.id}
+                  onClick={() => handleSwitch(cluster.id)}
+                  disabled={switching}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '9px 12px', background: active ? (isDark ? 'rgba(59,130,246,0.12)' : '#EFF6FF') : 'transparent',
+                    border: 'none', borderBottom: `1px solid ${t.cardBorder}`,
+                    cursor: 'pointer', textAlign: 'left',
+                  }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = t.navHoverBg; }}
+                  onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: statusColor(cluster.status), boxShadow: `0 0 5px ${statusColor(cluster.status)}` }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 500, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {cluster.name}
                       </span>
-                    )}
+                      {cluster.is_default && (
+                        <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 9999, background: isDark ? 'rgba(59,130,246,0.2)' : '#DBEAFE', color: '#3b82f6', ...mono }}>
+                          default
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, ...mono }}>
+                      {cluster.version && <span style={{ marginRight: 6 }}>{cluster.version}</span>}
+                      {cluster.node_count} nodes · {cluster.namespace_count} ns
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {cluster.version && (
-                      <span className="mr-3">{cluster.version}</span>
-                    )}
-                    <span>{cluster.node_count} nodes</span>
-                    <span className="mx-1">•</span>
-                    <span>{cluster.namespace_count} namespaces</span>
-                  </div>
-                </div>
-                {cluster.id === activeCluster?.id && (
-                  <CheckIcon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
-                )}
-              </button>
-            ))}
+                  {active && <CheckIcon style={{ width: 13, height: 13, color: '#3b82f6', flexShrink: 0 }} />}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

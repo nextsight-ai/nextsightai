@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { helmApi } from '../../services/api';
 import { logger } from '../../utils/logger';
 import { useToast } from '../../contexts/ToastContext';
@@ -18,396 +17,303 @@ import {
   XCircleIcon,
   ClockIcon,
   ChevronDownIcon,
+  CubeTransparentIcon,
 } from '@heroicons/react/24/outline';
+import { formatAge } from '../../utils/constants';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors, mono } from '../../styles/linear-design';
+import K8sHeader from '../kubernetes/K8sHeader';
 
-// Import shared utilities
-import { formatAge, itemVariants } from '../../utils/constants';
-import { StatusBadge } from '../common/StatusBadge';
 
-// Helm-specific status label mapping
 const helmStatusLabels: Record<string, string> = {
-  deployed: 'Deployed',
-  failed: 'Failed',
+  deployed:          'Deployed',
+  failed:            'Failed',
   'pending-install': 'Installing',
   'pending-upgrade': 'Upgrading',
-  'pending-rollback': 'Rolling back',
-  uninstalling: 'Uninstalling',
-  superseded: 'Superseded',
-  unknown: 'Unknown',
+  'pending-rollback':'Rolling back',
+  uninstalling:      'Uninstalling',
+  superseded:        'Superseded',
+  unknown:           'Unknown',
 };
 
-// Helper to map Helm status to standard status
-function getHelmStatusType(status: HelmReleaseStatus): string {
-  const statusMap: Record<string, string> = {
-    deployed: 'deployed',
-    failed: 'failed',
-    'pending-install': 'pending',
-    'pending-upgrade': 'progressing',
-    'pending-rollback': 'warning',
-    uninstalling: 'warning',
-    superseded: 'unknown',
-    unknown: 'unknown',
-  };
-  return statusMap[status] || 'unknown';
+function statusChip(status: HelmReleaseStatus, t: ReturnType<typeof getThemeColors>, isDark: boolean) {
+  if (status === 'deployed')           return { bg: isDark ? 'rgba(34,197,94,0.12)'  : '#F0FDF4', color: t.success, border: isDark ? 'rgba(34,197,94,0.2)'  : '#BBF7D0' };
+  if (status === 'failed')             return { bg: isDark ? 'rgba(239,68,68,0.12)'  : '#FEF2F2', color: t.error,   border: isDark ? 'rgba(239,68,68,0.2)'  : '#FECACA' };
+  if (status.startsWith('pending') || status === 'uninstalling')
+                                       return { bg: isDark ? 'rgba(234,179,8,0.12)'  : '#FFFBEB', color: t.warning, border: isDark ? 'rgba(234,179,8,0.2)'  : '#FDE68A' };
+  return { bg: isDark ? 'rgba(156,163,175,0.1)' : '#F3F4F6', color: t.textSub, border: isDark ? t.cardBorder : '#D1D5DB' };
 }
 
-// Helm Status Badge using shared StatusBadge
-function HelmStatusBadge({ status }: { status: HelmReleaseStatus }) {
-  return (
-    <StatusBadge
-      status={getHelmStatusType(status)}
-      label={helmStatusLabels[status] || status}
-      size="sm"
-      animate={status.startsWith('pending') || status === 'uninstalling'}
-    />
-  );
-}
-
-// Dropdown Component
-function Dropdown({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: string[];
-  onChange: (value: string) => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
+function NamespaceDropdown({ value, options, onChange }: { value: string; options: string[]; onChange: (v: string) => void }) {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+  const isDark = theme === 'dark';
+  const [open, setOpen] = useState(false);
 
   return (
-    <div className="relative">
-      <label className="text-sm text-gray-500 dark:text-gray-400 mb-1.5 block">{label}</label>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between gap-3 px-4 py-2.5 min-w-[180px] text-sm bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg hover:border-primary-500 transition-colors"
-      >
-        <span className="text-gray-900 dark:text-white">{value}</span>
-        <ChevronDownIcon className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+    <div style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(!open)} style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        padding: '5px 10px', fontSize: 11, fontWeight: 500,
+        background: isDark ? t.navHoverBg : '#F9FAFB',
+        border: `1px solid ${isDark ? t.cardBorder : '#D1D5DB'}`,
+        borderRadius: 6, color: t.text, cursor: 'pointer', ...mono,
+      }}>
+        <span>{value}</span>
+        <ChevronDownIcon style={{ width: 11, height: 11, color: t.textMuted, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
       </button>
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="absolute z-50 mt-1 w-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg overflow-hidden"
-          >
-            {options.map((option) => (
-              <button
-                key={option}
-                onClick={() => {
-                  onChange(option);
-                  setIsOpen(false);
-                }}
-                className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors ${
-                  option === value ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400' : 'text-gray-700 dark:text-gray-300'
-                }`}
-              >
-                {option}
-              </button>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {open && (
+        <div style={{
+          position: 'absolute', zIndex: 50, top: 'calc(100% + 6px)', right: 0,
+          background: t.cardBg, border: `1px solid ${isDark ? t.cardBorder : '#D1D5DB'}`,
+          borderRadius: 8, overflow: 'hidden', boxShadow: isDark ? '0 8px 24px rgba(0,0,0,0.4)' : '0 8px 24px rgba(0,0,0,0.12)',
+          minWidth: 140,
+        }}>
+          {options.map(opt => (
+            <button key={opt} onClick={() => { onChange(opt); setOpen(false); }} style={{
+              width: '100%', padding: '7px 12px', textAlign: 'left', fontSize: 11,
+              background: opt === value ? (isDark ? 'rgba(59,130,246,0.12)' : '#EFF6FF') : 'transparent',
+              color: opt === value ? '#3b82f6' : t.text, border: 'none', cursor: 'pointer', ...mono,
+            }}>
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-// Main Component
 export default function HelmDashboard() {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+  const isDark = theme === 'dark';
   const navigate = useNavigate();
   const toast = useToast();
   const [selectedNamespace, setSelectedNamespace] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Use cached hook for releases
   const { releases, isLoading: initialLoading, isRefetching: loading, error, refresh } = useHelmReleases(selectedNamespace);
 
-  // Extract unique namespaces from releases
   const namespaces = useMemo(() => {
-    const uniqueNamespaces = new Set(['all', 'default']);
-    releases.forEach(r => uniqueNamespaces.add(r.namespace));
-    return Array.from(uniqueNamespaces);
+    const ns = new Set(['all', 'default']);
+    releases.forEach(r => ns.add(r.namespace));
+    return Array.from(ns);
   }, [releases]);
 
-  // Filter releases based on search and namespace
-  const filteredReleases = releases.filter((release) => {
-    const matchesSearch =
-      release.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      release.chart.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesNamespace = selectedNamespace === 'all' || release.namespace === selectedNamespace;
-    return matchesSearch && matchesNamespace;
-  });
+  const filteredReleases = releases.filter(r =>
+    (r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+     r.chart.toLowerCase().includes(searchQuery.toLowerCase())) &&
+    (selectedNamespace === 'all' || r.namespace === selectedNamespace)
+  );
 
-  const handleRefresh = async () => {
-    await refresh();
-    toast.success('Refreshed', 'Helm releases updated');
-  };
+  const handleRefresh = async () => { await refresh(); toast.success('Refreshed', 'Helm releases updated'); };
 
   const handleUpgrade = async (release: HelmRelease) => {
     try {
-      const response = await helmApi.upgradeRelease(release.namespace, release.name, {
-        chart: release.chart,
-        reuse_values: true,
-      });
-      if (response.data.success) {
-        toast.success('Upgrade Started', `Upgrading ${release.name}`);
-        refresh();
-      } else {
-        toast.error('Upgrade Failed', response.data.message || `Failed to upgrade ${release.name}`);
-      }
+      const res = await helmApi.upgradeRelease(release.namespace, release.name, { chart: release.chart, reuse_values: true });
+      if (res.data.success) { toast.success('Upgrade Started', `Upgrading ${release.name}`); refresh(); }
+      else toast.error('Upgrade Failed', res.data.message || `Failed to upgrade ${release.name}`);
     } catch (err: any) {
       logger.error('Failed to upgrade release', err);
-      const errorMessage = err.response?.data?.detail || err.message || `Failed to upgrade ${release.name}`;
-      toast.error('Upgrade Failed', errorMessage);
+      toast.error('Upgrade Failed', err.response?.data?.detail || err.message || `Failed to upgrade ${release.name}`);
     }
   };
 
   const handleDelete = async (release: HelmRelease) => {
-    if (!confirm(`Are you sure you want to delete release "${release.name}"?`)) return;
+    if (!confirm(`Delete release "${release.name}"?`)) return;
     try {
-      const response = await helmApi.uninstallRelease(release.namespace, release.name);
-      if (response.data.success) {
-        toast.success('Deleted', `Release ${release.name} deleted`);
-        refresh();
-      } else {
-        toast.error('Delete Failed', response.data.message || `Failed to delete ${release.name}`);
-      }
+      const res = await helmApi.uninstallRelease(release.namespace, release.name);
+      if (res.data.success) { toast.success('Deleted', `Release ${release.name} deleted`); refresh(); }
+      else toast.error('Delete Failed', res.data.message || `Failed to delete ${release.name}`);
     } catch (err: any) {
       logger.error('Failed to delete release', err);
-      const errorMessage = err.response?.data?.detail || err.message || `Failed to delete ${release.name}`;
-      toast.error('Delete Failed', errorMessage);
+      toast.error('Delete Failed', err.response?.data?.detail || err.message || `Failed to delete ${release.name}`);
     }
   };
 
-
-  // Calculate stats
   const stats = {
-    total: filteredReleases.length,
-    deployed: filteredReleases.filter(r => r.status === 'deployed').length,
-    failed: filteredReleases.filter(r => r.status === 'failed').length,
-    pending: filteredReleases.filter(r => r.status.startsWith('pending')).length,
+    total:    releases.length,
+    deployed: releases.filter(r => r.status === 'deployed').length,
+    failed:   releases.filter(r => r.status === 'failed').length,
+    pending:  releases.filter(r => r.status.startsWith('pending')).length,
   };
 
+  // ── render ────────────────────────────────────────────────────────────────
+
   return (
-    <div className="flex flex-col h-[calc(100vh-6.5rem)] overflow-hidden bg-gray-50 dark:bg-slate-900">
-      {/* Header Section */}
-      <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600">
-            <CubeIcon className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Helm Releases</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Manage and monitor your deployments
-            </p>
-          </div>
-        </div>
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => navigate('/deploy/helm/catalog')}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg hover:shadow-lg transition-all"
-        >
-          <PlusIcon className="h-5 w-5" />
-          Install Chart
-        </motion.button>
-      </div>
+    <div style={{ margin: '-28px -32px', height: 'calc(100vh - 68px)', display: 'flex', flexDirection: 'column', background: t.mainBg, color: t.text, overflow: 'hidden' }}>
 
-      {/* Stats Cards */}
-      <div className="px-6 py-4 grid grid-cols-4 gap-4 bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 flex-shrink-0">
-        <motion.div
-          whileHover={{ y: -2 }}
-          className="p-4 rounded-lg bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-200 dark:border-blue-800"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase">Total</p>
-              <p className="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">{stats.total}</p>
-            </div>
-            <CubeIcon className="h-8 w-8 text-blue-500 opacity-50" />
-          </div>
-        </motion.div>
+      <K8sHeader
+        title="Helm Releases"
+        subtitle="Manage and monitor chart deployments"
+        rightContent={
+          <button
+            onClick={() => navigate('/deploy/helm/catalog')}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', fontSize: 11, fontWeight: 600, background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', boxShadow: '0 2px 8px rgba(59,130,246,0.3)' }}
+          >
+            <PlusIcon style={{ width: 12, height: 12 }} />
+            Install Chart
+          </button>
+        }
+      />
 
-        <motion.div
-          whileHover={{ y: -2 }}
-          className="p-4 rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-green-600 dark:text-green-400 uppercase">Deployed</p>
-              <p className="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">{stats.deployed}</p>
-            </div>
-            <CheckCircleIcon className="h-8 w-8 text-green-500 opacity-50" />
+      {/* ── Stats strip ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '0 32px', height: 48, borderBottom: `1px solid ${t.cardBorder}`, background: isDark ? 'rgba(255,255,255,0.01)' : t.cardBg, flexShrink: 0 }}>
+        {[
+          { label: 'Total',    value: stats.total,    color: '#3b82f6',  Icon: CubeTransparentIcon },
+          { label: 'Deployed', value: stats.deployed, color: t.success,  Icon: CheckCircleIcon },
+          { label: 'Failed',   value: stats.failed,   color: t.error,    Icon: XCircleIcon },
+          { label: 'Pending',  value: stats.pending,  color: t.warning,  Icon: ClockIcon },
+        ].map(({ label, value, color, Icon }, i) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingRight: 24, marginRight: 24, borderRight: i < 3 ? `1px solid ${t.cardBorder}` : 'none' }}>
+            <Icon style={{ width: 13, height: 13, color, flexShrink: 0 }} />
+            <span style={{ fontSize: 18, fontWeight: 700, color, ...mono, lineHeight: 1 }}>{value}</span>
+            <span style={{ fontSize: 10, color: isDark ? t.textMuted : '#6B7280', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</span>
           </div>
-        </motion.div>
+        ))}
 
-        <motion.div
-          whileHover={{ y: -2 }}
-          className="p-4 rounded-lg bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border border-red-200 dark:border-red-800"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-red-600 dark:text-red-400 uppercase">Failed</p>
-              <p className="text-2xl font-bold text-red-900 dark:text-red-100 mt-1">{stats.failed}</p>
-            </div>
-            <XCircleIcon className="h-8 w-8 text-red-500 opacity-50" />
-          </div>
-        </motion.div>
-
-        <motion.div
-          whileHover={{ y: -2 }}
-          className="p-4 rounded-lg bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200 dark:border-amber-800"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase">Pending</p>
-              <p className="text-2xl font-bold text-amber-900 dark:text-amber-100 mt-1">{stats.pending}</p>
-            </div>
-            <ClockIcon className="h-8 w-8 text-amber-500 opacity-50" />
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Search Bar */}
-      <div className="px-6 py-3 bg-gray-50 dark:bg-slate-900/50 border-b border-gray-200 dark:border-slate-700 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="flex-1 relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+        {/* Right side: search + filter + refresh */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ position: 'relative' }}>
+            <MagnifyingGlassIcon style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 12, height: 12, color: t.textMuted }} />
             <input
               type="text"
-              placeholder="Search releases by name or chart..."
+              placeholder="Search releases…"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{
+                background: 'transparent', border: `1px solid ${isDark ? t.cardBorder : '#D1D5DB'}`,
+                borderRadius: 6, padding: '4px 9px 4px 26px', color: t.text,
+                fontSize: 11, outline: 'none', width: 180,
+              }}
             />
           </div>
-          <Dropdown
-            label=""
-            value={selectedNamespace}
-            options={namespaces}
-            onChange={setSelectedNamespace}
-          />
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleRefresh}
-            disabled={loading}
-            className="p-2.5 rounded-lg bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+          <NamespaceDropdown value={selectedNamespace} options={namespaces} onChange={setSelectedNamespace} />
+          <button
+            onClick={handleRefresh} disabled={loading}
+            style={{ padding: '5px 8px', background: isDark ? t.navHoverBg : '#F9FAFB', border: `1px solid ${isDark ? t.cardBorder : '#D1D5DB'}`, borderRadius: 6, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1, display: 'flex', alignItems: 'center' }}
           >
-            <ArrowPathIcon className={`h-5 w-5 text-gray-600 dark:text-gray-400 ${loading ? 'animate-spin' : ''}`} />
-          </motion.button>
+            <ArrowPathIcon style={{ width: 13, height: 13, color: t.textSub, animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+          </button>
         </div>
       </div>
 
-      {/* Error Banner */}
+      {/* ── Error banner ── */}
       {error && (
-        <div className="mx-6 mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex-shrink-0">
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <div style={{ margin: '0 32px', marginTop: 12, padding: '9px 14px', background: isDark ? 'rgba(239,68,68,0.1)' : '#FEF2F2', border: `1px solid ${isDark ? 'rgba(239,68,68,0.2)' : '#FECACA'}`, borderRadius: 8, fontSize: 12, color: t.error, flexShrink: 0 }}>
+          {error instanceof Error ? error.message : String(error)}
         </div>
       )}
 
-      {/* Main Content - Card Grid */}
-      <div className="flex-1 overflow-auto p-6">
-        {loading && filteredReleases.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <ArrowPathIcon className="h-12 w-12 text-gray-400 animate-spin mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">Loading releases...</p>
-            </div>
-          </div>
-        ) : filteredReleases.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <CubeIcon className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">No releases found</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                {searchQuery ? 'Try adjusting your search' : 'Get started by installing a chart'}
-              </p>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => navigate('/deploy/helm/catalog')}
-                className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg hover:shadow-lg transition-all"
-              >
-                Install Your First Chart
-              </motion.button>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredReleases.map((release, index) => (
-              <motion.div
-                key={`${release.namespace}/${release.name}`}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                whileHover={{ y: -4 }}
-                className="bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700 p-4 shadow-sm hover:shadow-md transition-all"
-              >
-                {/* Card Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{release.name}</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{release.chart}</p>
-                  </div>
-                  <HelmStatusBadge status={release.status} />
-                </div>
+      {/* ── Release list ── */}
+      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
 
-                {/* Card Info */}
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500 dark:text-gray-400">Namespace</span>
-                    <span className="px-2 py-0.5 rounded bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 font-medium">
-                      {release.namespace}
+        {/* Table header */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 100px 90px 80px 120px', gap: 0, padding: '0 32px', height: 34, alignItems: 'center', borderBottom: `1px solid ${t.cardBorder}`, flexShrink: 0, background: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.015)' }}>
+          {['Release', 'Chart', 'Namespace', 'Version', 'Updated', 'Actions'].map(h => (
+            <span key={h} style={{ fontSize: 10, fontWeight: 600, color: isDark ? t.textMuted : '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</span>
+          ))}
+        </div>
+
+        {/* Rows */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {(initialLoading || loading) && releases.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}>
+              <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <ArrowPathIcon style={{ width: 22, height: 22, color: t.textMuted, animation: 'spin 1s linear infinite' }} />
+                <span style={{ fontSize: 12, color: t.textMuted }}>Loading releases…</span>
+              </div>
+            </div>
+          ) : filteredReleases.length === 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 240, gap: 10 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: isDark ? 'rgba(59,130,246,0.1)' : '#EFF6FF', border: `1px solid ${isDark ? 'rgba(59,130,246,0.2)' : '#BFDBFE'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CubeIcon style={{ width: 22, height: 22, color: '#3b82f6' }} />
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>No releases found</div>
+              <div style={{ fontSize: 11, color: t.textMuted }}>
+                {searchQuery ? 'Try adjusting your search' : 'Install your first chart to get started'}
+              </div>
+              {!searchQuery && (
+                <button
+                  onClick={() => navigate('/deploy/helm/catalog')}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', fontSize: 11, fontWeight: 600, background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', marginTop: 4 }}
+                >
+                  <PlusIcon style={{ width: 12, height: 12 }} /> Install Chart
+                </button>
+              )}
+            </div>
+          ) : filteredReleases.map((release, idx) => {
+            const chip = statusChip(release.status, t, isDark);
+            return (
+              <div
+                key={`${release.namespace}/${release.name}`}
+                style={{
+                  display: 'grid', gridTemplateColumns: '1fr 140px 100px 90px 80px 120px',
+                  gap: 0, padding: '0 32px', height: 46, alignItems: 'center',
+                  borderBottom: `1px solid ${t.cardBorder}`,
+                  background: idx % 2 === 0 ? 'transparent' : (isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.008)'),
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = idx % 2 === 0 ? 'transparent' : (isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.008)'); }}
+              >
+                {/* Release name */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 6, background: chip.bg, border: `1px solid ${chip.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <CubeIcon style={{ width: 11, height: 11, color: chip.color }} />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{release.name}</div>
+                    <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 3, background: chip.bg, color: chip.color, border: `1px solid ${chip.border}`, ...mono }}>
+                      {helmStatusLabels[release.status] || release.status}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500 dark:text-gray-400">Version</span>
-                    <span className="text-gray-900 dark:text-white font-medium">{release.chart_version}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500 dark:text-gray-400">Updated</span>
-                    <span className="text-gray-900 dark:text-white font-medium">{formatAge(release.updated)}</span>
-                  </div>
                 </div>
 
-                {/* Card Actions */}
-                <div className="flex items-center gap-2 pt-3 border-t border-gray-200 dark:border-slate-700">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                {/* Chart */}
+                <span style={{ fontSize: 11, color: isDark ? t.textSub : '#374151', ...mono, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{release.chart}</span>
+
+                {/* Namespace */}
+                <span style={{ fontSize: 11, color: isDark ? t.textMuted : '#4B5563', ...mono }}>{release.namespace}</span>
+
+                {/* Version */}
+                <span style={{ fontSize: 11, color: isDark ? t.textSub : '#374151', ...mono }}>{release.chart_version}</span>
+
+                {/* Updated */}
+                <span style={{ fontSize: 11, color: isDark ? t.textMuted : '#6B7280' }}>{formatAge(release.updated)}</span>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <button
                     onClick={() => navigate(`/deploy/helm/workspace/${release.namespace}/${release.name}`)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-slate-700 rounded hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 10, fontWeight: 500, background: isDark ? t.navHoverBg : '#F3F4F6', color: t.text, border: `1px solid ${isDark ? t.cardBorder : '#D1D5DB'}`, borderRadius: 5, cursor: 'pointer' }}
                   >
-                    <EyeIcon className="h-3.5 w-3.5" />
-                    View
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    <EyeIcon style={{ width: 11, height: 11 }} /> View
+                  </button>
+                  <button
                     onClick={() => handleUpgrade(release)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 rounded hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', fontSize: 10, fontWeight: 500, background: isDark ? 'rgba(59,130,246,0.1)' : '#EFF6FF', color: '#3b82f6', border: `1px solid ${isDark ? 'rgba(59,130,246,0.2)' : '#BFDBFE'}`, borderRadius: 5, cursor: 'pointer' }}
                   >
-                    <ArrowUpTrayIcon className="h-3.5 w-3.5" />
-                    Upgrade
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    <ArrowUpTrayIcon style={{ width: 11, height: 11 }} /> Up
+                  </button>
+                  <button
                     onClick={() => handleDelete(release)}
-                    className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-colors"
+                    style={{ padding: '4px 6px', background: 'transparent', color: t.error, border: 'none', borderRadius: 5, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                     title="Delete"
                   >
-                    <TrashIcon className="h-4 w-4" />
-                  </motion.button>
+                    <TrashIcon style={{ width: 12, height: 12 }} />
+                  </button>
                 </div>
-              </motion.div>
-            ))}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer count */}
+        {filteredReleases.length > 0 && (
+          <div style={{ padding: '0 32px', height: 32, display: 'flex', alignItems: 'center', borderTop: `1px solid ${t.cardBorder}`, flexShrink: 0 }}>
+            <span style={{ fontSize: 10, color: t.textMuted }}>{filteredReleases.length} release{filteredReleases.length !== 1 ? 's' : ''}{searchQuery || selectedNamespace !== 'all' ? ' (filtered)' : ''}</span>
           </div>
         )}
       </div>

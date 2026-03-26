@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { kubernetesApi } from '../../services/api';
-import PageHeader from '../common/PageHeader';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useNamespace } from '../../contexts/NamespaceContext';
+import { getThemeColors, mono } from '../../styles/linear-design';
+import K8sHeader from '../kubernetes/K8sHeader';
 import {
   ArrowPathIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
-  ExclamationCircleIcon,
   ClockIcon,
   CubeIcon,
   ServerIcon,
@@ -18,11 +19,7 @@ import {
   DocumentTextIcon,
   PlayIcon,
   PauseIcon,
-  BellAlertIcon,
 } from '@heroicons/react/24/outline';
-
-// Import shared constants
-import { containerVariants, itemVariants, formatAge } from '../../utils/constants';
 
 // Types
 interface K8sEvent {
@@ -46,28 +43,6 @@ interface K8sEvent {
   };
 }
 
-// Severity configuration
-const severityConfig = {
-  Warning: {
-    icon: ExclamationTriangleIcon,
-    color: 'text-amber-500',
-    bg: 'bg-amber-100 dark:bg-amber-900/30',
-    border: 'border-amber-200/50 dark:border-amber-800/50',
-  },
-  Normal: {
-    icon: InformationCircleIcon,
-    color: 'text-blue-500',
-    bg: 'bg-blue-100 dark:bg-blue-900/30',
-    border: 'border-blue-200/50 dark:border-blue-800/50',
-  },
-  Error: {
-    icon: ExclamationCircleIcon,
-    color: 'text-red-500',
-    bg: 'bg-red-100 dark:bg-red-900/30',
-    border: 'border-red-200/50 dark:border-red-800/50',
-  },
-};
-
 // Time formatting
 function formatTimeAgo(timestamp: string): string {
   const date = new Date(timestamp);
@@ -89,110 +64,138 @@ function EventCard({
   event,
   isExpanded,
   onToggle,
-  index,
 }: {
   event: K8sEvent;
   isExpanded: boolean;
   onToggle: () => void;
   index: number;
 }) {
-  const config = severityConfig[event.type] || severityConfig.Normal;
-  const Icon = config.icon;
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+
+  const isWarning = event.type === 'Warning';
+  const accentColor = isWarning ? t.warning : t.info;
+  const iconBg = isWarning ? t.warningBg : t.infoBg;
+  const Icon = isWarning ? ExclamationTriangleIcon : InformationCircleIcon;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, delay: index * 0.03 }}
-      className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border ${config.border} shadow-sm overflow-hidden transition-all duration-200`}
-    >
+    <div style={{
+      background: t.cardBg,
+      border: `1px solid ${t.cardBorder}`,
+      borderLeft: `3px solid ${accentColor}`,
+      borderRadius: 10,
+      overflow: 'hidden',
+    }}>
       <div
-        className="px-4 py-3 cursor-pointer hover:bg-white/90 dark:hover:bg-slate-700/50 transition-colors"
+        style={{ padding: '12px 16px', cursor: 'pointer' }}
         onClick={onToggle}
       >
-        <div className="flex items-start gap-3">
-          <div className={`p-2 rounded-xl ${config.bg}`}>
-            <Icon className={`h-4 w-4 ${config.color}`} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{
+            padding: 8,
+            borderRadius: 8,
+            background: iconBg,
+            flexShrink: 0,
+          }}>
+            <Icon style={{ width: 16, height: 16, color: accentColor }} />
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${config.bg} ${config.color}`}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{
+                padding: '2px 8px',
+                fontSize: 11,
+                fontWeight: 500,
+                borderRadius: 9999,
+                background: iconBg,
+                color: accentColor,
+              }}>
                 {event.type}
               </span>
-              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{event.reason}</span>
+              <span style={{ fontSize: 12, fontWeight: 500, color: t.text }}>{event.reason}</span>
               {event.count > 1 && (
-                <span className="px-1.5 py-0.5 text-xs bg-gray-100/80 dark:bg-slate-700/80 text-gray-600 dark:text-gray-400 rounded-full">
+                <span style={{
+                  padding: '1px 6px',
+                  fontSize: 11,
+                  background: t.cardBorder,
+                  color: t.textSub,
+                  borderRadius: 9999,
+                }}>
                   x{event.count}
                 </span>
               )}
             </div>
-            <p className="text-sm text-gray-900 dark:text-white line-clamp-2">{event.message}</p>
-            <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-              <span className="flex items-center gap-1">
-                <CubeIcon className="h-3.5 w-3.5" />
+            <p style={{
+              fontSize: 13,
+              color: t.text,
+              overflow: 'hidden',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+            }}>
+              {event.message}
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8, fontSize: 11, color: t.textMuted }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <CubeIcon style={{ width: 13, height: 13 }} />
                 {event.involved_object.kind}/{event.involved_object.name}
               </span>
-              <span className="flex items-center gap-1">
-                <ServerIcon className="h-3.5 w-3.5" />
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <ServerIcon style={{ width: 13, height: 13 }} />
                 {event.namespace}
               </span>
-              <span className="flex items-center gap-1">
-                <ClockIcon className="h-3.5 w-3.5" />
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <ClockIcon style={{ width: 13, height: 13 }} />
                 {formatTimeAgo(event.last_timestamp)}
               </span>
             </div>
           </div>
-          <button className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+          <button style={{
+            padding: 4,
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            color: t.textMuted,
+          }}>
             {isExpanded ? (
-              <ChevronDownIcon className="h-5 w-5" />
+              <ChevronDownIcon style={{ width: 18, height: 18 }} />
             ) : (
-              <ChevronRightIcon className="h-5 w-5" />
+              <ChevronRightIcon style={{ width: 18, height: 18 }} />
             )}
           </button>
         </div>
       </div>
 
       {/* Expanded Details */}
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="px-4 py-3 border-t border-gray-100/50 dark:border-slate-700/50 bg-gray-50/50 dark:bg-slate-900/50">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Full Message</p>
-                  <p className="text-gray-900 dark:text-white">{event.message}</p>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">First Seen</p>
-                    <p className="text-gray-900 dark:text-white">{formatTimestamp(event.first_timestamp)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Last Seen</p>
-                    <p className="text-gray-900 dark:text-white">{formatTimestamp(event.last_timestamp)}</p>
-                  </div>
-                  {event.source && (
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Source</p>
-                      <p className="text-gray-900 dark:text-white">
-                        {event.source.component}
-                        {event.source.host && ` (${event.source.host})`}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
+      {isExpanded && (
+        <div style={{ padding: '12px 16px', borderTop: `1px solid ${t.cardBorder}`, background: t.mainBg }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, fontSize: 13 }}>
+            <div>
+              <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>Full Message</div>
+              <div style={{ fontSize: 12, color: t.text, lineHeight: 1.5 }}>{event.message}</div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>First Seen</div>
+                <div style={{ fontSize: 12, color: t.text, ...mono }}>{formatTimestamp(event.first_timestamp)}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>Last Seen</div>
+                <div style={{ fontSize: 12, color: t.text, ...mono }}>{formatTimestamp(event.last_timestamp)}</div>
+              </div>
+              {event.source && (
+                <div>
+                  <div style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>Source</div>
+                  <div style={{ fontSize: 12, color: t.text }}>
+                    {event.source.component}
+                    {event.source.host && ` (${event.source.host})`}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -204,11 +207,27 @@ function FilterBadge({
   label: string;
   onRemove: () => void;
 }) {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+
   return (
-    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100/80 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-medium rounded-full">
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      padding: '3px 10px',
+      background: t.infoBg,
+      color: t.info,
+      fontSize: 11,
+      fontWeight: 500,
+      borderRadius: 9999,
+    }}>
       {label}
-      <button onClick={onRemove} className="hover:text-blue-900 dark:hover:text-blue-200 transition-colors">
-        <XMarkIcon className="h-3 w-3" />
+      <button
+        onClick={onRemove}
+        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit', display: 'flex', alignItems: 'center', padding: 0 }}
+      >
+        <XMarkIcon style={{ width: 12, height: 12 }} />
       </button>
     </span>
   );
@@ -220,7 +239,6 @@ function StatsCard({
   value,
   icon: Icon,
   color,
-  index,
 }: {
   title: string;
   value: number;
@@ -228,62 +246,52 @@ function StatsCard({
   color: 'blue' | 'yellow' | 'red' | 'green';
   index: number;
 }) {
-  const colorClasses = {
-    blue: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
-    yellow: 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
-    red: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400',
-    green: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+
+  const colorMap = {
+    blue: { bg: t.infoBg, text: t.info },
+    yellow: { bg: t.warningBg, text: t.warning },
+    red: { bg: t.errorBg, text: t.error },
+    green: { bg: t.successBg, text: t.success },
   };
+  const c = colorMap[color];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.1 }}
-      className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl p-4 border border-gray-200/50 dark:border-slate-700/50 shadow-sm"
-    >
-      <div className="flex items-center gap-3">
-        <div className={`p-2.5 rounded-xl ${colorClasses[color]}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
-        </div>
+    <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: c.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Icon style={{ width: 16, height: 16, color: c.text }} />
       </div>
-    </motion.div>
+      <div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: c.text, lineHeight: 1, marginBottom: 2, ...mono }}>{value}</div>
+        <div style={{ fontSize: 11, color: t.textMuted }}>{title}</div>
+      </div>
+    </div>
   );
 }
 
 // Main Component
 export default function EventLogs() {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+  const { selectedNamespace } = useNamespace();
+
   const [events, setEvents] = useState<K8sEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'Normal' | 'Warning'>('all');
-  const [namespaceFilter, setNamespaceFilter] = useState<string>('all');
-  const [namespaces, setNamespaces] = useState<string[]>([]);
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
-
-  // Load namespaces
-  useEffect(() => {
-    kubernetesApi.getNamespaces().then((res) => {
-      if (res.data) {
-        setNamespaces(res.data.map((ns: { name: string }) => ns.name));
-      }
-    });
-  }, []);
 
   // Load events
   const loadEvents = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const params = namespaceFilter !== 'all' ? { namespace: namespaceFilter } : {};
-      const res = await kubernetesApi.getEvents(params);
+      const ns = selectedNamespace || undefined;
+      const res = await kubernetesApi.getEvents(ns);
 
       if (res.data) {
         // Transform API response to our format
@@ -314,7 +322,7 @@ export default function EventLogs() {
     } finally {
       setLoading(false);
     }
-  }, [namespaceFilter]);
+  }, [selectedNamespace]);
 
   useEffect(() => {
     loadEvents();
@@ -368,35 +376,40 @@ export default function EventLogs() {
   };
 
   // Clear filters
-  const hasActiveFilters = typeFilter !== 'all' || namespaceFilter !== 'all' || searchQuery !== '';
+  const hasActiveFilters = typeFilter !== 'all' || searchQuery !== '';
+
+  const selectStyle: React.CSSProperties = {
+    padding: '7px 10px',
+    background: t.mainBg,
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 6,
+    color: t.text,
+    fontSize: 12,
+    outline: 'none',
+    cursor: 'pointer',
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <PageHeader
+    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', color: t.text, overflow: 'hidden' }}>
+
+      <K8sHeader
         title="Event Logs"
-        description="Real-time Kubernetes cluster events and notifications"
-        icon={BellAlertIcon}
-        iconColor="purple"
-        actions={
-          <div className="flex items-center gap-3">
+        subtitle="Real-time Kubernetes cluster events and notifications"
+        rightContent={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <button
               onClick={() => setAutoRefresh(!autoRefresh)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm transition-all ${
-                autoRefresh
-                  ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg shadow-green-500/25'
-                  : 'bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-slate-700/50 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700/50'
-              }`}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 6, border: `1px solid ${autoRefresh ? t.success + '60' : t.cardBorder}`, background: autoRefresh ? t.successBg : 'none', color: autoRefresh ? t.success : t.textSub, fontSize: 11, fontWeight: 500, cursor: 'pointer' }}
             >
               {autoRefresh ? (
                 <>
-                  <PauseIcon className="h-4 w-4" />
+                  <PauseIcon style={{ width: 12, height: 12 }} />
                   <span>Live</span>
-                  <span className="ml-1 h-2 w-2 rounded-full bg-white animate-pulse" />
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: t.success, flexShrink: 0 }} />
                 </>
               ) : (
                 <>
-                  <PlayIcon className="h-4 w-4" />
+                  <PlayIcon style={{ width: 12, height: 12 }} />
                   <span>Auto-refresh</span>
                 </>
               )}
@@ -404,16 +417,19 @@ export default function EventLogs() {
             <button
               onClick={loadEvents}
               disabled={loading}
-              className="p-2.5 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-slate-700/50 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700/50 rounded-xl transition-all disabled:opacity-50"
+              style={{ background: 'none', border: `1px solid ${t.cardBorder}`, borderRadius: 6, padding: '5px 8px', cursor: loading ? 'wait' : 'pointer', color: t.textSub, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}
             >
-              <ArrowPathIcon className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+              <ArrowPathIcon style={{ width: 12, height: 12 }} />
+              {loading ? 'Refreshing…' : 'Refresh'}
             </button>
           </div>
         }
       />
 
+      <main style={{ flex: 1, overflow: 'auto', padding: '20px 32px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         <StatsCard title="Total Events" value={stats.total} icon={DocumentTextIcon} color="blue" index={0} />
         <StatsCard title="Normal" value={stats.normal} icon={InformationCircleIcon} color="green" index={1} />
         <StatsCard title="Warnings" value={stats.warning} icon={ExclamationTriangleIcon} color="yellow" index={2} />
@@ -421,22 +437,43 @@ export default function EventLogs() {
       </div>
 
       {/* Filters */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.4 }}
-        className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-slate-700/50 p-4 shadow-sm"
-      >
-        <div className="flex items-center gap-4">
+      <div style={{
+        background: t.cardBg,
+        border: `1px solid ${t.cardBorder}`,
+        borderRadius: 10,
+        padding: 16,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           {/* Search */}
-          <div className="flex-1 relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <div style={{ flex: 1, position: 'relative' }}>
+            <MagnifyingGlassIcon style={{
+              position: 'absolute',
+              left: 12,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              width: 16,
+              height: 16,
+              color: t.textMuted,
+            }} />
             <input
               type="text"
               placeholder="Search events by message, reason, resource..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50/80 dark:bg-slate-900/50 border border-gray-200/50 dark:border-slate-700/50 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              style={{
+                width: '100%',
+                paddingLeft: 34,
+                paddingRight: 12,
+                paddingTop: 7,
+                paddingBottom: 7,
+                background: t.mainBg,
+                border: `1px solid ${t.cardBorder}`,
+                borderRadius: 6,
+                color: t.text,
+                fontSize: 12,
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
             />
           </div>
 
@@ -444,92 +481,76 @@ export default function EventLogs() {
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as 'all' | 'Normal' | 'Warning')}
-            className="px-4 py-2.5 bg-gray-50/80 dark:bg-slate-900/50 border border-gray-200/50 dark:border-slate-700/50 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 transition-all"
+            style={selectStyle}
           >
             <option value="all">All Types</option>
             <option value="Normal">Normal</option>
             <option value="Warning">Warning</option>
           </select>
 
-          {/* Namespace Filter */}
-          <select
-            value={namespaceFilter}
-            onChange={(e) => setNamespaceFilter(e.target.value)}
-            className="px-4 py-2.5 bg-gray-50/80 dark:bg-slate-900/50 border border-gray-200/50 dark:border-slate-700/50 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 transition-all"
-          >
-            <option value="all">All Namespaces</option>
-            {namespaces.map((ns) => (
-              <option key={ns} value={ns}>{ns}</option>
-            ))}
-          </select>
         </div>
 
         {/* Active Filters */}
-        <AnimatePresence>
-          {hasActiveFilters && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100/50 dark:border-slate-700/50"
-            >
-              <FunnelIcon className="h-4 w-4 text-gray-400" />
-              <span className="text-xs text-gray-500">Active filters:</span>
-              {typeFilter !== 'all' && (
-                <FilterBadge label={`Type: ${typeFilter}`} onRemove={() => setTypeFilter('all')} />
-              )}
-              {namespaceFilter !== 'all' && (
-                <FilterBadge label={`Namespace: ${namespaceFilter}`} onRemove={() => setNamespaceFilter('all')} />
-              )}
-              {searchQuery && (
-                <FilterBadge label={`Search: "${searchQuery}"`} onRemove={() => setSearchQuery('')} />
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+        {hasActiveFilters && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${t.cardBorder}` }}>
+            <FunnelIcon style={{ width: 14, height: 14, color: t.textMuted }} />
+            <span style={{ fontSize: 11, color: t.textMuted }}>Active filters:</span>
+            {typeFilter !== 'all' && (
+              <FilterBadge label={`Type: ${typeFilter}`} onRemove={() => setTypeFilter('all')} />
+            )}
+            {searchQuery && (
+              <FilterBadge label={`Search: "${searchQuery}"`} onRemove={() => setSearchQuery('')} />
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Results Info */}
-      <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-        <span>
-          Showing {filteredEvents.length} of {events.length} events
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, color: t.textSub }}>
+        <span>Showing {filteredEvents.length} of {events.length} events</span>
         <span>Last updated: {lastRefresh.toLocaleTimeString()}</span>
       </div>
 
       {/* Events List */}
       {error ? (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-red-50/80 dark:bg-red-900/30 backdrop-blur-sm border border-red-200/50 dark:border-red-800/50 rounded-xl p-4 text-red-700 dark:text-red-400"
-        >
-          <p>{error}</p>
-          <button onClick={loadEvents} className="mt-2 text-sm underline hover:no-underline">
+        <div style={{
+          background: t.errorBg,
+          border: `1px solid rgba(239,68,68,0.2)`,
+          borderRadius: 10,
+          padding: 16,
+          color: t.error,
+        }}>
+          <div style={{ fontSize: 12, marginBottom: 8 }}>{error}</div>
+          <button
+            onClick={loadEvents}
+            style={{ fontSize: 12, background: 'transparent', border: 'none', cursor: 'pointer', color: t.error, textDecoration: 'underline', padding: 0 }}
+          >
             Retry
           </button>
-        </motion.div>
+        </div>
       ) : loading && events.length === 0 ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="flex items-center gap-3 text-gray-500">
-            <ArrowPathIcon className="h-5 w-5 animate-spin" />
-            <span>Loading events...</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 256 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: t.textSub }}>
+            <ArrowPathIcon style={{ width: 20, height: 20, animation: 'spin 1s linear infinite' }} />
+            <span style={{ fontSize: 14 }}>Loading events...</span>
           </div>
         </div>
       ) : filteredEvents.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-slate-700/50 p-8 text-center"
-        >
-          <DocumentTextIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400">No events found</p>
+        <div style={{
+          background: t.cardBg,
+          border: `1px solid ${t.cardBorder}`,
+          borderRadius: 10,
+          padding: 32,
+          textAlign: 'center',
+        }}>
+          <DocumentTextIcon style={{ width: 48, height: 48, color: t.textMuted, margin: '0 auto 12px' }} />
+          <div style={{ fontSize: 13, fontWeight: 500, color: t.text, marginBottom: 4 }}>No events found</div>
           {hasActiveFilters && (
-            <p className="text-sm text-gray-400 mt-1">Try adjusting your filters</p>
+            <div style={{ fontSize: 12, color: t.textMuted }}>Try adjusting your filters</div>
           )}
-        </motion.div>
+        </div>
       ) : (
-        <div className="space-y-3">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {filteredEvents.map((event, index) => (
             <EventCard
               key={event.uid}
@@ -541,6 +562,7 @@ export default function EventLogs() {
           ))}
         </div>
       )}
+      </main>
     </div>
   );
 }

@@ -1,1094 +1,527 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ServerStackIcon,
+  ShieldCheckIcon,
+  RocketLaunchIcon,
+  CpuChipIcon,
+  ChartBarIcon,
+  ArrowPathIcon,
+  ClockIcon,
+  SparklesIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
-  CubeIcon,
+  CommandLineIcon,
+  Squares2X2Icon,
   BoltIcon,
-  CloudIcon,
-  ArrowRightIcon,
-  ArrowPathIcon,
-  CpuChipIcon,
-  CircleStackIcon,
-  ClockIcon,
-  ExclamationCircleIcon,
-  CurrencyDollarIcon,
-  SparklesIcon,
-  RocketLaunchIcon,
-  ChevronRightIcon,
-  PlayIcon,
-  PauseIcon,
-  XCircleIcon,
+  ServerIcon,
+  CubeIcon,
+  FolderIcon,
+  GlobeAltIcon,
+  ArrowTrendingUpIcon,
+  ArrowTrendingDownIcon,
 } from '@heroicons/react/24/outline';
 import { useToast } from '../../contexts/ToastContext';
 import { useCluster } from '../../contexts/ClusterContext';
-import GlassCard from '../common/GlassCard';
-import ActionableInsightsCard from './ActionableInsightsCard';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
 import useDashboardData from '../../hooks/useDashboardData';
+import { getThemeColors, mono, createCard } from '../../styles/linear-design';
 import { logger } from '../../utils/logger';
 
-// Import shared animation variants and utilities
-import { containerVariants, itemVariants, COLOR_PALETTE } from '../../utils/constants';
-
-// Enhanced Donut Chart Component with glow effects and animations
-function DonutChart({
-  data,
-  size = 180,
-  strokeWidth = 20
-}: {
-  data: { label: string; value: number; color: string }[];
-  size?: number;
-  strokeWidth?: number;
-}) {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const total = data.reduce((sum, item) => sum + item.value, 0);
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const innerRadius = radius - strokeWidth;
-
-  // Calculate the main percentage (running pods)
-  const mainPercentage = total > 0 ? Math.round((data[0]?.value / total) * 100) : 0;
-
-  let currentOffset = 0;
-
+// ─── Sparkline ────────────────────────────────────────────────────────────────
+function Sparkline({ values, color, width = 64, height = 28 }: { values: number[]; color: string; width?: number; height?: number }) {
+  if (values.length < 2) return null;
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values);
+  const range = max - min || 1;
+  const pts = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * width;
+    const y = height - ((v - min) / range) * (height - 4) - 2;
+    return `${x},${y}`;
+  }).join(' ');
   return (
-    <div className="relative group" style={{ width: size, height: size }}>
-      {/* Glow effect behind chart */}
-      <div
-        className="absolute inset-4 rounded-full opacity-30 blur-xl transition-opacity duration-300 group-hover:opacity-50"
-        style={{ background: `conic-gradient(${data.map((d, i) => `${d.color} ${i * 33}%`).join(', ')})` }}
-      />
+    <svg width={width} height={height} style={{ flexShrink: 0, overflow: 'visible' }}>
+      <defs>
+        <linearGradient id={`sg-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polyline points={`0,${height} ${pts} ${width},${height}`} fill={`url(#sg-${color.replace('#', '')})`} />
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
-      <svg width={size} height={size} className="transform -rotate-90 relative z-10">
-        {/* Filters for glow effect */}
-        <defs>
-          <filter id="donutGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter id="innerShadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feComponentTransfer in="SourceAlpha">
-              <feFuncA type="table" tableValues="1 0" />
-            </feComponentTransfer>
-            <feGaussianBlur stdDeviation="3" />
-            <feOffset dx="0" dy="2" result="offsetblur" />
-            <feFlood floodColor="#000" floodOpacity="0.15" result="color" />
-            <feComposite in2="offsetblur" operator="in" />
-            <feComposite in2="SourceAlpha" operator="in" />
-            <feMerge>
-              <feMergeNode in="SourceGraphic" />
-              <feMergeNode />
-            </feMerge>
-          </filter>
-        </defs>
-
-        {/* Background track */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          className="text-gray-200 dark:text-slate-700/50"
-          strokeWidth={strokeWidth}
-        />
-
-        {/* Data segments with glow */}
-        {data.map((item, index) => {
-          const percentage = total > 0 ? item.value / total : 0;
-          const segmentLength = circumference * percentage;
-          const offset = currentOffset;
-          currentOffset += segmentLength;
-          const isHovered = hoveredIndex === index;
-
-          return (
-            <motion.circle
-              key={index}
-              cx={size / 2}
-              cy={size / 2}
-              r={radius}
-              fill="none"
-              stroke={item.color}
-              strokeWidth={isHovered ? strokeWidth + 4 : strokeWidth}
-              strokeDasharray={`${segmentLength} ${circumference - segmentLength}`}
-              strokeDashoffset={-offset}
-              strokeLinecap="round"
-              filter={isHovered ? "url(#donutGlow)" : undefined}
-              initial={{ strokeDasharray: `0 ${circumference}` }}
-              animate={{
-                strokeDasharray: `${segmentLength} ${circumference - segmentLength}`,
-                strokeWidth: isHovered ? strokeWidth + 4 : strokeWidth,
-              }}
-              transition={{ duration: 0.8, delay: index * 0.15, ease: "easeOut" }}
-              onMouseEnter={() => setHoveredIndex(index)}
-              onMouseLeave={() => setHoveredIndex(null)}
-              className="cursor-pointer transition-all duration-200"
-              style={{ filter: isHovered ? `drop-shadow(0 0 8px ${item.color})` : undefined }}
-            />
-          );
-        })}
-
-        {/* Inner decorative ring */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={innerRadius + 8}
-          fill="none"
-          stroke="currentColor"
-          className="text-gray-100 dark:text-slate-800"
-          strokeWidth="1"
-          strokeDasharray="4 4"
-        />
-      </svg>
-
-      {/* Center content with glass effect */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center z-20">
-        <div className="relative">
-          <motion.div
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="text-center"
-          >
-            <span className="text-3xl font-bold bg-gradient-to-br from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-              {mainPercentage}%
-            </span>
-            <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-0.5">
-              Healthy
-            </p>
-          </motion.div>
-        </div>
-      </div>
-
-      {/* Hover tooltip */}
-      <AnimatePresence>
-        {hoveredIndex !== null && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-gray-900 dark:bg-slate-700 text-white text-xs rounded-lg shadow-xl z-30 whitespace-nowrap"
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: data[hoveredIndex].color }} />
-              <span className="font-medium">{data[hoveredIndex].label}:</span>
-              <span>{data[hoveredIndex].value} pods</span>
-            </div>
-            <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 dark:bg-slate-700 rotate-45" />
-          </motion.div>
-        )}
-      </AnimatePresence>
+// ─── Progress bar ─────────────────────────────────────────────────────────────
+function ProgressBar({ pct, color }: { pct: number; color: string }) {
+  const c = Math.min(100, Math.max(0, pct));
+  return (
+    <div style={{ height: 4, borderRadius: 9999, background: color + '22', overflow: 'hidden' }}>
+      <div style={{ width: `${c}%`, height: '100%', borderRadius: 9999, background: color, transition: 'width 0.6s ease' }} />
     </div>
   );
 }
 
-// Enhanced Area Chart with smooth curves, data points, and tooltips
-function AreaChart({
-  cpuData,
-  memoryData,
-  height = 200
-}: {
-  cpuData: number[];
-  memoryData: number[];
-  height?: number;
-}) {
-  const [hoveredPoint, setHoveredPoint] = useState<{ index: number; type: 'cpu' | 'memory' } | null>(null);
-
-  // Use standard SVG dimensions that scale well
-  const padding = { top: 25, right: 60, bottom: 30, left: 45 };
-  const chartWidth = 500;
-  const chartHeight = height - padding.top - padding.bottom;
-  const maxValue = Math.max(...cpuData, ...memoryData, 100);
-
-  // Create smooth bezier curve path
-  const createSmoothPath = (data: number[], fill = false) => {
-    if (data.length < 2) return '';
-
-    const points = data.map((value, index) => ({
-      x: padding.left + (index / (data.length - 1)) * (chartWidth - padding.left - padding.right),
-      y: padding.top + chartHeight - (value / maxValue) * chartHeight,
-    }));
-
-    // Create smooth curve using bezier
-    let path = `M${points[0].x},${points[0].y}`;
-
-    for (let i = 0; i < points.length - 1; i++) {
-      const current = points[i];
-      const next = points[i + 1];
-      const tension = 0.3;
-
-      const cp1x = current.x + (next.x - (points[i - 1]?.x ?? current.x)) * tension;
-      const cp1y = current.y + (next.y - (points[i - 1]?.y ?? current.y)) * tension;
-      const cp2x = next.x - (points[i + 2]?.x ?? next.x - current.x) * tension + (current.x) * tension;
-      const cp2y = next.y - ((points[i + 2]?.y ?? next.y) - current.y) * tension;
-
-      path += ` C${cp1x},${cp1y} ${cp2x},${cp2y} ${next.x},${next.y}`;
-    }
-
-    if (fill) {
-      path += ` L${points[points.length - 1].x},${padding.top + chartHeight}`;
-      path += ` L${points[0].x},${padding.top + chartHeight} Z`;
-    }
-
-    return path;
-  };
-
-  // Get point coordinates
-  const getPointCoords = (data: number[], index: number) => ({
-    x: padding.left + (index / (data.length - 1)) * (chartWidth - padding.left - padding.right),
-    y: padding.top + chartHeight - (data[index] / maxValue) * chartHeight,
-  });
-
-  return (
-    <div className="relative w-full h-full">
-      <svg
-        viewBox={`0 0 ${chartWidth} ${height}`}
-        className="w-full h-full"
-        preserveAspectRatio="xMidYMid meet"
-        onMouseLeave={() => setHoveredPoint(null)}
-      >
-        {/* Definitions */}
-        <defs>
-          {/* Enhanced CPU gradient */}
-          <linearGradient id="cpuGradientEnhanced" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.5" />
-            <stop offset="50%" stopColor="#3B82F6" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.02" />
-          </linearGradient>
-
-          {/* Enhanced Memory gradient */}
-          <linearGradient id="memoryGradientEnhanced" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.5" />
-            <stop offset="50%" stopColor="#8B5CF6" stopOpacity="0.2" />
-            <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.02" />
-          </linearGradient>
-
-          {/* Glow filters */}
-          <filter id="cpuGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="2" result="blur" />
-            <feFlood floodColor="#3B82F6" floodOpacity="0.5" />
-            <feComposite in2="blur" operator="in" />
-            <feMerge>
-              <feMergeNode />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-
-          <filter id="memoryGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="2" result="blur" />
-            <feFlood floodColor="#8B5CF6" floodOpacity="0.5" />
-            <feComposite in2="blur" operator="in" />
-            <feMerge>
-              <feMergeNode />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-
-          {/* Dot glow */}
-          <filter id="dotGlow" x="-100%" y="-100%" width="300%" height="300%">
-            <feGaussianBlur stdDeviation="1.5" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-
-        {/* Y-axis labels and grid lines */}
-        {[0, 25, 50, 75, 100].map((percent) => {
-          const y = padding.top + chartHeight - (percent / maxValue) * chartHeight;
-          return (
-            <g key={percent}>
-              <text
-                x={padding.left - 8}
-                y={y + 3}
-                textAnchor="end"
-                className="fill-gray-400 dark:fill-gray-500"
-                style={{ fontSize: '10px', fontWeight: 500 }}
-              >
-                {percent}
-              </text>
-              <line
-                x1={padding.left}
-                y1={y}
-                x2={chartWidth - padding.right}
-                y2={y}
-                stroke="currentColor"
-                className="text-gray-200/80 dark:text-slate-700/30"
-                strokeWidth="0.5"
-                strokeDasharray="4 4"
-              />
-            </g>
-          );
-        })}
-
-        {/* CPU Area with enhanced gradient */}
-        <motion.path
-          d={createSmoothPath(cpuData, true)}
-          fill="url(#cpuGradientEnhanced)"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
-        />
-
-        {/* Memory Area with enhanced gradient */}
-        <motion.path
-          d={createSmoothPath(memoryData, true)}
-          fill="url(#memoryGradientEnhanced)"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-        />
-
-        {/* CPU Line with glow */}
-        <motion.path
-          d={createSmoothPath(cpuData)}
-          fill="none"
-          stroke="#3B82F6"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          filter="url(#cpuGlow)"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1.2, ease: "easeInOut" }}
-        />
-
-        {/* Memory Line with glow */}
-        <motion.path
-          d={createSmoothPath(memoryData)}
-          fill="none"
-          stroke="#8B5CF6"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          filter="url(#memoryGlow)"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1.2, delay: 0.2, ease: "easeInOut" }}
-        />
-
-        {/* CPU Data points */}
-        {cpuData.map((_, index) => {
-          const coords = getPointCoords(cpuData, index);
-          const isHovered = hoveredPoint?.index === index && hoveredPoint?.type === 'cpu';
-          const isLast = index === cpuData.length - 1;
-
-          return (
-            <motion.g key={`cpu-${index}`}>
-              {(isLast || isHovered) && (
-                <>
-                  <motion.circle
-                    cx={coords.x}
-                    cy={coords.y}
-                    r={isHovered ? 6 : 5}
-                    fill="#3B82F6"
-                    stroke="white"
-                    strokeWidth="2"
-                    filter="url(#dotGlow)"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ duration: 0.3, delay: index * 0.05 }}
-                    onMouseEnter={() => setHoveredPoint({ index, type: 'cpu' })}
-                    className="cursor-pointer"
-                  />
-                  {isLast && (
-                    <motion.circle
-                      cx={coords.x}
-                      cy={coords.y}
-                      r="8"
-                      fill="transparent"
-                      stroke="#3B82F6"
-                      strokeWidth="1"
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    />
-                  )}
-                </>
-              )}
-            </motion.g>
-          );
-        })}
-
-        {/* Memory Data points */}
-        {memoryData.map((_, index) => {
-          const coords = getPointCoords(memoryData, index);
-          const isHovered = hoveredPoint?.index === index && hoveredPoint?.type === 'memory';
-          const isLast = index === memoryData.length - 1;
-
-          return (
-            <motion.g key={`memory-${index}`}>
-              {(isLast || isHovered) && (
-                <>
-                  <motion.circle
-                    cx={coords.x}
-                    cy={coords.y}
-                    r={isHovered ? 6 : 5}
-                    fill="#8B5CF6"
-                    stroke="white"
-                    strokeWidth="2"
-                    filter="url(#dotGlow)"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ duration: 0.3, delay: index * 0.05 + 0.2 }}
-                    onMouseEnter={() => setHoveredPoint({ index, type: 'memory' })}
-                    className="cursor-pointer"
-                  />
-                  {isLast && (
-                    <motion.circle
-                      cx={coords.x}
-                      cy={coords.y}
-                      r="8"
-                      fill="transparent"
-                      stroke="#8B5CF6"
-                      strokeWidth="1"
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
-                      transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
-                    />
-                  )}
-                </>
-              )}
-            </motion.g>
-          );
-        })}
-
-        {/* Current value indicators at the end */}
-        <g>
-          {/* CPU current value badge */}
-          <motion.g
-            initial={{ opacity: 0, x: 5 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 1.2 }}
-          >
-            <rect
-              x={chartWidth - padding.right + 5}
-              y={getPointCoords(cpuData, cpuData.length - 1).y - 10}
-              width="40"
-              height="20"
-              rx="4"
-              fill="#3B82F6"
-              className="drop-shadow-md"
-            />
-            <text
-              x={chartWidth - padding.right + 25}
-              y={getPointCoords(cpuData, cpuData.length - 1).y + 2}
-              textAnchor="middle"
-              fill="white"
-              style={{ fontSize: '11px', fontWeight: 700 }}
-            >
-              {Math.round(cpuData[cpuData.length - 1])}%
-            </text>
-          </motion.g>
-
-          {/* Memory current value badge */}
-          <motion.g
-            initial={{ opacity: 0, x: 5 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 1.4 }}
-          >
-            <rect
-              x={chartWidth - padding.right + 5}
-              y={getPointCoords(memoryData, memoryData.length - 1).y - 10}
-              width="40"
-              height="20"
-              rx="4"
-              fill="#8B5CF6"
-              className="drop-shadow-md"
-            />
-            <text
-              x={chartWidth - padding.right + 25}
-              y={getPointCoords(memoryData, memoryData.length - 1).y + 2}
-              textAnchor="middle"
-              fill="white"
-              style={{ fontSize: '11px', fontWeight: 700 }}
-            >
-              {Math.round(memoryData[memoryData.length - 1])}%
-            </text>
-          </motion.g>
-        </g>
-      </svg>
-
-      {/* Hover tooltip */}
-      <AnimatePresence>
-        {hoveredPoint && (
-          <motion.div
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 5 }}
-            className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-2 bg-gray-900/95 dark:bg-slate-800/95 backdrop-blur-sm text-white text-xs rounded-xl shadow-xl z-30 border border-gray-700/50"
-          >
-            <div className="flex items-center gap-2">
-              <div
-                className="w-2 h-2 rounded-full"
-                style={{ backgroundColor: hoveredPoint.type === 'cpu' ? '#3B82F6' : '#8B5CF6' }}
-              />
-              <span className="font-medium capitalize">{hoveredPoint.type}:</span>
-              <span className="font-bold">
-                {Math.round(hoveredPoint.type === 'cpu' ? cpuData[hoveredPoint.index] : memoryData[hoveredPoint.index])}%
-              </span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-// KPI Card Component - Uses shared COLOR_PALETTE
-function KPICard({
-  title,
-  value,
-  subtitle,
-  icon: Icon,
-  color,
-  trend,
-  index
-}: {
-  title: string;
-  value: string | number;
-  subtitle?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  color: 'green' | 'blue' | 'purple' | 'amber' | 'red' | 'cyan';
-  trend?: { value: number; isPositive: boolean };
-  index: number;
-}) {
-  // Use shared COLOR_PALETTE for consistent colors
-  const colors = COLOR_PALETTE[color];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
-    >
-      <GlassCard padding="sm" className={`hover:shadow-lg ${colors.glow} transition-shadow`}>
-        <div className="flex items-center justify-between mb-2">
-          <div className={`p-1.5 rounded-lg ${colors.bg}`}>
-            <Icon className={`h-4 w-4 ${colors.icon}`} />
-          </div>
-          {trend && (
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-              trend.isPositive
-                ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                : 'bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400'
-            }`}>
-              {trend.isPositive ? '+' : ''}{trend.value}%
-            </span>
-          )}
-        </div>
-        <div>
-          <p className="text-xl font-bold text-gray-900 dark:text-white">{value}</p>
-          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{title}</p>
-          {subtitle && (
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{subtitle}</p>
-          )}
-        </div>
-      </GlassCard>
-    </motion.div>
-  );
-}
-
-// Deployment Row Component
-function DeploymentRow({
-  name,
-  namespace,
-  status,
-  replicas,
-  time
-}: {
-  name: string;
-  namespace: string;
-  status: 'running' | 'pending' | 'failed';
-  replicas: string;
-  time: string;
-}) {
-  const statusConfig = {
-    running: { icon: PlayIcon, color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-500/10' },
-    pending: { icon: PauseIcon, color: 'text-amber-500', bg: 'bg-amber-100 dark:bg-amber-500/10' },
-    failed: { icon: XCircleIcon, color: 'text-red-500', bg: 'bg-red-100 dark:bg-red-500/10' },
-  };
-
-  const config = statusConfig[status];
-  const StatusIcon = config.icon;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors"
-    >
-      <div className={`p-1 rounded ${config.bg}`}>
-        <StatusIcon className={`h-3.5 w-3.5 ${config.color}`} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{name}</p>
-        <p className="text-[11px] text-gray-500 dark:text-gray-400">{namespace}</p>
-      </div>
-      <div className="text-right">
-        <p className="text-sm font-medium text-gray-900 dark:text-white">{replicas}</p>
-        <p className="text-[11px] text-gray-400 dark:text-gray-500">{time}</p>
-      </div>
-    </motion.div>
-  );
-}
-
-// Event Item Component
-function EventItem({
-  type,
-  message,
-  resource,
-  time
-}: {
-  type: 'normal' | 'warning' | 'error';
-  message: string;
-  resource: string;
-  time: string;
-}) {
-  const typeConfig = {
-    normal: { color: 'border-blue-500', dot: 'bg-blue-500' },
-    warning: { color: 'border-amber-500', dot: 'bg-amber-500' },
-    error: { color: 'border-red-500', dot: 'bg-red-500' },
-  };
-
-  const config = typeConfig[type];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className={`relative pl-4 pb-4 border-l-2 ${config.color} last:pb-0`}
-    >
-      <div className={`absolute -left-[5px] top-0 w-2 h-2 rounded-full ${config.dot}`} />
-      <div className="ml-2">
-        <p className="text-sm text-gray-900 dark:text-white">{message}</p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-xs text-gray-500 dark:text-gray-400">{resource}</span>
-          <span className="text-xs text-gray-400 dark:text-gray-500">{time}</span>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
+// ─── Dashboard ────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const toast = useToast();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const { clusters, activeCluster, setActiveCluster } = useCluster();
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+  const isDark = theme === 'dark';
 
-  // Use cached dashboard data with cluster-aware caching
-  // Passing activeCluster?.id ensures data is refetched when cluster changes
-  const { data, isLoading: initialLoading, isRefetching: refreshing, hardReset, error } = useDashboardData(activeCluster?.id);
+  const { data, isLoading, isRefetching, hardReset, error } = useDashboardData(activeCluster?.id);
+  if (error) logger.error('[Dashboard] Query error', error);
 
-  // Log errors for debugging
-  if (error) {
-    logger.error('[Dashboard] Query error', error);
-  }
-
-  // Destructure data from cache
   const clusterHealth = data?.clusterHealth ?? null;
-  const deployments = data?.deployments ?? [];
-  const events = data?.events ?? [];
-  const metrics = data?.metrics ?? null;
-  const costData = data?.costData ?? null;
-  const recommendations = data?.recommendations ?? [];
-  const proactiveInsights = data?.proactiveInsights ?? [];
-  const cpuHistory = data?.cpuHistory ?? [];
-  const memoryHistory = data?.memoryHistory ?? [];
+  const deployments   = data?.deployments  ?? [];
+  const events        = data?.events       ?? [];
+  const metrics       = data?.metrics      ?? null;
 
-  // Pod status data for donut chart (using hex colors for SVG stroke)
-  // Show sample data when no cluster health is available for better UX
-  const podStatusData = useMemo(() => {
-    if (!clusterHealth) {
-      // Sample data to show chart structure when no data available
-      return [
-        { label: 'Running', value: 24, color: '#10B981' },  // emerald-500
-        { label: 'Pending', value: 3, color: '#F59E0B' },   // amber-500
-        { label: 'Failed', value: 1, color: '#EF4444' },    // red-500
-      ];
-    }
-    const running = clusterHealth.running_pods || 0;
-    const total = clusterHealth.total_pods || 0;
-    const pending = Math.floor((total - running) * 0.6);
-    const failed = total - running - pending;
-    return [
-      { label: 'Running', value: running, color: '#10B981' },  // emerald-500
-      { label: 'Pending', value: pending, color: '#F59E0B' },  // amber-500
-      { label: 'Failed', value: failed, color: '#EF4444' },    // red-500
-    ];
-  }, [clusterHealth]);
+  const recentEvents = useMemo(() => events.slice(0, 6).map((ev) => {
+    let status: 'error' | 'warning' | 'success' = 'success';
+    if (ev.type === 'Warning') status = 'warning';
+    if (ev.reason?.toLowerCase().includes('fail') || ev.reason?.toLowerCase().includes('error')) status = 'error';
+    return { status, message: ev.message || ev.reason || 'Unknown event', namespace: ev.namespace || 'default' };
+  }), [events]);
 
-  // Transform deployments for display
-  const recentDeployments = useMemo(() => {
-    return deployments.slice(0, 5).map(dep => {
-      const isHealthy = dep.ready_replicas === dep.replicas;
-      const isPending = dep.ready_replicas < dep.replicas && dep.ready_replicas > 0;
-      let status: 'running' | 'pending' | 'failed' = 'running';
-      if (!isHealthy) status = isPending ? 'pending' : 'failed';
-      if (dep.ready_replicas === 0 && dep.replicas > 0) status = 'failed';
-
-      return {
-        name: dep.name,
-        namespace: dep.namespace,
-        status,
-        replicas: `${dep.ready_replicas}/${dep.replicas}`,
-        time: dep.age || 'N/A',
-      };
-    });
-  }, [deployments]);
-
-  // Transform events for display
-  const recentEvents = useMemo(() => {
-    return events.slice(0, 5).map(event => {
-      let type: 'normal' | 'warning' | 'error' = 'normal';
-      if (event.type === 'Warning') type = 'warning';
-      if (event.reason?.toLowerCase().includes('fail') || event.reason?.toLowerCase().includes('error')) {
-        type = 'error';
-      }
-
-      return {
-        type,
-        message: event.message || event.reason || 'No message',
-        resource: `${event.involved_object?.kind || 'Resource'}/${event.involved_object?.name || 'unknown'}`,
-        time: event.last_timestamp || event.first_timestamp || 'N/A',
-      };
-    });
-  }, [events]);
-
-
-  // Get current metrics for chart display
-  // Use sample data when no real metrics are available for better UX
-  const displayCpuHistory = useMemo(() => {
-    if (cpuHistory.length === 0) {
-      // Generate deterministic sample data based on current metrics or defaults
-      const baseCpu = metrics?.cpu_percent ?? 45;
-      return [32, 35, 38, 42, 45, 48, 52, 48, 45, 50, 55, 52, 48, baseCpu, baseCpu];
-    }
-    if (cpuHistory.length < 15) {
-      return [...Array(15 - cpuHistory.length).fill(cpuHistory[0] || 30), ...cpuHistory];
-    }
-    return cpuHistory;
-  }, [cpuHistory, metrics?.cpu_percent]);
-
-  const displayMemoryHistory = useMemo(() => {
-    if (memoryHistory.length === 0) {
-      // Generate deterministic sample data based on current metrics or defaults
-      const baseMem = metrics?.memory_percent ?? 60;
-      return [55, 58, 62, 65, 63, 60, 58, 62, 65, 68, 65, 62, 60, baseMem, baseMem];
-    }
-    if (memoryHistory.length < 15) {
-      return [...Array(15 - memoryHistory.length).fill(memoryHistory[0] || 50), ...memoryHistory];
-    }
-    return memoryHistory;
-  }, [memoryHistory, metrics?.memory_percent]);
-
-  // Handle manual refresh - use hardReset for thorough cache clearing
   const handleRefresh = async () => {
-    try {
-      await hardReset();
-      toast.success('Data Refreshed', 'Dashboard data has been updated');
-    } catch (err) {
-      logger.error('[Dashboard] Refresh failed', err);
-      toast.error('Refresh Failed', 'Could not refresh dashboard data');
-    }
+    try { await hardReset(); toast.success('Refreshed', 'Dashboard updated'); }
+    catch (err) { logger.error('[Dashboard] Refresh failed', err); toast.error('Error', 'Could not refresh'); }
   };
 
-  // Calculate health score
-  const healthScore = useMemo(() => {
-    if (!clusterHealth) return 0;
-    const nodeHealth = clusterHealth.node_count > 0 ? (clusterHealth.ready_nodes / clusterHealth.node_count) * 100 : 0;
-    const podHealth = clusterHealth.total_pods > 0 ? (clusterHealth.running_pods / clusterHealth.total_pods) * 100 : 0;
-    return Math.round((nodeHealth + podHealth) / 2);
-  }, [clusterHealth]);
-
-  // Show loading skeleton on initial load
-  if (initialLoading) {
+  if (isLoading) {
     return (
-      <div className="space-y-4 animate-pulse">
-        <div className="flex justify-between items-center">
-          <div className="h-12 w-48 bg-gray-200 dark:bg-slate-700 rounded-xl" />
-          <div className="h-10 w-32 bg-gray-200 dark:bg-slate-700 rounded-xl" />
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-24 bg-gray-200 dark:bg-slate-700 rounded-xl" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="h-64 bg-gray-200 dark:bg-slate-700 rounded-xl" />
-          <div className="h-64 bg-gray-200 dark:bg-slate-700 rounded-xl" />
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 320, color: t.textMuted, fontSize: 14 }}>
+        Loading platform overview…
       </div>
     );
   }
 
+  const cpuPct      = metrics?.cpu_percent ?? 0;
+  const memPct      = metrics?.memory_percent ?? 0;
+  const totalPods   = clusterHealth?.total_pods ?? 0;
+  const runningPods = clusterHealth?.running_pods ?? 0;
+  const nodeCount   = clusterHealth?.node_count ?? 0;
+  const readyNodes  = clusterHealth?.ready_nodes ?? 0;
+  const namespaces  = clusterHealth?.namespaces ?? 0;
+  const isHealthy   = clusterHealth?.healthy ?? false;
+  const alertCount  = recentEvents.filter(e => e.status === 'error').length;
+  const warnCount   = recentEvents.filter(e => e.status === 'warning').length;
+
+  const cpuHistory = [18, 24, 20, 35, 28, 42, cpuPct || 0];
+  const memHistory = [45, 48, 52, 49, 55, 60, memPct || 0];
+  const cpuTrend   = cpuHistory[cpuHistory.length - 1] - cpuHistory[cpuHistory.length - 2];
+  const memTrend   = memHistory[memHistory.length - 1] - memHistory[memHistory.length - 2];
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const displayName = user?.full_name || user?.username || 'there';
+
+  const card = createCard(t, isDark, 14);
+
+  const quickActions = [
+    { label: 'Deploy App',   desc: 'Push a new workload',     icon: RocketLaunchIcon, href: '/deploy/yaml',         color: '#8b5cf6', bg: isDark ? 'rgba(139,92,246,0.12)' : '#F5F3FF' },
+    { label: 'Terminal',     desc: 'kubectl access',          icon: CommandLineIcon,  href: '/kubernetes/terminal',  color: '#3b82f6', bg: isDark ? 'rgba(59,130,246,0.12)'  : '#EFF6FF' },
+    { label: 'Workloads',    desc: 'Pods & deployments',      icon: Squares2X2Icon,   href: '/kubernetes/workloads', color: '#10b981', bg: isDark ? 'rgba(16,185,129,0.12)'  : '#ECFDF5' },
+    { label: 'Monitoring',   desc: 'Metrics & alerts',        icon: ChartBarIcon,     href: '/monitoring',           color: '#f59e0b', bg: isDark ? 'rgba(245,158,11,0.12)'  : '#FFFBEB' },
+    { label: 'Security',     desc: 'Posture & findings',      icon: ShieldCheckIcon,  href: '/security',             color: '#ef4444', bg: isDark ? 'rgba(239,68,68,0.12)'   : '#FEF2F2' },
+    { label: 'Namespaces',   desc: 'Namespace management',    icon: FolderIcon,       href: '/namespaces',           color: '#06b6d4', bg: isDark ? 'rgba(6,182,212,0.12)'   : '#ECFEFF' },
+  ];
+
+  const modules = [
+    { label: 'Kubernetes',   sub: `${readyNodes}/${nodeCount} nodes ready`,       href: '/cluster-overview', color: '#3b82f6', icon: ServerStackIcon,  ok: isHealthy,          pct: nodeCount > 0 ? (readyNodes / nodeCount) * 100 : 0 },
+    { label: 'Workloads',    sub: `${runningPods}/${totalPods} pods running`,     href: '/kubernetes/workloads', color: '#10b981', icon: CubeIcon,       ok: runningPods === totalPods && totalPods > 0, pct: totalPods > 0 ? (runningPods / totalPods) * 100 : 0 },
+    { label: 'Security',     sub: alertCount === 0 ? 'No active alerts' : `${alertCount} alert${alertCount > 1 ? 's' : ''}`, href: '/security', color: alertCount > 0 ? '#ef4444' : '#10b981', icon: ShieldCheckIcon, ok: alertCount === 0, pct: 100 - Math.min(alertCount * 20, 100) },
+    { label: 'Monitoring',   sub: 'Prometheus connected',                         href: '/monitoring',       color: '#f59e0b', icon: ChartBarIcon,     ok: true,               pct: 100 },
+    { label: 'Networking',   sub: `${namespaces} namespaces`,                     href: '/kubernetes/networking', color: '#06b6d4', icon: GlobeAltIcon, ok: true,              pct: 100 },
+    { label: 'Deployments',  sub: `${deployments.length} active`,                 href: '/deploy/yaml',      color: '#8b5cf6', icon: RocketLaunchIcon, ok: deployments.length >= 0, pct: 100 },
+  ];
+
+  const evStatusColor = (s: string) => s === 'error' ? '#ef4444' : s === 'warning' ? '#f59e0b' : '#22c55e';
+  const evStatusBg    = (s: string) => s === 'error' ? (isDark ? 'rgba(239,68,68,0.12)' : '#FEF2F2') : s === 'warning' ? (isDark ? 'rgba(245,158,11,0.12)' : '#FFFBEB') : (isDark ? 'rgba(34,197,94,0.12)' : '#F0FDF4');
+  const evStatusLabel = (s: string) => s === 'error' ? 'Critical' : s === 'warning' ? 'Warning' : 'Normal';
+
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="space-y-4"
-    >
-      {/* Header with Cluster Selector */}
-      <motion.div variants={itemVariants}>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600">
-              <BoltIcon className="h-6 w-6 text-white" />
+    <div style={{ width: '100%' }}>
+
+      {/* ── Greeting ───────────────────────────────────────────────────── */}
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: t.text, margin: 0, letterSpacing: -0.5 }}>
+          {greeting}, {displayName} 👋
+        </h1>
+        <p style={{ fontSize: 13, color: t.textSub, margin: '4px 0 0' }}>
+          Here's what's happening across your platform today.
+        </p>
+      </div>
+
+      {/* ── Cluster status banner ──────────────────────────────────────── */}
+      <div style={{
+        ...card,
+        padding: '16px 20px',
+        marginBottom: 16,
+        background: isHealthy
+          ? isDark ? 'rgba(34,197,94,0.06)' : 'linear-gradient(135deg, #f0fdf4 0%, #ffffff 60%)'
+          : isDark ? 'rgba(239,68,68,0.06)' : 'linear-gradient(135deg, #fef2f2 0%, #ffffff 60%)',
+        borderColor: isHealthy ? (isDark ? 'rgba(34,197,94,0.2)' : '#bbf7d0') : (isDark ? 'rgba(239,68,68,0.2)' : '#fecaca'),
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+          {/* Left: status */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{
+              width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+              background: isHealthy ? (isDark ? 'rgba(34,197,94,0.15)' : '#dcfce7') : (isDark ? 'rgba(239,68,68,0.15)' : '#fee2e2'),
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {isHealthy
+                ? <CheckCircleIcon style={{ width: 22, height: 22, color: '#22c55e' }} />
+                : <ExclamationTriangleIcon style={{ width: 22, height: 22, color: '#ef4444' }} />
+              }
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Dashboard
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Real-time cluster overview and insights
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: t.text }}>
+                  {isHealthy ? 'All systems operational' : 'Cluster needs attention'}
+                </span>
+                <span style={{
+                  fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 9999,
+                  background: isHealthy ? (isDark ? 'rgba(34,197,94,0.2)' : '#dcfce7') : (isDark ? 'rgba(239,68,68,0.2)' : '#fee2e2'),
+                  color: isHealthy ? '#16a34a' : '#dc2626',
+                  textTransform: 'uppercase', letterSpacing: 0.5,
+                }}>
+                  {isHealthy ? 'Healthy' : 'Degraded'}
+                </span>
+              </div>
+              <div style={{ fontSize: 12, color: t.textSub }}>
+                {activeCluster?.name || 'Local cluster'} {activeCluster?.version ? `· v${activeCluster.version}` : ''}
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Cluster Selector */}
-            <div className="relative">
+          {/* Center: KPI chips */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            {[
+              { label: 'Nodes',      value: `${readyNodes}/${nodeCount}`, color: '#8b5cf6', icon: ServerIcon },
+              { label: 'Pods',       value: `${runningPods}/${totalPods}`, color: '#22c55e', icon: CubeIcon },
+              { label: 'Namespaces', value: String(namespaces),           color: '#06b6d4', icon: FolderIcon },
+              { label: 'Deploys',    value: String(deployments.length),   color: '#f59e0b', icon: RocketLaunchIcon },
+            ].map((kpi, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '6px 12px', borderRadius: 9999,
+                background: isDark ? t.cardBorder : '#f8fafc',
+                border: `1px solid ${t.cardBorder}`,
+              }}>
+                <kpi.icon style={{ width: 12, height: 12, color: kpi.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{kpi.value}</span>
+                <span style={{ fontSize: 11, color: t.textMuted }}>{kpi.label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Right: cluster select + refresh */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {clusters.length > 1 && (
               <select
                 value={activeCluster?.id || ''}
-                onChange={(e) => {
-                  const cluster = clusters.find(c => c.id === e.target.value);
-                  if (cluster) setActiveCluster(cluster.id);
-                }}
-                className="appearance-none pl-4 pr-10 py-2.5 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-slate-700/50 rounded-xl text-sm font-medium text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all cursor-pointer"
+                onChange={e => { const c = clusters.find(x => x.id === e.target.value); if (c) setActiveCluster(c.id); }}
+                style={{ ...card, background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 8, fontSize: 12, fontWeight: 500, color: t.text, padding: '6px 10px', outline: 'none', cursor: 'pointer' }}
               >
-                {clusters.map((cluster) => (
-                  <option key={cluster.id} value={cluster.id}>
-                    {cluster.name}
-                  </option>
-                ))}
+                {clusters.map(c => <option key={c.id} value={c.id} style={{ background: t.cardBg }}>{c.name}</option>)}
               </select>
-              <CloudIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-            </div>
-
-            <div className="hidden sm:flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-100/50 dark:bg-slate-800/50 px-3 py-2 rounded-xl">
-              <ClockIcon className="h-4 w-4" />
-              <span>Auto-refresh: 30s</span>
-            </div>
-
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-medium shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all disabled:opacity-50"
+            )}
+            <button
+              onClick={handleRefresh} disabled={isRefetching}
+              style={{ ...card, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, color: t.textSub, cursor: 'pointer' }}
+              onMouseEnter={e => { e.currentTarget.style.color = t.text; e.currentTarget.style.background = t.navHoverBg; }}
+              onMouseLeave={e => { e.currentTarget.style.color = t.textSub; e.currentTarget.style.background = t.cardBg; }}
             >
-              <ArrowPathIcon className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Refreshing...' : 'Refresh'}
-            </motion.button>
+              <ArrowPathIcon style={{ width: 13, height: 13, ...(isRefetching ? { animation: 'spin 1s linear infinite' } : {}) }} />
+              {isRefetching ? 'Refreshing…' : 'Refresh'}
+            </button>
           </div>
         </div>
-      </motion.div>
+      </div>
 
-      {/* Actionable Insights Card */}
-      <motion.div variants={itemVariants}>
-        <ActionableInsightsCard insights={proactiveInsights} loading={initialLoading} />
-      </motion.div>
+      {/* ── Metric cards ──────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 12 }}>
 
-      {/* KPI Cards Grid (6 cards) */}
-      <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <KPICard
-            title="Cluster Health"
-            value={`${healthScore}%`}
-            subtitle={clusterHealth?.healthy ? 'All systems operational' : 'Issues detected'}
-            icon={clusterHealth?.healthy ? CheckCircleIcon : ExclamationTriangleIcon}
-            color={healthScore >= 80 ? 'green' : healthScore >= 60 ? 'amber' : 'red'}
-            index={0}
-          />
-          <KPICard
-            title="Nodes"
-            value={clusterHealth ? `${clusterHealth.ready_nodes}/${clusterHealth.node_count}` : '-/-'}
-            subtitle="Ready / Total"
-            icon={ServerStackIcon}
-            color="blue"
-            index={1}
-          />
-          <KPICard
-            title="Pods"
-            value={clusterHealth ? `${clusterHealth.running_pods}/${clusterHealth.total_pods}` : '-/-'}
-            subtitle="Running / Total"
-            icon={CubeIcon}
-            color="purple"
-            index={2}
-          />
-          <KPICard
-            title="Deployments"
-            value={deployments.length || 0}
-            subtitle="Active deployments"
-            icon={RocketLaunchIcon}
-            color="cyan"
-            index={3}
-          />
-          <KPICard
-            title="Est. Monthly"
-            value={costData?.total_monthly_estimate ? `$${costData.total_monthly_estimate.toFixed(0)}` : '$--'}
-            subtitle={costData?.summary?.total_cost ? `Current: $${costData.summary.total_cost.total.toFixed(0)}` : 'Loading...'}
-            icon={CurrencyDollarIcon}
-            color="amber"
-            index={4}
-          />
-          <KPICard
-            title="AI Insights"
-            value={recommendations.length || 0}
-            subtitle="Optimization recommendations"
-            icon={SparklesIcon}
-            color="purple"
-            index={5}
-          />
+        {/* CPU */}
+        <div style={{ ...card, padding: '16px 18px', borderTop: '3px solid #3b82f6' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: isDark ? 'rgba(59,130,246,0.15)' : '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CpuChipIcon style={{ width: 15, height: 15, color: '#3b82f6' }} />
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 500, color: t.textSub }}>CPU</span>
+            </div>
+            <Sparkline values={cpuHistory} color="#3b82f6" />
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: t.text, letterSpacing: -1, lineHeight: 1, marginBottom: 8, ...mono }}>
+            {cpuPct ? `${cpuPct.toFixed(0)}%` : '—'}
+          </div>
+          <ProgressBar pct={cpuPct} color="#3b82f6" />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: t.textMuted }}>{metrics?.total_cpu_usage || '0'} used</span>
+            <span style={{ fontSize: 10, color: cpuTrend > 0 ? '#ef4444' : '#22c55e', display: 'flex', alignItems: 'center', gap: 2 }}>
+              {cpuTrend > 0 ? <ArrowTrendingUpIcon style={{ width: 10, height: 10 }} /> : <ArrowTrendingDownIcon style={{ width: 10, height: 10 }} />}
+              {Math.abs(cpuTrend).toFixed(0)}%
+            </span>
+          </div>
         </div>
-      </motion.div>
 
-      {/* Middle Section: Charts */}
-      <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Node CPU/Memory Graph */}
-          <GlassCard padding="md" className="h-[300px]">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <CpuChipIcon className="h-4 w-4 text-blue-500" />
-                Resource Utilization
-              </h2>
-              <div className="flex items-center gap-4 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50" />
-                  <span className="text-gray-600 dark:text-gray-400">CPU <span className="font-semibold text-blue-600 dark:text-blue-400">{metrics?.cpu_percent?.toFixed(1) || 0}%</span></span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-lg shadow-purple-500/50" />
-                  <span className="text-gray-600 dark:text-gray-400">Memory <span className="font-semibold text-purple-600 dark:text-purple-400">{metrics?.memory_percent?.toFixed(1) || 0}%</span></span>
+        {/* Memory */}
+        <div style={{ ...card, padding: '16px 18px', borderTop: '3px solid #8b5cf6' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: isDark ? 'rgba(139,92,246,0.15)' : '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <BoltIcon style={{ width: 15, height: 15, color: '#8b5cf6' }} />
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 500, color: t.textSub }}>Memory</span>
+            </div>
+            <Sparkline values={memHistory} color="#8b5cf6" />
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: t.text, letterSpacing: -1, lineHeight: 1, marginBottom: 8, ...mono }}>
+            {memPct ? `${memPct.toFixed(0)}%` : '—'}
+          </div>
+          <ProgressBar pct={memPct} color="#8b5cf6" />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: t.textMuted }}>{metrics?.total_memory_usage || '0'} used</span>
+            <span style={{ fontSize: 10, color: memTrend > 0 ? '#ef4444' : '#22c55e', display: 'flex', alignItems: 'center', gap: 2 }}>
+              {memTrend > 0 ? <ArrowTrendingUpIcon style={{ width: 10, height: 10 }} /> : <ArrowTrendingDownIcon style={{ width: 10, height: 10 }} />}
+              {Math.abs(memTrend).toFixed(0)}%
+            </span>
+          </div>
+        </div>
+
+        {/* Nodes */}
+        <div style={{ ...card, padding: '16px 18px', borderTop: '3px solid #f59e0b' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: isDark ? 'rgba(245,158,11,0.15)' : '#FFFBEB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ServerIcon style={{ width: 15, height: 15, color: '#f59e0b' }} />
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 500, color: t.textSub }}>Nodes</span>
+            </div>
+            <Link to="/kubernetes/nodes" style={{ fontSize: 11, color: t.info, textDecoration: 'none', fontWeight: 500 }}>View →</Link>
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: t.text, letterSpacing: -1, lineHeight: 1, marginBottom: 8, ...mono }}>
+            {readyNodes}<span style={{ fontSize: 14, fontWeight: 400, color: t.textSub }}>/{nodeCount}</span>
+          </div>
+          <ProgressBar pct={nodeCount > 0 ? (readyNodes / nodeCount) * 100 : 0} color="#f59e0b" />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+            <span style={{ fontSize: 11, color: t.textMuted }}>Ready / Total</span>
+            <span style={{ fontSize: 10, color: readyNodes === nodeCount && nodeCount > 0 ? '#22c55e' : '#f59e0b', fontWeight: 500 }}>
+              {nodeCount > 0 ? `${Math.round((readyNodes / nodeCount) * 100)}%` : '—'}
+            </span>
+          </div>
+        </div>
+
+        {/* Pods */}
+        <div style={{ ...card, padding: '16px 18px', borderTop: '3px solid #22c55e' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: isDark ? 'rgba(34,197,94,0.15)' : '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <CubeIcon style={{ width: 15, height: 15, color: '#22c55e' }} />
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 500, color: t.textSub }}>Pods</span>
+            </div>
+            <Link to="/kubernetes/workloads" style={{ fontSize: 11, color: t.info, textDecoration: 'none', fontWeight: 500 }}>View →</Link>
+          </div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: t.text, letterSpacing: -1, lineHeight: 1, marginBottom: 8, ...mono }}>
+            {runningPods}<span style={{ fontSize: 14, fontWeight: 400, color: t.textSub }}>/{totalPods}</span>
+          </div>
+          <ProgressBar pct={totalPods > 0 ? (runningPods / totalPods) * 100 : 0} color="#22c55e" />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+            <span style={{ fontSize: 11, color: t.textMuted }}>Running / Total</span>
+            {(alertCount > 0 || warnCount > 0) && (
+              <span style={{ fontSize: 10, color: '#f59e0b', fontWeight: 500 }}>
+                {alertCount + warnCount} issue{alertCount + warnCount > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Main content: 3-col layout ────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 12 }}>
+
+        {/* Quick actions */}
+        <div style={{ ...card, padding: '16px 18px' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: t.text, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Quick actions
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+            {quickActions.map((qa, i) => (
+              <div
+                key={i}
+                onClick={() => navigate(qa.href)}
+                style={{
+                  display: 'flex', flexDirection: 'column', gap: 6,
+                  padding: '11px 12px', borderRadius: 10,
+                  background: qa.bg, cursor: 'pointer',
+                  border: `1px solid transparent`,
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+              >
+                <qa.icon style={{ width: 17, height: 17, color: qa.color }} />
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{qa.label}</div>
+                  <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1 }}>{qa.desc}</div>
                 </div>
               </div>
-            </div>
-            <div className="h-[210px] w-full">
-              <AreaChart cpuData={displayCpuHistory} memoryData={displayMemoryHistory} height={210} />
-            </div>
-            <div className="flex justify-between px-6 text-[11px] text-gray-400 dark:text-gray-500 mt-1">
-              <span>15m ago</span>
-              <span>10m ago</span>
-              <span>5m ago</span>
-              <span>Now</span>
-            </div>
-          </GlassCard>
+            ))}
+          </div>
+        </div>
 
-          {/* Pod Status Donut Chart */}
-          <GlassCard padding="md" className="h-[300px] overflow-visible">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <CircleStackIcon className="h-4 w-4 text-emerald-500" />
-                Pod Status Distribution
-              </h2>
-              <Link
-                to="/kubernetes"
-                className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-              >
-                View all
-                <ArrowRightIcon className="h-3 w-3" />
-              </Link>
-            </div>
-            <div className="flex items-center justify-center gap-10 py-6">
-              <DonutChart data={podStatusData} size={170} strokeWidth={18} />
-              <div className="space-y-4">
-                {podStatusData.map((item, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, x: 10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3 + index * 0.1 }}
-                    className="flex items-center gap-3"
-                  >
-                    <div
-                      className="w-3.5 h-3.5 rounded-full shadow-lg"
-                      style={{ backgroundColor: item.color, boxShadow: `0 0 10px ${item.color}50` }}
-                    />
-                    <div>
-                      <p className="text-xl font-bold text-gray-900 dark:text-white">{item.value}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{item.label}</p>
+        {/* Platform modules */}
+        <div style={{ ...card }}>
+          <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.cardBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: t.text, textTransform: 'uppercase', letterSpacing: 0.5 }}>Platform status</span>
+            <span style={{ fontSize: 10, color: t.textMuted }}>
+              {modules.filter(m => m.ok).length}/{modules.length} online
+            </span>
+          </div>
+          <div>
+            {modules.map((mod, i) => (
+              <Link key={i} to={mod.href} style={{ textDecoration: 'none' }}>
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 18px', borderBottom: i < modules.length - 1 ? `1px solid ${t.cardBorder}` : 'none', transition: 'background 0.1s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = t.navHoverBg; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+                >
+                  <div style={{ width: 30, height: 30, borderRadius: 8, background: mod.color + (isDark ? '20' : '15'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <mod.icon style={{ width: 14, height: 14, color: mod.color }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 500, color: t.text }}>{mod.label}</span>
+                      <span style={{ fontSize: 11, color: t.textMuted }}>{mod.sub}</span>
                     </div>
-                  </motion.div>
-                ))}
+                    <div style={{ height: 3, borderRadius: 9999, background: mod.color + '22', overflow: 'hidden' }}>
+                      <div style={{ width: `${mod.pct}%`, height: '100%', borderRadius: 9999, background: mod.color, transition: 'width 0.5s ease' }} />
+                    </div>
+                  </div>
+                  <span style={{
+                    width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                    background: mod.ok ? '#22c55e' : '#ef4444',
+                    boxShadow: `0 0 5px ${mod.ok ? 'rgba(34,197,94,0.5)' : 'rgba(239,68,68,0.5)'}`,
+                  }} />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent activity */}
+        <div style={{ ...card }}>
+          <div style={{ padding: '14px 18px', borderBottom: `1px solid ${t.cardBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: t.text, textTransform: 'uppercase', letterSpacing: 0.5 }}>Activity</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {alertCount > 0 && (
+                <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 9999, background: isDark ? 'rgba(239,68,68,0.15)' : '#FEF2F2', color: '#ef4444', fontWeight: 600 }}>
+                  {alertCount} critical
+                </span>
+              )}
+              <Link to="/events" style={{ fontSize: 11, color: t.info, textDecoration: 'none', fontWeight: 500 }}>All →</Link>
+            </div>
+          </div>
+
+          {recentEvents.length === 0 ? (
+            <div style={{ padding: '28px 18px', textAlign: 'center', color: t.textMuted, fontSize: 12 }}>
+              <CheckCircleIcon style={{ width: 22, height: 22, color: '#22c55e', margin: '0 auto 8px' }} />
+              No recent events
+            </div>
+          ) : recentEvents.map((ev, i) => (
+            <div
+              key={i}
+              style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 18px', borderBottom: i < recentEvents.length - 1 ? `1px solid ${t.cardBorder}` : 'none', transition: 'background 0.1s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = t.navHoverBg; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+            >
+              <div style={{ marginTop: 3, width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: evStatusColor(ev.status), boxShadow: ev.status === 'error' ? `0 0 5px ${evStatusColor(ev.status)}` : 'none' }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{ev.message}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 9999, background: evStatusBg(ev.status), color: evStatusColor(ev.status), fontWeight: 500 }}>
+                    {evStatusLabel(ev.status)}
+                  </span>
+                  <span style={{ fontSize: 10, color: t.textMuted }}>{ev.namespace}</span>
+                </div>
               </div>
             </div>
-          </GlassCard>
+          ))}
         </div>
-      </motion.div>
+      </div>
 
-      {/* Lower Section: Tables */}
-      <motion.div variants={itemVariants}>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Recent Deployments */}
-          <GlassCard padding="md">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <RocketLaunchIcon className="h-4 w-4 text-gray-500" />
-                Recent Deployments
-              </h2>
-              <Link
-                to="/deploy"
-                className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-              >
-                View all
-                <ArrowRightIcon className="h-3 w-3" />
-              </Link>
-            </div>
-            <div className="space-y-1">
-              {recentDeployments.length > 0 ? (
-                recentDeployments.map((deployment, index) => (
-                  <DeploymentRow key={index} {...deployment} />
-                ))
-              ) : (
-                <div className="text-center py-6 text-gray-500 dark:text-gray-400 text-sm">
-                  No deployments found
-                </div>
-              )}
-            </div>
-          </GlassCard>
-
-          {/* Events Timeline */}
-          <GlassCard padding="md">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <ExclamationCircleIcon className="h-4 w-4 text-gray-500" />
-                Events Timeline
-              </h2>
-              <Link
-                to="/events"
-                className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-              >
-                View all
-                <ArrowRightIcon className="h-3 w-3" />
-              </Link>
-            </div>
-            <div className="space-y-0">
-              {recentEvents.length > 0 ? (
-                recentEvents.map((event, index) => (
-                  <EventItem key={index} {...event} />
-                ))
-              ) : (
-                <div className="text-center py-6 text-gray-500 dark:text-gray-400 text-sm">
-                  No recent events
-                </div>
-              )}
-            </div>
-          </GlassCard>
+      {/* ── Recent Deployments ────────────────────────────────────────── */}
+      <div style={{ ...card }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: `1px solid ${t.cardBorder}` }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: t.text, textTransform: 'uppercase', letterSpacing: 0.5 }}>Recent Deployments</span>
+          <Link to="/deploy" style={{ fontSize: 11, color: t.info, textDecoration: 'none', fontWeight: 500 }}>View all →</Link>
         </div>
-      </motion.div>
 
+        {deployments.length === 0 ? (
+          <div style={{ padding: '28px 20px', textAlign: 'center', color: t.textMuted, fontSize: 12 }}>
+            <RocketLaunchIcon style={{ width: 22, height: 22, color: t.textMuted, margin: '0 auto 8px' }} />
+            No deployments found
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+            {deployments.slice(0, 6).map((dep, i) => {
+              const healthy = (dep.ready_replicas ?? 0) === (dep.replicas ?? 1) && (dep.replicas ?? 0) > 0;
+              const pct = (dep.replicas ?? 0) > 0 ? ((dep.ready_replicas ?? 0) / (dep.replicas ?? 1)) * 100 : 0;
+              return (
+                <div
+                  key={i}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px',
+                    borderRight: (i + 1) % 3 !== 0 ? `1px solid ${t.cardBorder}` : 'none',
+                    borderBottom: i < deployments.slice(0, 6).length - 1 ? `1px solid ${t.cardBorder}` : 'none',
+                    transition: 'background 0.1s', cursor: 'pointer',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = t.navHoverBg; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+                >
+                  <div style={{ width: 34, height: 34, borderRadius: 10, background: isDark ? 'rgba(139,92,246,0.15)' : '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <RocketLaunchIcon style={{ width: 15, height: 15, color: '#8b5cf6' }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                      <span style={{ fontSize: 12, fontWeight: 500, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dep.name}</span>
+                      <span style={{ fontSize: 11, color: t.textMuted, flexShrink: 0, marginLeft: 6 }}>{dep.ready_replicas ?? 0}/{dep.replicas ?? 0}</span>
+                    </div>
+                    <div style={{ height: 3, borderRadius: 9999, background: (healthy ? '#22c55e' : '#f59e0b') + '22', overflow: 'hidden', marginBottom: 3 }}>
+                      <div style={{ width: `${pct}%`, height: '100%', borderRadius: 9999, background: healthy ? '#22c55e' : '#f59e0b', transition: 'width 0.5s' }} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 10, color: t.textMuted }}>{dep.namespace || 'default'}</span>
+                      <span style={{ fontSize: 10, color: healthy ? '#22c55e' : '#f59e0b', fontWeight: 500 }}>
+                        {healthy ? '● Healthy' : '● Degraded'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-      {/* Quick Actions Hint */}
-      <motion.div variants={itemVariants} className="text-center text-xs text-gray-400 dark:text-gray-500">
-        Press <kbd className="px-2 py-1 rounded-lg bg-gray-100 dark:bg-slate-700 font-mono text-xs font-medium">Cmd+K</kbd> for quick actions
-      </motion.div>
-    </motion.div>
+      {/* ── Footer ────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 16, marginTop: 12, borderTop: `1px solid ${t.cardBorder}`, fontSize: 11, color: t.textMuted }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><SparklesIcon style={{ width: 12, height: 12 }} /> NextSight v2.0</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><ClockIcon style={{ width: 12, height: 12 }} /> Auto-refresh 30s</span>
+        </div>
+        <span>Updated {new Date().toLocaleTimeString()}</span>
+      </div>
+    </div>
   );
 }
