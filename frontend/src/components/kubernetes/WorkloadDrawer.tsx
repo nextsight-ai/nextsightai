@@ -4,19 +4,13 @@ import {
   XMarkIcon,
   CubeIcon,
   ServerStackIcon,
-  CpuChipIcon,
-  CircleStackIcon,
-  ClockIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
   ArrowPathIcon,
-  TrashIcon,
   DocumentDuplicateIcon,
   ArrowTopRightOnSquareIcon,
   ChevronDownIcon,
   TagIcon,
-  KeyIcon,
-  GlobeAltIcon,
 } from '@heroicons/react/24/outline';
 
 interface Container {

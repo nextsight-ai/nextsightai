@@ -286,7 +286,7 @@ Note: Some dangerous commands are blocked for security.`;
   const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', background: '#0a0a0a', color: '#ffffff', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', background: '#0a0a0a', color: '#ffffff', overflow: 'hidden' }}>
       {/* K8s Header */}
       <K8sHeader
         title="Terminal"
@@ -439,7 +439,7 @@ Note: Some dangerous commands are blocked for security.`;
             {/* Terminal Content */}
             <div
               ref={terminalRef}
-              style={{ flex: 1, overflow: 'auto', padding: 16, ...mono, fontSize: 11, minHeight: 0 }}
+              style={{ flex: 1, overflow: 'auto', padding: 16, ...mono, fontSize: 11, minHeight: 0, outline: 'none' }}
               onClick={() => {
                 const selection = window.getSelection();
                 if (!selection || selection.toString().length === 0) {

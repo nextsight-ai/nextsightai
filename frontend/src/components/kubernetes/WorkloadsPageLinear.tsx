@@ -6,10 +6,9 @@ import { kubernetesApi } from '../../services/api';
 import type { Deployment, StatefulSet, DaemonSet, Job, Pod, CronJob } from '../../types';
 import K8sHeader from './K8sHeader';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono } from '../../styles/linear-design';
 import { useNamespace } from '../../contexts/NamespaceContext';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 type WorkloadType = 'deployments' | 'pods' | 'statefulsets' | 'daemonsets' | 'jobs' | 'cronjobs';
 
@@ -332,8 +331,6 @@ export default function WorkloadsPage() {
     <div
       onClick={onClick}
       style={{ display: 'grid', gridTemplateColumns: cols, gap: 12, ...rowStyle(i, total), cursor: onClick ? 'pointer' : 'default' }}
-      onMouseEnter={e => (e.currentTarget.style.background = t.navHoverBg)}
-      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
       {cells}
     </div>
@@ -376,14 +373,15 @@ export default function WorkloadsPage() {
               key={p.name}
               onClick={() => openDetailWindow('Pod', p.name, p.namespace || '', 'logs', p)}
               style={{ display: 'grid', gridTemplateColumns: cols, gap: 12, ...rowStyle(i, items.length), cursor: 'pointer' }}
-              onMouseEnter={e => (e.currentTarget.style.background = t.navHoverBg)}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
-              {nameCell(p.name)}
+              <div style={{ minWidth: 0 }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{p.name}</span>
+                {p.ip && <span style={{ fontSize: 10, color: t.textMuted, ...mono }}>{p.ip}</span>}
+              </div>
               {nsCell(p.namespace)}
               <StatusBadge status={podStatus} />
               <span style={{ ...mono, fontSize: 12, color: restartHigh ? '#ef4444' : t.textSub, fontWeight: restartHigh ? 600 : 400 }}>{p.restarts ?? 0}</span>
-              <span style={{ fontSize: 12, color: t.textSub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(p as any).node_name || '—'}</span>
+              <span style={{ fontSize: 12, color: t.textSub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.node || '—'}</span>
               {ageCell(p.age)}
             </div>
           );
@@ -494,7 +492,7 @@ export default function WorkloadsPage() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', color: t.text, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', color: t.text, overflow: 'hidden' }}>
       {/* K8s Header */}
       <K8sHeader
         title="Workloads"
@@ -528,20 +526,17 @@ export default function WorkloadsPage() {
               onClick={fetchWorkloads}
               disabled={loading}
               style={{
-                background: 'transparent',
-                border: 'none',
-                color: t.textSub,
-                cursor: loading ? 'wait' : 'pointer',
-                fontSize: 11,
-                padding: 0,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                letterSpacing: 0.2,
-                transition: 'color 0.2s',
-              }}
-              onMouseEnter={e => !loading && (e.currentTarget.style.color = t.text)}
-              onMouseLeave={e => !loading && (e.currentTarget.style.color = t.textSub)}
+              background: 'none',
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 6,
+              padding: '5px 8px',
+              cursor: loading ? 'wait' : 'pointer',
+              color: t.textSub,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              fontSize: 11,
+            }}
             >
               <ArrowPathIcon style={{ width: 12, height: 12 }} />
               {loading ? 'Refreshing...' : 'Refresh'}

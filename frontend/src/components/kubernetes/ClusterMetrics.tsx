@@ -2,13 +2,12 @@ import { useEffect, useState } from 'react';
 import { Skeleton, SkeletonRow } from '../common/Skeleton';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { kubernetesApi } from '../../services/api';
-import type { ClusterMetrics as ClusterMetricsType, PodMetrics, Namespace } from '../../types';
+import type { ClusterMetrics as ClusterMetricsType, PodMetrics } from '../../types';
 import { useNamespace } from '../../contexts/NamespaceContext';
 import K8sHeader from './K8sHeader';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono } from '../../styles/linear-design';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 function parseMemoryToMi(mem: string): number {
   if (!mem) return 0;
@@ -30,7 +29,6 @@ export default function ClusterMetrics() {
   const { selectedNamespace } = useNamespace();
   const [clusterMetrics, setClusterMetrics] = useState<ClusterMetricsType | null>(null);
   const [podMetrics, setPodMetrics] = useState<PodMetrics[]>([]);
-  const [namespaces, setNamespaces] = useState<Namespace[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,14 +41,12 @@ export default function ClusterMetrics() {
   async function fetchData() {
     setLoading(true);
     try {
-      const [metricsRes, podMetricsRes, nsRes] = await Promise.all([
+      const [metricsRes, podMetricsRes] = await Promise.all([
         kubernetesApi.getClusterMetrics().catch(() => null),
         kubernetesApi.getPodMetrics(selectedNamespace || undefined).catch(() => ({ data: [] })),
-        kubernetesApi.getNamespaces().catch(() => ({ data: [] })),
       ]);
       if (metricsRes?.data) setClusterMetrics(metricsRes.data);
       setPodMetrics(podMetricsRes.data);
-      setNamespaces(nsRes.data);
       setError(null);
     } catch {
       setError('Failed to fetch metrics');
@@ -82,7 +78,7 @@ export default function ClusterMetrics() {
 
   if (loading && !clusterMetrics) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', background: t.mainBg, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', background: t.mainBg, overflow: 'hidden' }}>
         {/* Header skeleton */}
         <div style={{ padding: '16px 32px', borderBottom: `1px solid ${t.cardBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
@@ -122,7 +118,7 @@ export default function ClusterMetrics() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', color: t.text, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', color: t.text, overflow: 'hidden' }}>
       {/* K8s Header */}
       <K8sHeader
         title="Cluster Metrics"
@@ -132,20 +128,17 @@ export default function ClusterMetrics() {
             onClick={fetchData}
             disabled={loading}
             style={{
-              background: 'transparent',
-              border: 'none',
-              color: t.textSub,
+              background: 'none',
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 6,
+              padding: '5px 8px',
               cursor: loading ? 'wait' : 'pointer',
-              fontSize: 11,
-              padding: 0,
+              color: t.textSub,
               display: 'flex',
               alignItems: 'center',
               gap: 4,
-              letterSpacing: 0.2,
-              transition: 'color 0.2s',
+              fontSize: 11,
             }}
-            onMouseEnter={(e) => !loading && (e.currentTarget.style.color = t.text)}
-            onMouseLeave={(e) => !loading && (e.currentTarget.style.color = t.textSub)}
           >
             <ArrowPathIcon style={{ width: 12, height: 12 }} />
             {loading ? 'Refreshing...' : 'Refresh'}
@@ -369,8 +362,6 @@ export default function ClusterMetrics() {
                     transition: 'opacity 0.2s',
                     letterSpacing: 0.2,
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                 >
                   <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {name}

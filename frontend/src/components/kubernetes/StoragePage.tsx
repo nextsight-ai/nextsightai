@@ -6,9 +6,8 @@ import type { PVC } from '../../types';
 import K8sHeader from './K8sHeader';
 import { useNamespace } from '../../contexts/NamespaceContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono, createCard } from '../../styles/linear-design';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 type StorageTab = 'pvcs' | 'pvs' | 'storageclasses';
 
@@ -36,7 +35,7 @@ export default function StoragePage() {
   const { theme } = useTheme();
   const t = getThemeColors(theme);
   const isDark = theme === 'dark';
-  const card = { background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, boxShadow: isDark ? 'none' : '0 1px 4px rgba(0,0,0,0.05)' };
+  const card = createCard(t, isDark);
   const { selectedNamespace } = useNamespace();
   const [activeTab, setActiveTab] = useState<StorageTab>('pvcs');
   const [loading, setLoading] = useState(true);
@@ -181,7 +180,7 @@ export default function StoragePage() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', color: t.text, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', color: t.text, overflow: 'hidden' }}>
       {/* K8s Header */}
       <K8sHeader
         title="Storage"
@@ -216,20 +215,17 @@ export default function StoragePage() {
               onClick={fetchData}
               disabled={loading}
               style={{
-                background: 'transparent',
-                border: 'none',
-                color: t.textSub,
-                cursor: loading ? 'wait' : 'pointer',
-                fontSize: 11,
-                padding: 0,
-                letterSpacing: 0.2,
-                transition: 'color 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-              onMouseEnter={(e) => !loading && (e.currentTarget.style.color = t.text)}
-              onMouseLeave={(e) => !loading && (e.currentTarget.style.color = t.textSub)}
+              background: 'none',
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 6,
+              padding: '5px 8px',
+              cursor: loading ? 'wait' : 'pointer',
+              color: t.textSub,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              fontSize: 11,
+            }}
             >
               <ArrowPathIcon style={{ width: 12, height: 12 }} />
               {loading ? 'Refreshing...' : 'Refresh'}
@@ -326,11 +322,10 @@ export default function StoragePage() {
                       letterSpacing: 0.2,
                       alignItems: 'center',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = t.navHoverBg)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {pvc.name}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pvc.name}</div>
+                      {pvc.storage_class && <div style={{ fontSize: 9, color: t.textMuted, ...mono, marginTop: 1 }}>{pvc.storage_class}</div>}
                     </div>
                     <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {pvc.namespace}
@@ -426,11 +421,10 @@ export default function StoragePage() {
                       letterSpacing: 0.2,
                       alignItems: 'center',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = t.navHoverBg)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {pv.name}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pv.name}</div>
+                      {pv.claim && <div style={{ fontSize: 9, color: t.textMuted, ...mono, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>→ {pv.claim}</div>}
                     </div>
                     <div style={{ textAlign: 'right', ...mono }}>
                       {pv.capacity}
@@ -520,8 +514,6 @@ export default function StoragePage() {
                       transition: 'background 0.2s',
                       letterSpacing: 0.2,
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = t.navHoverBg)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

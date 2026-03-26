@@ -8,11 +8,11 @@ import { kubernetesApi } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import type { NamespaceDetail } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono, createCard } from '../../styles/linear-design';
+import LinearStatCard from '../common/LinearStatCard';
 import K8sHeader from '../kubernetes/K8sHeader';
 import ResourceDetailWindow, { type RDWResource } from '../kubernetes/ResourceDetailWindow';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 const PROTECTED = ['default', 'kube-system', 'kube-public', 'kube-node-lease'];
 
 // ─── Modal shell ──────────────────────────────────────────────────────────────
@@ -196,19 +196,17 @@ export default function NamespacesPage() {
     deployments: namespaces.reduce((a, ns) => a + ns.deployments, 0),
   }), [namespaces]);
 
-  const card = { background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 14, boxShadow: isDark ? 'none' : '0 1px 6px rgba(0,0,0,0.05)' };
+  const card = createCard(t, isDark, 14);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', color: t.text, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', color: t.text, overflow: 'hidden' }}>
 
       <K8sHeader
         title="Namespaces"
         subtitle="Manage cluster namespace isolation"
         rightContent={
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button onClick={loadNamespaces} disabled={loading} style={{ background: 'transparent', border: 'none', color: t.textSub, cursor: loading ? 'wait' : 'pointer', fontSize: 11, padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
-              onMouseEnter={e => !loading && (e.currentTarget.style.color = t.text)}
-              onMouseLeave={e => !loading && (e.currentTarget.style.color = t.textSub)}>
+            <button onClick={loadNamespaces} disabled={loading} style={{ background: 'transparent', border: 'none', color: t.textSub, cursor: loading ? 'wait' : 'pointer', fontSize: 11, padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
               <ArrowPathIcon style={{ width: 12, height: 12 }} />
               {loading ? 'Refreshing…' : 'Refresh'}
             </button>
@@ -239,15 +237,7 @@ export default function NamespacesPage() {
             { icon: CubeIcon,         label: 'Total Pods',  value: loading ? '—' : String(stats.pods),        color: '#3b82f6' },
             { icon: RocketLaunchIcon, label: 'Deployments', value: loading ? '—' : String(stats.deployments), color: '#f59e0b' },
           ].map((s, i) => (
-            <div key={i} style={{ ...card, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: s.color + (isDark ? '22' : '18'), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <s.icon style={{ width: 16, height: 16, color: s.color }} />
-              </div>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: t.text, lineHeight: 1, marginBottom: 2 }}>{s.value}</div>
-                <div style={{ fontSize: 11, color: t.textMuted }}>{s.label}</div>
-              </div>
-            </div>
+            <LinearStatCard key={i} {...s} t={t} isDark={isDark} card={card} />
           ))}
         </div>
 

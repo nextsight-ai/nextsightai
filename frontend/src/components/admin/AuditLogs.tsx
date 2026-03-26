@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { logger } from '../../utils/logger';
 import {
   ClockIcon,
@@ -26,11 +25,9 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { PermissionDenied } from '../common/LoadingStates';
-import GlassCard, { StatCard } from '../common/GlassCard';
-import { authApi } from '../../services/api';
-
-// Import shared constants
-import { containerVariants, itemVariants } from '../../utils/constants';
+import api from '../../services/api';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors, mono } from '../../styles/linear-design';
 
 type AuditAction =
   | 'login' | 'logout' | 'create' | 'update' | 'delete'
@@ -98,21 +95,41 @@ const actionIcons: Record<AuditAction, typeof UserIcon> = {
   config_change: DocumentTextIcon,
 };
 
-const actionConfig: Record<AuditAction, { gradient: string; bg: string; text: string }> = {
-  login: { gradient: 'from-emerald-500 to-green-600', bg: 'bg-emerald-50 dark:bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400' },
-  logout: { gradient: 'from-gray-500 to-slate-600', bg: 'bg-gray-50 dark:bg-gray-500/10', text: 'text-gray-600 dark:text-gray-400' },
-  create: { gradient: 'from-blue-500 to-indigo-600', bg: 'bg-blue-50 dark:bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400' },
-  update: { gradient: 'from-amber-500 to-yellow-600', bg: 'bg-amber-50 dark:bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400' },
-  delete: { gradient: 'from-red-500 to-rose-600', bg: 'bg-red-50 dark:bg-red-500/10', text: 'text-red-600 dark:text-red-400' },
-  view: { gradient: 'from-gray-500 to-slate-600', bg: 'bg-gray-50 dark:bg-gray-500/10', text: 'text-gray-600 dark:text-gray-400' },
-  deploy: { gradient: 'from-purple-500 to-violet-600', bg: 'bg-purple-50 dark:bg-purple-500/10', text: 'text-purple-600 dark:text-purple-400' },
-  sync: { gradient: 'from-blue-500 to-indigo-600', bg: 'bg-blue-50 dark:bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400' },
-  rollback: { gradient: 'from-orange-500 to-amber-600', bg: 'bg-orange-50 dark:bg-orange-500/10', text: 'text-orange-600 dark:text-orange-400' },
-  scale: { gradient: 'from-cyan-500 to-teal-600', bg: 'bg-cyan-50 dark:bg-cyan-500/10', text: 'text-cyan-600 dark:text-cyan-400' },
-  secret_access: { gradient: 'from-amber-500 to-yellow-600', bg: 'bg-amber-50 dark:bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400' },
-  permission_change: { gradient: 'from-red-500 to-rose-600', bg: 'bg-red-50 dark:bg-red-500/10', text: 'text-red-600 dark:text-red-400' },
-  config_change: { gradient: 'from-indigo-500 to-purple-600', bg: 'bg-indigo-50 dark:bg-indigo-500/10', text: 'text-indigo-600 dark:text-indigo-400' },
-};
+// Action badge color map — theme-aware
+function getActionBadgeColors(action: AuditAction, isDark: boolean): { bg: string; text: string } {
+  const dark: Record<AuditAction, { bg: string; text: string }> = {
+    login:            { bg: 'rgba(34,197,94,0.15)',   text: '#4ADE80' },
+    logout:           { bg: 'rgba(107,114,128,0.15)', text: '#9CA3AF' },
+    create:           { bg: 'rgba(59,130,246,0.15)',  text: '#60A5FA' },
+    update:           { bg: 'rgba(234,179,8,0.15)',   text: '#FBBF24' },
+    delete:           { bg: 'rgba(239,68,68,0.15)',   text: '#F87171' },
+    view:             { bg: 'rgba(107,114,128,0.15)', text: '#9CA3AF' },
+    deploy:           { bg: 'rgba(139,92,246,0.15)',  text: '#A78BFA' },
+    sync:             { bg: 'rgba(59,130,246,0.15)',  text: '#60A5FA' },
+    rollback:         { bg: 'rgba(245,158,11,0.15)',  text: '#FCD34D' },
+    scale:            { bg: 'rgba(20,184,166,0.15)',  text: '#2DD4BF' },
+    secret_access:    { bg: 'rgba(234,179,8,0.15)',   text: '#FBBF24' },
+    permission_change:{ bg: 'rgba(239,68,68,0.15)',   text: '#F87171' },
+    config_change:    { bg: 'rgba(99,102,241,0.15)',  text: '#818CF8' },
+  };
+  const light: Record<AuditAction, { bg: string; text: string }> = {
+    login:            { bg: '#DCFCE7', text: '#15803D' },
+    logout:           { bg: '#F3F4F6', text: '#4B5563' },
+    create:           { bg: '#DBEAFE', text: '#1D4ED8' },
+    update:           { bg: '#FEF3C7', text: '#B45309' },
+    delete:           { bg: '#FEE2E2', text: '#DC2626' },
+    view:             { bg: '#F3F4F6', text: '#4B5563' },
+    deploy:           { bg: '#EDE9FE', text: '#6D28D9' },
+    sync:             { bg: '#DBEAFE', text: '#1D4ED8' },
+    rollback:         { bg: '#FEF3C7', text: '#B45309' },
+    scale:            { bg: '#CCFBF1', text: '#0F766E' },
+    secret_access:    { bg: '#FEF3C7', text: '#B45309' },
+    permission_change:{ bg: '#FEE2E2', text: '#DC2626' },
+    config_change:    { bg: '#E0E7FF', text: '#4338CA' },
+  };
+  const map = isDark ? dark : light;
+  return map[action] || (isDark ? { bg: 'rgba(107,114,128,0.15)', text: '#9CA3AF' } : { bg: '#F3F4F6', text: '#4B5563' });
+}
 
 function formatTimestamp(date: Date): string {
   return new Intl.DateTimeFormat('en-US', {
@@ -139,6 +156,10 @@ function formatTimeAgo(date: Date): string {
 
 export default function AuditLogs() {
   const { hasRole } = useAuth();
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+  const isDark = theme === 'dark';
+
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -154,7 +175,7 @@ export default function AuditLogs() {
     setLoading(true);
     setError(null);
     try {
-      const response = await authApi.getAuditLogs(currentPage, logsPerPage);
+      const response = await api.get('/auth/audit-logs', { params: { page: currentPage, limit: logsPerPage } });
       const transformedLogs = (response.data.logs || []).map(transformAuditLog);
       setLogs(transformedLogs);
       setTotalLogs(response.data.total || transformedLogs.length);
@@ -202,476 +223,586 @@ export default function AuditLogs() {
     }).length,
   };
 
+  const inputStyle: React.CSSProperties = {
+    background: t.mainBg,
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 6,
+    padding: '7px 10px',
+    color: t.text,
+    fontSize: 12,
+    outline: 'none',
+  };
+
+  const selectStyle: React.CSSProperties = {
+    background: t.mainBg,
+    border: `1px solid ${t.cardBorder}`,
+    borderRadius: 6,
+    padding: '7px 10px',
+    color: t.text,
+    fontSize: 12,
+    outline: 'none',
+    cursor: 'pointer',
+  };
+
+  const thStyle: React.CSSProperties = {
+    padding: '10px 14px',
+    textAlign: 'left',
+    fontSize: 10,
+    fontWeight: 600,
+    color: t.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    borderBottom: `1px solid ${t.cardBorder}`,
+    background: t.mainBg,
+  };
+
+  const tdStyle: React.CSSProperties = {
+    padding: '11px 14px',
+    fontSize: 12,
+    color: t.text,
+    borderBottom: `1px solid ${t.cardBorder}`,
+    verticalAlign: 'middle',
+  };
+
   // Show error if any
   if (error && !loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 p-6">
-        <GlassCard className="p-8 text-center">
-          <XCircleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+      <div style={{ color: t.text, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: 32, textAlign: 'center', maxWidth: 400 }}>
+          <XCircleIcon style={{ width: 40, height: 40, color: t.error, margin: '0 auto 16px' }} />
+          <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: 600, color: t.text }}>
             Failed to Load Audit Logs
           </h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">{error}</p>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+          <p style={{ margin: '0 0 16px 0', fontSize: 13, color: t.textSub }}>{error}</p>
+          <button
             onClick={fetchAuditLogs}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            style={{
+              padding: '8px 20px',
+              background: t.info,
+              border: 'none',
+              borderRadius: 8,
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
           >
             Try Again
-          </motion.button>
-        </GlassCard>
+          </button>
+        </div>
       </div>
     );
   }
 
   if (!hasRole('admin')) {
     return (
-      <div className="p-6 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 min-h-screen">
+      <div style={{ color: t.text }}>
         <PermissionDenied resource="Audit Logs" requiredRole="Administrator" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl shadow-lg shadow-purple-500/25">
-              <ClipboardDocumentListIcon className="h-8 w-8 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Audit Logs</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Track all user actions and system events
-              </p>
-            </div>
+    <div style={{ color: t.text }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <ClipboardDocumentListIcon style={{ width: 20, height: 20, color: t.info }} />
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: t.text }}>Audit Logs</h1>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={fetchAuditLogs}
-            disabled={loading}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-medium text-sm hover:from-blue-600 hover:to-indigo-700 transition-all shadow-lg shadow-blue-500/25 disabled:opacity-50"
-          >
-            <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </motion.button>
-        </motion.div>
+          <div style={{ fontSize: 13, color: t.textSub }}>Track all user actions and system events</div>
+        </div>
+        <button onClick={fetchAuditLogs} disabled={loading} style={{ background: 'none', border: `1px solid ${t.cardBorder}`, borderRadius: 6, padding: '5px 8px', cursor: loading ? 'wait' : 'pointer', color: t.textSub, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
+          <ArrowPathIcon style={{ width: 12, height: 12 }} />
+          {loading ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </div>
+
+      <div>
 
         {/* Stats Cards */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-4 gap-4"
-        >
-          <StatCard
-            title="Total Events"
-            value={stats.total}
-            icon={ClipboardDocumentListIcon}
-            color="primary"
-          />
-          <StatCard
-            title="Successful"
-            value={stats.success}
-            icon={CheckCircleIcon}
-            color="success"
-          />
-          <StatCard
-            title="Failed"
-            value={stats.failure}
-            icon={XCircleIcon}
-            color="danger"
-          />
-          <StatCard
-            title="Today"
-            value={stats.today}
-            icon={ClockIcon}
-            color="warning"
-          />
-        </motion.div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+          {[
+            { label: 'Total Events', value: stats.total, icon: ClipboardDocumentListIcon, color: t.info },
+            { label: 'Successful', value: stats.success, icon: CheckCircleIcon, color: t.success },
+            { label: 'Failed', value: stats.failure, icon: XCircleIcon, color: t.error },
+            { label: 'Today', value: stats.today, icon: ClockIcon, color: t.warning },
+          ].map(({ label, value, icon: Icon, color }) => (
+            <div
+              key={label}
+              style={{
+                background: t.cardBg,
+                border: `1px solid ${t.cardBorder}`,
+                borderRadius: 12,
+                padding: 20,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <div style={{ width: 30, height: 30, borderRadius: 8, background: color + (isDark ? '22' : '18'), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon style={{ width: 14, height: 14, color }} />
+                </div>
+                <span style={{ fontSize: 11, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 500 }}>
+                  {label}
+                </span>
+              </div>
+              <div style={{ fontSize: 26, fontWeight: 700, color, letterSpacing: -1, ...mono }}>{value}</div>
+            </div>
+          ))}
+        </div>
 
         {/* Filters */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
+        <div
+          style={{
+            background: t.cardBg,
+            border: `1px solid ${t.cardBorder}`,
+            borderRadius: 12,
+            padding: '14px 20px',
+            marginBottom: 16,
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: 12,
+          }}
         >
-          <GlassCard padding="md">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex-1 min-w-[200px] relative">
-                <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search logs by user, resource, or details..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-11 pr-4 py-2.5 bg-white/50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all backdrop-blur-sm"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <FunnelIcon className="h-5 w-5 text-gray-400" />
-                <select
-                  value={actionFilter}
-                  onChange={(e) => setActionFilter(e.target.value)}
-                  className="px-4 py-2.5 bg-white/50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all backdrop-blur-sm"
-                >
-                  <option value="all">All Actions</option>
-                  <option value="login">Login</option>
-                  <option value="logout">Logout</option>
-                  <option value="create">Create</option>
-                  <option value="update">Update</option>
-                  <option value="delete">Delete</option>
-                  <option value="deploy">Deploy</option>
-                  <option value="sync">Sync</option>
-                  <option value="rollback">Rollback</option>
-                  <option value="secret_access">Secret Access</option>
-                </select>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-4 py-2.5 bg-white/50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all backdrop-blur-sm"
-                >
-                  <option value="all">All Status</option>
-                  <option value="success">Success</option>
-                  <option value="failure">Failure</option>
-                </select>
-              </div>
-            </div>
-          </GlassCard>
-        </motion.div>
+          <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
+            <MagnifyingGlassIcon
+              style={{
+                position: 'absolute',
+                left: 10,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: 15,
+                height: 15,
+                color: t.textMuted,
+                pointerEvents: 'none',
+              }}
+            />
+            <input
+              type="text"
+              placeholder="Search logs by user, resource, or details..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ ...inputStyle, paddingLeft: 32, width: '100%', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FunnelIcon style={{ width: 15, height: 15, color: t.textMuted, flexShrink: 0 }} />
+            <select
+              value={actionFilter}
+              onChange={(e) => setActionFilter(e.target.value)}
+              style={selectStyle}
+            >
+              <option value="all">All Actions</option>
+              <option value="login">Login</option>
+              <option value="logout">Logout</option>
+              <option value="create">Create</option>
+              <option value="update">Update</option>
+              <option value="delete">Delete</option>
+              <option value="deploy">Deploy</option>
+              <option value="sync">Sync</option>
+              <option value="rollback">Rollback</option>
+              <option value="secret_access">Secret Access</option>
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={selectStyle}
+            >
+              <option value="all">All Status</option>
+              <option value="success">Success</option>
+              <option value="failure">Failure</option>
+            </select>
+          </div>
+        </div>
 
         {/* Results Info */}
-        <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
-          <span>
-            Showing {paginatedLogs.length} of {filteredLogs.length} logs
-          </span>
+        <div style={{ marginBottom: 12, fontSize: 12, color: t.textMuted }}>
+          Showing {paginatedLogs.length} of {filteredLogs.length} logs
         </div>
 
         {/* Logs Table */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+        <div
+          style={{
+            background: t.cardBg,
+            border: `1px solid ${t.cardBorder}`,
+            borderRadius: 12,
+            overflow: 'hidden',
+          }}
         >
-          <GlassCard padding="none" className="overflow-hidden">
-            {loading ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="relative">
-                    <div className="w-12 h-12 border-4 border-blue-200 dark:border-blue-800 rounded-full"></div>
-                    <div className="absolute top-0 left-0 w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                  <p className="text-gray-500 dark:text-gray-400">Loading audit logs...</p>
-                </div>
+          {loading ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '64px 24px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ width: 32, height: 32, border: `3px solid ${t.cardBorder}`, borderTop: `3px solid ${t.info}`, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+                <p style={{ fontSize: 13, color: t.textSub, margin: 0 }}>Loading audit logs...</p>
               </div>
-            ) : paginatedLogs.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="w-16 h-16 bg-gray-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <ClockIcon className="h-8 w-8 text-gray-400" />
-                </div>
-                <p className="text-lg font-medium text-gray-900 dark:text-white">No audit logs found</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Try adjusting your filters</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="backdrop-blur-xl bg-white/50 dark:bg-slate-800/50 border-b border-white/20 dark:border-slate-700/50">
-                    <tr>
-                      <th className="px-5 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Timestamp
-                      </th>
-                      <th className="px-5 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        User
-                      </th>
-                      <th className="px-5 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Action
-                      </th>
-                      <th className="px-5 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Resource
-                      </th>
-                      <th className="px-5 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Details
-                      </th>
-                      <th className="px-5 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <motion.tbody
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
-                    className="divide-y divide-gray-100 dark:divide-slate-700/50"
-                  >
-                    {paginatedLogs.map((log) => {
-                      const ActionIcon = actionIcons[log.action];
-                      const config = actionConfig[log.action];
-                      return (
-                        <motion.tr
-                          key={log.id}
-                          variants={itemVariants}
-                          whileHover={{ backgroundColor: 'rgba(255,255,255,0.5)' }}
-                          className="cursor-pointer transition-colors dark:hover:bg-slate-700/30"
-                          onClick={() => setSelectedLog(log)}
-                        >
-                          <td className="px-5 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-2 text-sm">
-                              <ClockIcon className="h-4 w-4 text-gray-400" />
-                              <div>
-                                <p className="text-gray-900 dark:text-white font-medium">
-                                  {formatTimeAgo(log.timestamp)}
-                                </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  {formatTimestamp(log.timestamp)}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-5 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-200 to-gray-300 dark:from-slate-600 dark:to-slate-700 flex items-center justify-center">
-                                <UserIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                              </div>
-                              <div>
-                                <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                                  {log.user.username}
-                                </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{log.user.role}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-5 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <div className={`p-2 rounded-xl bg-gradient-to-br ${config.gradient} shadow-lg`}>
-                                <ActionIcon className="h-4 w-4 text-white" />
-                              </div>
-                              <span className={`text-sm font-semibold capitalize ${config.text}`}>
-                                {log.action.replace('_', ' ')}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-5 py-4 whitespace-nowrap">
+            </div>
+          ) : paginatedLogs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '64px 24px' }}>
+              <ClockIcon style={{ width: 32, height: 32, color: t.textMuted, margin: '0 auto 12px' }} />
+              <p style={{ margin: '0 0 4px 0', fontSize: 14, fontWeight: 500, color: t.text }}>No audit logs found</p>
+              <p style={{ margin: 0, fontSize: 12, color: t.textMuted }}>Try adjusting your filters</p>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Timestamp</th>
+                    <th style={thStyle}>User</th>
+                    <th style={thStyle}>Action</th>
+                    <th style={thStyle}>Resource</th>
+                    <th style={thStyle}>Details</th>
+                    <th style={thStyle}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedLogs.map((log) => {
+                    const ActionIcon = actionIcons[log.action];
+                    const badgeColors = getActionBadgeColors(log.action, isDark);
+                    return (
+                      <tr
+                        key={log.id}
+                        onClick={() => setSelectedLog(log)}
+                        style={{ cursor: 'pointer' }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = t.mainBg; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent'; }}
+                      >
+                        <td style={tdStyle}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <ClockIcon style={{ width: 13, height: 13, color: t.textMuted, flexShrink: 0 }} />
                             <div>
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                {log.resourceName}
-                              </p>
-                              {log.resourceNamespace && (
-                                <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded inline-block mt-1">
-                                  {log.resourceNamespace}
-                                </p>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-5 py-4">
-                            <p className="text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate">
-                              {log.details}
-                            </p>
-                          </td>
-                          <td className="px-5 py-4 whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
-                                log.status === 'success'
-                                  ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30'
-                                  : 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/30'
-                              }`}
-                            >
-                              {log.status === 'success' ? (
-                                <CheckCircleIcon className="h-3.5 w-3.5" />
-                              ) : (
-                                <XCircleIcon className="h-3.5 w-3.5" />
-                              )}
-                              {log.status}
-                            </span>
-                          </td>
-                        </motion.tr>
-                      );
-                    })}
-                  </motion.tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 dark:border-slate-700/50 backdrop-blur-xl bg-white/30 dark:bg-slate-800/30">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Showing {(currentPage - 1) * logsPerPage + 1} to{' '}
-                  {Math.min(currentPage * logsPerPage, filteredLogs.length)} of {filteredLogs.length} logs
-                </p>
-                <div className="flex items-center gap-2">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="p-2 bg-white/50 dark:bg-slate-700/50 hover:bg-white/80 dark:hover:bg-slate-600/50 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
-                  >
-                    <ChevronLeftIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                  </motion.button>
-                  <span className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white/50 dark:bg-slate-700/50 rounded-xl backdrop-blur-sm">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="p-2 bg-white/50 dark:bg-slate-700/50 hover:bg-white/80 dark:hover:bg-slate-600/50 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
-                  >
-                    <ChevronRightIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                  </motion.button>
-                </div>
-              </div>
-            )}
-          </GlassCard>
-        </motion.div>
-
-        {/* Log Detail Modal */}
-        <AnimatePresence>
-          {selectedLog && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-              onClick={() => setSelectedLog(null)}
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="backdrop-blur-xl bg-white/90 dark:bg-slate-800/90 rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl border border-white/20 dark:border-slate-700/50"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="sticky top-0 backdrop-blur-xl bg-white/80 dark:bg-slate-800/80 px-6 py-4 border-b border-gray-100 dark:border-slate-700/50 flex items-center justify-between">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                    <DocumentTextIcon className="h-5 w-5 text-blue-500" />
-                    Audit Log Details
-                  </h3>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => setSelectedLog(null)}
-                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition-all"
-                  >
-                    <XMarkIcon className="h-5 w-5" />
-                  </motion.button>
-                </div>
-                <div className="p-6 space-y-6">
-                  {/* Status Badge */}
-                  <div className="flex justify-center">
-                    <span
-                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${
-                        selectedLog.status === 'success'
-                          ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30'
-                          : 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/30'
-                      }`}
-                    >
-                      {selectedLog.status === 'success' ? (
-                        <CheckCircleIcon className="h-5 w-5" />
-                      ) : (
-                        <XCircleIcon className="h-5 w-5" />
-                      )}
-                      {selectedLog.status.toUpperCase()}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Timestamp
-                      </label>
-                      <p className="text-sm text-gray-900 dark:text-white font-medium">
-                        {selectedLog.timestamp.toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        User
-                      </label>
-                      <p className="text-sm text-gray-900 dark:text-white font-medium">
-                        {selectedLog.user.username}
-                        <span className="text-gray-500 dark:text-gray-400 ml-1">({selectedLog.user.role})</span>
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Action
-                      </label>
-                      <div className="flex items-center gap-2">
-                        {(() => {
-                          const ActionIcon = actionIcons[selectedLog.action];
-                          const config = actionConfig[selectedLog.action];
-                          return (
-                            <>
-                              <div className={`p-1.5 rounded-lg bg-gradient-to-br ${config.gradient}`}>
-                                <ActionIcon className="h-4 w-4 text-white" />
+                              <div style={{ fontSize: 12, fontWeight: 500, color: t.text }}>
+                                {formatTimeAgo(log.timestamp)}
                               </div>
-                              <span className={`text-sm font-semibold capitalize ${config.text}`}>
-                                {selectedLog.action.replace('_', ' ')}
-                              </span>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Resource
-                      </label>
-                      <p className="text-sm text-gray-900 dark:text-white font-medium">
-                        {selectedLog.resource}: {selectedLog.resourceName}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Namespace
-                      </label>
-                      <p className="text-sm text-gray-900 dark:text-white font-medium">
-                        {selectedLog.resourceNamespace || 'N/A'}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        IP Address
-                      </label>
-                      <p className="text-sm text-gray-900 dark:text-white font-mono bg-gray-100 dark:bg-slate-700 px-2 py-1 rounded inline-block">
-                        {selectedLog.ipAddress}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Details
-                    </label>
-                    <p className="text-sm text-gray-900 dark:text-white bg-gray-50 dark:bg-slate-700/50 p-4 rounded-xl">
-                      {selectedLog.details}
-                    </p>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      User Agent
-                    </label>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 font-mono bg-gray-50 dark:bg-slate-700/50 p-3 rounded-xl break-all">
-                      {selectedLog.userAgent}
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            </motion.div>
+                              <div style={{ fontSize: 10, color: t.textMuted, ...mono, marginTop: 2 }}>
+                                {formatTimestamp(log.timestamp)}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={tdStyle}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div
+                              style={{
+                                width: 30,
+                                height: 30,
+                                borderRadius: 8,
+                                background: t.mainBg,
+                                border: `1px solid ${t.cardBorder}`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                              }}
+                            >
+                              <UserIcon style={{ width: 15, height: 15, color: t.textSub }} />
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{log.user.username}</div>
+                              <div style={{ fontSize: 10, color: t.textMuted, textTransform: 'capitalize' }}>{log.user.role}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={tdStyle}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div
+                              style={{
+                                background: badgeColors.bg,
+                                borderRadius: 6,
+                                padding: 6,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                              }}
+                            >
+                              <ActionIcon style={{ width: 13, height: 13, color: badgeColors.text }} />
+                            </div>
+                            <span style={{ fontSize: 12, fontWeight: 500, color: badgeColors.text, textTransform: 'capitalize' }}>
+                              {log.action.replace('_', ' ')}
+                            </span>
+                          </div>
+                        </td>
+                        <td style={tdStyle}>
+                          <div style={{ fontSize: 12, fontWeight: 500, color: t.text }}>{log.resourceName}</div>
+                          {log.resourceNamespace && (
+                            <div
+                              style={{
+                                display: 'inline-block',
+                                marginTop: 3,
+                                fontSize: 10,
+                                color: t.textMuted,
+                                background: t.mainBg,
+                                border: `1px solid ${t.cardBorder}`,
+                                borderRadius: 4,
+                                padding: '1px 6px',
+                              }}
+                            >
+                              {log.resourceNamespace}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ ...tdStyle, maxWidth: 220 }}>
+                          <div style={{ fontSize: 12, color: t.textSub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {log.details}
+                          </div>
+                        </td>
+                        <td style={tdStyle}>
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              padding: '3px 9px',
+                              borderRadius: 9999,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              background: log.status === 'success' ? t.successBg : t.errorBg,
+                              color: log.status === 'success' ? t.success : t.error,
+                            }}
+                          >
+                            {log.status === 'success' ? (
+                              <CheckCircleIcon style={{ width: 12, height: 12 }} />
+                            ) : (
+                              <XCircleIcon style={{ width: 12, height: 12 }} />
+                            )}
+                            {log.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
-        </AnimatePresence>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 20px',
+                borderTop: `1px solid ${t.cardBorder}`,
+              }}
+            >
+              <p style={{ margin: 0, fontSize: 12, color: t.textMuted }}>
+                Showing {(currentPage - 1) * logsPerPage + 1} to{' '}
+                {Math.min(currentPage * logsPerPage, filteredLogs.length)} of {filteredLogs.length} logs
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  style={{
+                    padding: 6,
+                    background: t.mainBg,
+                    border: `1px solid ${t.cardBorder}`,
+                    borderRadius: 6,
+                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                    opacity: currentPage === 1 ? 0.4 : 1,
+                    color: t.textSub,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <ChevronLeftIcon style={{ width: 16, height: 16 }} />
+                </button>
+                <span style={{ padding: '6px 14px', fontSize: 12, fontWeight: 500, color: t.text, background: t.mainBg, border: `1px solid ${t.cardBorder}`, borderRadius: 6 }}>
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  style={{
+                    padding: 6,
+                    background: t.mainBg,
+                    border: `1px solid ${t.cardBorder}`,
+                    borderRadius: 6,
+                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                    opacity: currentPage === totalPages ? 0.4 : 1,
+                    color: t.textSub,
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                >
+                  <ChevronRightIcon style={{ width: 16, height: 16 }} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Log Detail Modal */}
+      {selectedLog && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 50,
+            padding: 16,
+          }}
+          onClick={() => setSelectedLog(null)}
+        >
+          <div
+            style={{
+              background: t.cardBg,
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 14,
+              width: '100%',
+              maxWidth: 620,
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                position: 'sticky',
+                top: 0,
+                background: t.cardBg,
+                padding: '16px 20px',
+                borderBottom: `1px solid ${t.cardBorder}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                zIndex: 1,
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: t.text, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <DocumentTextIcon style={{ width: 17, height: 17, color: t.info }} />
+                Audit Log Details
+              </h3>
+              <button
+                onClick={() => setSelectedLog(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: t.textMuted,
+                  padding: 4,
+                  borderRadius: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                <XMarkIcon style={{ width: 18, height: 18 }} />
+              </button>
+            </div>
+
+            <div style={{ padding: 24 }}>
+              {/* Status Badge */}
+              <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '6px 16px',
+                    borderRadius: 9999,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    background: selectedLog.status === 'success' ? t.successBg : t.errorBg,
+                    color: selectedLog.status === 'success' ? t.success : t.error,
+                  }}
+                >
+                  {selectedLog.status === 'success' ? (
+                    <CheckCircleIcon style={{ width: 16, height: 16 }} />
+                  ) : (
+                    <XCircleIcon style={{ width: 16, height: 16 }} />
+                  )}
+                  {selectedLog.status.toUpperCase()}
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+                {[
+                  {
+                    label: 'Timestamp',
+                    value: selectedLog.timestamp.toLocaleString(),
+                    mono: true,
+                  },
+                  {
+                    label: 'User',
+                    value: `${selectedLog.user.username} (${selectedLog.user.role})`,
+                    mono: false,
+                  },
+                  {
+                    label: 'Resource',
+                    value: `${selectedLog.resource}: ${selectedLog.resourceName}`,
+                    mono: false,
+                  },
+                  {
+                    label: 'Namespace',
+                    value: selectedLog.resourceNamespace || 'N/A',
+                    mono: false,
+                  },
+                  {
+                    label: 'IP Address',
+                    value: selectedLog.ipAddress,
+                    mono: true,
+                  },
+                  {
+                    label: 'Action',
+                    value: selectedLog.action.replace('_', ' '),
+                    mono: false,
+                    capitalize: true,
+                  },
+                ].map(({ label, value, mono, capitalize }) => (
+                  <div key={label}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
+                      {label}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: t.text,
+                        ...(mono ? { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" } : {}),
+                        textTransform: capitalize ? 'capitalize' : undefined,
+                        background: mono ? t.mainBg : undefined,
+                        border: mono ? `1px solid ${t.cardBorder}` : undefined,
+                        borderRadius: mono ? 4 : undefined,
+                        padding: mono ? '3px 8px' : undefined,
+                        display: mono ? 'inline-block' : undefined,
+                      }}
+                    >
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+                  Details
+                </div>
+                <div style={{ fontSize: 12, color: t.text, background: t.mainBg, border: `1px solid ${t.cardBorder}`, borderRadius: 8, padding: '12px 16px', lineHeight: 1.6 }}>
+                  {selectedLog.details}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+                  User Agent
+                </div>
+                <div style={{ fontSize: 11, color: t.textSub, background: t.mainBg, border: `1px solid ${t.cardBorder}`, borderRadius: 8, padding: '10px 14px', ...mono, wordBreak: 'break-all', lineHeight: 1.5 }}>
+                  {selectedLog.userAgent}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

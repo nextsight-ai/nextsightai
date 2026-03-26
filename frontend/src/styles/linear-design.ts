@@ -515,61 +515,61 @@ export interface ThemeColors {
 }
 
 export const lightThemeColors: ThemeColors = {
-  sidebarBg: '#FFFFFF',
-  sidebarBorder: '#E5E7EB',
-  mainBg: '#F8F9FA',
+  sidebarBg: '#F9FAFB',
+  sidebarBorder: '#D1D5DB',
+  mainBg: '#F1F3F5',
   headerBg: '#FFFFFF',
-  headerBorder: '#E5E7EB',
+  headerBorder: '#D1D5DB',
   cardBg: '#FFFFFF',
-  cardBorder: '#E5E7EB',
+  cardBorder: '#D1D5DB',
 
-  text: '#111827',
-  textSub: '#6B7280',
-  textMuted: '#9CA3AF',
+  text: '#0F172A',
+  textSub: '#374151',
+  textMuted: '#6B7280',
 
-  navActiveBg: '#EBEBEB',
-  navActiveText: '#111827',
-  navActiveIcon: '#374151',
-  navHoverBg: '#F3F4F6',
+  navActiveBg: '#E5E7EB',
+  navActiveText: '#0F172A',
+  navActiveIcon: '#1D4ED8',
+  navHoverBg: '#EAECF0',
   navDefaultText: '#374151',
   navDefaultIcon: '#6B7280',
-  sectionLabel: '#9CA3AF',
+  sectionLabel: '#6B7280',
 
-  success: '#16A34A',
-  warning: '#D97706',
-  error: '#DC2626',
-  info: '#3B82F6',
-  successBg: '#F0FDF4',
-  warningBg: '#FFFBEB',
-  errorBg: '#FEF2F2',
-  infoBg: '#EFF6FF',
+  success: '#15803D',
+  warning: '#B45309',
+  error: '#B91C1C',
+  info: '#2563EB',
+  successBg: '#DCFCE7',
+  warningBg: '#FEF3C7',
+  errorBg: '#FEE2E2',
+  infoBg: '#DBEAFE',
 
   badgeColors: {
-    blue: { bg: '#EFF6FF', text: '#3B82F6' },
-    red: { bg: '#FEF2F2', text: '#EF4444' },
-    purple: { bg: '#F5F3FF', text: '#7C3AED' },
-    amber: { bg: '#FFFBEB', text: '#D97706' },
-    green: { bg: '#F0FDF4', text: '#16A34A' },
+    blue: { bg: '#DBEAFE', text: '#1D4ED8' },
+    red: { bg: '#FEE2E2', text: '#DC2626' },
+    purple: { bg: '#EDE9FE', text: '#6D28D9' },
+    amber: { bg: '#FEF3C7', text: '#B45309' },
+    green: { bg: '#DCFCE7', text: '#15803D' },
   },
 };
 
 export const darkThemeColors: ThemeColors = {
-  sidebarBg: '#111111',
-  sidebarBorder: 'rgba(255,255,255,0.06)',
-  mainBg: '#0a0a0a',
-  headerBg: '#111111',
-  headerBorder: 'rgba(255,255,255,0.06)',
-  cardBg: '#111111',
-  cardBorder: 'rgba(255,255,255,0.08)',
+  sidebarBg: '#0D0D0D',
+  sidebarBorder: 'rgba(255,255,255,0.07)',
+  mainBg: '#080808',
+  headerBg: '#0D0D0D',
+  headerBorder: 'rgba(255,255,255,0.07)',
+  cardBg: '#141414',
+  cardBorder: 'rgba(255,255,255,0.10)',
 
   text: '#F9FAFB',
   textSub: '#9CA3AF',
   textMuted: '#6B7280',
 
-  navActiveBg: 'rgba(255,255,255,0.08)',
+  navActiveBg: 'rgba(255,255,255,0.09)',
   navActiveText: '#F9FAFB',
   navActiveIcon: '#60A5FA',
-  navHoverBg: 'rgba(255,255,255,0.04)',
+  navHoverBg: 'rgba(255,255,255,0.05)',
   navDefaultText: '#9CA3AF',
   navDefaultIcon: '#6B7280',
   sectionLabel: '#4B5563',
@@ -602,12 +602,12 @@ export function getThemeColors(theme: 'light' | 'dark'): ThemeColors {
 /**
  * Create a theme-aware card style
  */
-export function createCard(themeColors: ThemeColors) {
+export function createCard(themeColors: ThemeColors, isDark: boolean, radius: number = 12): React.CSSProperties {
   return {
     background: themeColors.cardBg,
     border: `1px solid ${themeColors.cardBorder}`,
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: radius,
+    boxShadow: isDark ? 'none' : '0 1px 4px rgba(0,0,0,0.05)',
   };
 }
 

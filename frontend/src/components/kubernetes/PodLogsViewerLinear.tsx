@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { XMarkIcon, ArrowPathIcon, ArrowDownTrayIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { kubernetesApi } from '../../services/api';
 import type { Pod, PodLogs } from '../../types';
+import { mono } from '../../styles/linear-design';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 interface PodLogsViewerLinearProps {
   pod: Pod;

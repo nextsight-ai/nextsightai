@@ -22,7 +22,7 @@ import { kubernetesApi } from '../../services/api';
 import type { NodeInfo } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Skeleton, SkeletonCard } from '../common/Skeleton';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, createCard } from '../../styles/linear-design';
 import ClusterSwitcher from '../common/ClusterSwitcher';
 
 // ─── Node CPU/memory bar (color-shifts at thresholds) ────────────────────────
@@ -99,12 +99,7 @@ export default function ClusterOverviewLinear() {
     return { status, message: ev.message || ev.reason || 'Unknown event', namespace: ev.namespace || '—', reason: ev.reason, timeAgo, count: ev.count };
   }), [events]);
 
-  const card = {
-    background: t.cardBg,
-    border: `1px solid ${t.cardBorder}`,
-    borderRadius: 14,
-    boxShadow: isDark ? 'none' : '0 1px 6px rgba(0,0,0,0.05)',
-  };
+  const card = createCard(t, isDark, 14);
 
   const evColor = (s: string) => s === 'error' ? '#ef4444' : s === 'warning' ? '#f59e0b' : '#3b82f6';
   const evBg    = (s: string) => s === 'error' ? (isDark ? 'rgba(239,68,68,0.12)' : '#FEF2F2') : s === 'warning' ? (isDark ? 'rgba(245,158,11,0.12)' : '#FFFBEB') : (isDark ? 'rgba(59,130,246,0.12)' : '#EFF6FF');
@@ -233,11 +228,9 @@ export default function ClusterOverviewLinear() {
           {/* Right: refresh */}
           <button
             onClick={handleRefresh} disabled={refreshing || isRefetching}
-            style={{ ...card, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, color: t.textSub, cursor: 'pointer' }}
-            onMouseEnter={e => { e.currentTarget.style.color = t.text; e.currentTarget.style.background = t.navHoverBg; }}
-            onMouseLeave={e => { e.currentTarget.style.color = t.textSub; e.currentTarget.style.background = t.cardBg; }}
+            style={{ background: 'none', border: `1px solid ${t.cardBorder}`, borderRadius: 6, padding: '5px 8px', cursor: (refreshing || isRefetching) ? 'wait' : 'pointer', color: t.textSub, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}
           >
-            <ArrowPathIcon style={{ width: 13, height: 13 }} />
+            <ArrowPathIcon style={{ width: 12, height: 12 }} />
             {refreshing || isRefetching ? 'Refreshing…' : 'Refresh'}
           </button>
         </div>

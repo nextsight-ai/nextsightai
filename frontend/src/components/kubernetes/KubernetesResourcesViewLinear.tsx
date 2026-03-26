@@ -5,9 +5,8 @@ import { kubernetesApi } from '../../services/api';
 import K8sHeader from './K8sHeader';
 import { useNamespace } from '../../contexts/NamespaceContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono } from '../../styles/linear-design';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 type ResourceType = 'deployments' | 'pods' | 'services' | 'ingress' | 'configmaps' | 'secrets';
 
@@ -133,8 +132,6 @@ export default function KubernetesResourcesViewLinear() {
                   color: t.text,
                   transition: 'opacity 0.2s',
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ width: 5, height: 5, borderRadius: '50%', background: getStatusColor(status), boxShadow: status === 'Degraded' ? '0 0 6px #ef4444' : 'none' }} />
@@ -187,8 +184,6 @@ export default function KubernetesResourcesViewLinear() {
                 cursor: 'pointer',
                 transition: 'opacity 0.2s',
               }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 5, height: 5, borderRadius: '50%', background: getStatusColor(p.status), boxShadow: p.status === 'CrashLoopBackOff' ? '0 0 6px #ef4444' : 'none' }} />
@@ -222,8 +217,6 @@ export default function KubernetesResourcesViewLinear() {
         ) : (
           filtered.map((s, i) => (
             <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 100px 120px 120px 2fr', gap: 12, padding: '10px 0', borderBottom: i < filtered.length - 1 ? `1px solid ${t.cardBorder}` : 'none', fontSize: 11, color: t.text, transition: 'opacity 0.2s' }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
             >
               <span style={{ ...mono, fontSize: 13, fontWeight: 500 }}>{s.name}</span>
               <span style={{ fontSize: 13, color: t.textSub }}>{s.namespace}</span>
@@ -254,8 +247,6 @@ export default function KubernetesResourcesViewLinear() {
         ) : (
           filtered.map((ing, i) => (
             <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 100px 2fr 120px 60px', gap: 12, padding: '10px 0', borderBottom: i < filtered.length - 1 ? `1px solid ${t.cardBorder}` : 'none', fontSize: 11, color: t.text, transition: 'opacity 0.2s' }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
             >
               <span style={{ ...mono, fontSize: 13, fontWeight: 500 }}>{ing.name}</span>
               <span style={{ fontSize: 13, color: t.textSub }}>{ing.namespace}</span>
@@ -286,8 +277,6 @@ export default function KubernetesResourcesViewLinear() {
         ) : (
           filtered.map((c, i) => (
             <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 80px', gap: 12, padding: '10px 0', borderBottom: i < filtered.length - 1 ? `1px solid ${t.cardBorder}` : 'none', fontSize: 11, color: t.text, transition: 'opacity 0.2s' }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
             >
               <span style={{ ...mono, fontSize: 13, fontWeight: 500 }}>{c.name}</span>
               <span style={{ fontSize: 13, color: t.textSub }}>{c.namespace}</span>
@@ -316,8 +305,6 @@ export default function KubernetesResourcesViewLinear() {
         ) : (
           filtered.map((s, i) => (
             <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1.5fr 80px 80px', gap: 12, padding: '10px 0', borderBottom: i < filtered.length - 1 ? `1px solid ${t.cardBorder}` : 'none', fontSize: 11, color: t.text, transition: 'opacity 0.2s' }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
             >
               <span style={{ ...mono, fontSize: 13, fontWeight: 500 }}>{s.name}</span>
               <span style={{ fontSize: 13, color: t.textSub }}>{s.namespace}</span>
@@ -344,7 +331,7 @@ export default function KubernetesResourcesViewLinear() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', background: t.mainBg, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', background: t.mainBg, overflow: 'hidden' }}>
         {/* Header skeleton */}
         <div style={{ padding: '16px 32px', borderBottom: `1px solid ${t.cardBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
@@ -377,7 +364,7 @@ export default function KubernetesResourcesViewLinear() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', color: t.text, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', color: t.text, overflow: 'hidden' }}>
       {/* K8s Header */}
       <K8sHeader
         title="Kubernetes Resources"
@@ -412,20 +399,17 @@ export default function KubernetesResourcesViewLinear() {
               onClick={fetchData}
               disabled={loading}
               style={{
-                background: 'transparent',
-                border: 'none',
-                color: t.textSub,
-                cursor: loading ? 'wait' : 'pointer',
-                fontSize: 11,
-                padding: 0,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                letterSpacing: 0.2,
-                transition: 'color 0.2s',
-              }}
-              onMouseEnter={(e) => !loading && (e.currentTarget.style.color = t.text)}
-              onMouseLeave={(e) => !loading && (e.currentTarget.style.color = t.textSub)}
+              background: 'none',
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 6,
+              padding: '5px 8px',
+              cursor: loading ? 'wait' : 'pointer',
+              color: t.textSub,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              fontSize: 11,
+            }}
             >
               <ArrowPathIcon style={{ width: 12, height: 12 }} />
               {loading ? 'Refreshing...' : 'Refresh'}

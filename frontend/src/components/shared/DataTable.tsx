@@ -1,4 +1,5 @@
 import React from 'react';
+import { mono } from '../../styles/linear-design';
 
 export interface Column<T> {
   /**
@@ -46,7 +47,6 @@ export interface DataTableProps<T> {
   hoverable?: boolean;
 }
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 /**
  * DataTable - Minimal table component with linear design
@@ -78,7 +78,7 @@ export function DataTable<T extends Record<string, any>>({
         gridTemplateColumns: columns.map(c => c.width || '1fr').join(' '),
         gap: 16,
         paddingBottom: 12,
-        borderBottom: '1px solid rgba(255,255,255,0.04)',
+        borderBottom: '1px solid var(--border-color)',
       }}>
         {columns.map((col, i) => (
           <div
@@ -86,7 +86,7 @@ export function DataTable<T extends Record<string, any>>({
             style={{
               fontSize: 10,
               fontWeight: 500,
-              color: '#525252',
+              color: 'var(--text-secondary)',
               textTransform: 'uppercase',
               letterSpacing: 0.5,
               textAlign: col.align || 'left',
@@ -102,7 +102,7 @@ export function DataTable<T extends Record<string, any>>({
         <div style={{
           padding: '32px 0',
           textAlign: 'center',
-          color: '#404040',
+          color: 'var(--text-muted)',
           fontSize: 12
         }}>
           {emptyMessage}
@@ -118,7 +118,7 @@ export function DataTable<T extends Record<string, any>>({
                 gridTemplateColumns: columns.map(c => c.width || '1fr').join(' '),
                 gap: 16,
                 padding: '12px 0',
-                borderBottom: rowIndex < data.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                borderBottom: rowIndex < data.length - 1 ? '1px solid var(--border-color)' : 'none',
                 cursor: onRowClick ? 'pointer' : 'default',
                 transition: 'opacity 0.2s',
               }}
@@ -134,7 +134,7 @@ export function DataTable<T extends Record<string, any>>({
                   key={colIndex}
                   style={{
                     fontSize: 12,
-                    color: '#fafafa',
+                    color: 'var(--text-primary)',
                     textAlign: col.align || 'left',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',

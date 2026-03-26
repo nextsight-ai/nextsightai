@@ -1,4 +1,5 @@
 import React from 'react';
+import { mono } from '../../styles/linear-design';
 
 export interface MetricCardProps {
   /**
@@ -27,7 +28,6 @@ export interface MetricCardProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 /**
  * MetricCard - Displays a single metric with linear/minimal design
@@ -45,7 +45,7 @@ const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 export const MetricCard: React.FC<MetricCardProps> = ({
   value,
   label,
-  color = '#fafafa',
+  color = 'var(--text-primary)',
   subtitle,
   icon,
   size = 'md',
@@ -64,11 +64,11 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       <div style={{ fontSize: s.value, fontWeight: 700, letterSpacing: -1.5, color, ...mono }}>
         {value}
       </div>
-      <div style={{ fontSize: s.label, color: '#525252', marginTop: s.gap, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+      <div style={{ fontSize: s.label, color: 'var(--text-secondary)', marginTop: s.gap, textTransform: 'uppercase', letterSpacing: 0.5 }}>
         {label}
       </div>
       {subtitle && (
-        <div style={{ fontSize: s.subtitle, color: '#404040', marginTop: 2, ...mono }}>
+        <div style={{ fontSize: s.subtitle, color: 'var(--text-muted)', marginTop: 2, ...mono }}>
           {subtitle}
         </div>
       )}

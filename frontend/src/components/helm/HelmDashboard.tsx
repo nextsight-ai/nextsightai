@@ -21,10 +21,9 @@ import {
 } from '@heroicons/react/24/outline';
 import { formatAge } from '../../utils/constants';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono } from '../../styles/linear-design';
 import K8sHeader from '../kubernetes/K8sHeader';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 const helmStatusLabels: Record<string, string> = {
   deployed:          'Deployed',

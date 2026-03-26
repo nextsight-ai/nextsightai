@@ -26,6 +26,11 @@ import {
   SunIcon,
   MoonIcon,
   ArrowPathRoundedSquareIcon,
+  UsersIcon,
+  KeyIcon,
+  ClipboardDocumentListIcon,
+  BoltIcon,
+  PuzzlePieceIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -59,36 +64,61 @@ interface LayoutProps { children: React.ReactNode; }
 
 const navSections: NavSection[] = [
   {
-    label: 'Main menu',
+    label: 'Platform',
     items: [
       { id: 'dashboard',       name: 'Overview',         href: '/',                        icon: HomeIcon },
       { id: 'cluster',         name: 'Cluster Overview', href: '/cluster-overview',         icon: CloudIcon },
+      { id: 'clusters',        name: 'Clusters',         href: '/clusters',                 icon: ServerStackIcon },
+    ],
+  },
+  {
+    label: 'Kubernetes',
+    items: [
       { id: 'nodes',           name: 'Nodes',            href: '/kubernetes/nodes',         icon: ServerIcon },
       { id: 'namespaces',      name: 'Namespaces',       href: '/namespaces',               icon: FolderIcon },
       { id: 'workloads',       name: 'Workloads',        href: '/kubernetes/workloads',     icon: CubeTransparentIcon },
       { id: 'networking',      name: 'Networking',       href: '/kubernetes/networking',    icon: GlobeAltIcon },
       { id: 'storage',         name: 'Storage',          href: '/kubernetes/storage',       icon: CircleStackIcon },
+      { id: 'configuration',   name: 'Configuration',    href: '/kubernetes/configuration', icon: DocumentDuplicateIcon },
+    ],
+  },
+  {
+    label: 'Observe',
+    items: [
+      { id: 'monitoring',      name: 'Monitoring',       href: '/monitoring',               icon: ChartBarIcon, badge: '2', badgeColor: 'red'    as const },
+      { id: 'events',          name: 'Events',           href: '/events',                   icon: BoltIcon },
       { id: 'security',        name: 'Security',         href: '/security',                 icon: ShieldCheckIcon },
-      { id: 'monitoring',      name: 'Monitoring',       href: '/monitoring',               icon: ChartBarIcon, badge: '2', badgeColor: 'red' as const },
-      { id: 'ai-optimizer',    name: 'AI Optimizer',     href: '/optimization',             icon: SparklesIcon, badge: 'AI', badgeColor: 'purple' as const },
     ],
   },
   {
     label: 'Deploy',
     items: [
-      { id: 'deploy',          name: 'YAML',             href: '/deploy/yaml',              icon: RocketLaunchIcon },
-      { id: 'helm',            name: 'Helm',             href: '/deploy/helm',              icon: CubeTransparentIcon, badge: 'PKG',   badgeColor: 'blue'   as const },
+      { id: 'deploy',          name: 'YAML Deploy',      href: '/deploy/yaml',              icon: RocketLaunchIcon },
+      { id: 'helm',            name: 'Helm',             href: '/deploy/helm',              icon: CubeTransparentIcon, badge: 'PKG',    badgeColor: 'blue'   as const },
       { id: 'argocd',          name: 'ArgoCD',           href: '/deploy/argocd',            icon: ArrowPathRoundedSquareIcon, badge: 'GitOps', badgeColor: 'purple' as const },
     ],
   },
   {
-    label: 'Settings and tools',
+    label: 'Optimize',
+    items: [
+      { id: 'ai-optimizer',    name: 'AI Optimizer',     href: '/optimization',             icon: SparklesIcon, badge: 'AI', badgeColor: 'purple' as const },
+    ],
+  },
+  {
+    label: 'Admin',
+    items: [
+      { id: 'users',           name: 'Users',            href: '/admin/users',              icon: UsersIcon },
+      { id: 'api-keys',        name: 'API Keys',         href: '/admin/api-keys',           icon: KeyIcon },
+      { id: 'audit-logs',      name: 'Audit Logs',       href: '/admin/audit-logs',         icon: ClipboardDocumentListIcon },
+      { id: 'integrations',    name: 'Integrations',     href: '/integrations',             icon: PuzzlePieceIcon },
+    ],
+  },
+  {
+    label: 'Tools',
     items: [
       { id: 'terminal',        name: 'Terminal',         href: '/kubernetes/terminal',      icon: CommandLineIcon },
-      { id: 'configuration',   name: 'Configuration',    href: '/kubernetes/configuration', icon: DocumentDuplicateIcon },
       { id: 'settings',        name: 'Settings',         href: '/settings',                 icon: Cog6ToothIcon },
       { id: 'profile',         name: 'Profile',          href: '/profile',                  icon: UserCircleIcon },
-      { id: 'clusters',        name: 'Clusters',         href: '/clusters',                 icon: ServerStackIcon },
     ],
   },
 ];
@@ -163,9 +193,9 @@ export default function DualSidebarLayout({ children }: LayoutProps) {
 
   const t = useMemo(() => getThemeColors(theme), [theme]);
 
-  const pageBg = theme === 'light' ? '#EAECF0' : '#0a0a0a';
-  const cardBg = theme === 'light' ? '#FFFFFF' : '#111111';
-  const sidebarBg = theme === 'light' ? '#F7F8FA' : '#0f0f0f';
+  const pageBg = theme === 'light' ? '#E4E7EC' : '#080808';
+  const cardBg = theme === 'light' ? '#FFFFFF' : '#141414';
+  const sidebarBg = theme === 'light' ? '#F9FAFB' : '#0D0D0D';
 
   const [mobileOpen, setMobileOpen] = useState(false);
 

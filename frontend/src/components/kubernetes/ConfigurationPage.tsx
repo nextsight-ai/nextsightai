@@ -3,13 +3,11 @@ import { ArrowPathIcon, MagnifyingGlassIcon, EyeIcon, EyeSlashIcon, CheckIcon, C
 import ResourceDetailWindow, { type RDWResource } from './ResourceDetailWindow';
 import { kubernetesApi } from '../../services/api';
 import { useNamespace } from '../../contexts/NamespaceContext';
-import { useAuth } from '../../contexts/AuthContext';
-import type { ConfigMap, ConfigMapDetail, Secret, SecretDetail, Namespace } from '../../types';
+import type { ConfigMap, Secret } from '../../types';
 import K8sHeader from './K8sHeader';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono, createCard } from '../../styles/linear-design';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 type TabType = 'configmaps' | 'secrets';
 
@@ -17,22 +15,15 @@ export default function ConfigurationPage() {
   const { theme } = useTheme();
   const t = getThemeColors(theme);
   const isDark = theme === 'dark';
-  const card = { background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, boxShadow: isDark ? 'none' : '0 1px 4px rgba(0,0,0,0.05)' };
+  const card = createCard(t, isDark);
   const { selectedNamespace } = useNamespace();
-  const { hasRole } = useAuth();
-  const canManage = hasRole('operator');
-
   const [configMaps, setConfigMaps] = useState<ConfigMap[]>([]);
   const [secrets, setSecrets] = useState<Secret[]>([]);
-  const [namespaces, setNamespaces] = useState<Namespace[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('configmaps');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Modal states
-  const [showCreateConfigMapModal, setShowCreateConfigMapModal] = useState(false);
-  const [showCreateSecretModal, setShowCreateSecretModal] = useState(false);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [itemData, setItemData] = useState<any>(null);
   const [loadingData, setLoadingData] = useState(false);
@@ -47,14 +38,12 @@ export default function ConfigurationPage() {
     setError(null);
     try {
       const ns = selectedNamespace || undefined;
-      const [configMapsRes, secretsRes, namespacesRes] = await Promise.all([
+      const [configMapsRes, secretsRes] = await Promise.all([
         kubernetesApi.getConfigMaps(ns),
         kubernetesApi.getSecrets(ns),
-        kubernetesApi.getNamespaces(),
       ]);
       setConfigMaps(configMapsRes.data || []);
       setSecrets(secretsRes.data || []);
-      setNamespaces(namespacesRes.data || []);
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || err.message || 'Failed to load configuration data';
       setError(errorMessage);
@@ -114,13 +103,6 @@ export default function ConfigurationPage() {
     return { color: style.color, label: style.label };
   };
 
-  const stats = {
-    configMaps: configMaps.length,
-    secrets: secrets.length,
-    opaqueSecrets: secrets.filter(s => s.type === 'Opaque').length,
-    tlsSecrets: secrets.filter(s => s.type === 'kubernetes.io/tls').length,
-  };
-
   // Detail window state — multi-tab model
   const [rdw, setRdw] = useState<{ resources: RDWResource[]; activeId: string; forceRestore: number } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ kind: string; name: string; namespace: string } | null>(null);
@@ -169,7 +151,7 @@ export default function ConfigurationPage() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', color: t.text, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', color: t.text, overflow: 'hidden' }}>
       {/* K8s Header */}
       <K8sHeader
         title="Configuration"
@@ -204,20 +186,17 @@ export default function ConfigurationPage() {
               onClick={loadData}
               disabled={loading}
               style={{
-                background: 'transparent',
-                border: 'none',
-                color: t.textSub,
-                cursor: loading ? 'wait' : 'pointer',
-                fontSize: 11,
-                padding: 0,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-                letterSpacing: 0.2,
-                transition: 'color 0.2s',
-              }}
-              onMouseEnter={(e) => !loading && (e.currentTarget.style.color = t.text)}
-              onMouseLeave={(e) => !loading && (e.currentTarget.style.color = t.textSub)}
+              background: 'none',
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 6,
+              padding: '5px 8px',
+              cursor: loading ? 'wait' : 'pointer',
+              color: t.textSub,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              fontSize: 11,
+            }}
             >
               <ArrowPathIcon style={{ width: 12, height: 12 }} />
               {loading ? 'Refreshing...' : 'Refresh'}
@@ -353,8 +332,6 @@ export default function ConfigurationPage() {
                           letterSpacing: 0.2,
                           alignItems: 'center',
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = t.navHoverBg)}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                       >
                         <div
                           onClick={() => openPanel('ConfigMap', cm.namespace, cm.name, cm)}
@@ -518,8 +495,6 @@ export default function ConfigurationPage() {
                           letterSpacing: 0.2,
                           alignItems: 'center',
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = t.navHoverBg)}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                       >
                         <div
                           onClick={() => openPanel('Secret', secret.namespace, secret.name, secret)}

@@ -26,7 +26,7 @@ import { useCluster } from '../../contexts/ClusterContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import useDashboardData from '../../hooks/useDashboardData';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono, createCard } from '../../styles/linear-design';
 import { logger } from '../../utils/logger';
 
 // ─── Sparkline ────────────────────────────────────────────────────────────────
@@ -122,12 +122,7 @@ export default function Dashboard() {
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const displayName = user?.full_name || user?.username || 'there';
 
-  const card = {
-    background: t.cardBg,
-    border: `1px solid ${t.cardBorder}`,
-    borderRadius: 14,
-    boxShadow: isDark ? 'none' : '0 1px 6px rgba(0,0,0,0.05)',
-  };
+  const card = createCard(t, isDark, 14);
 
   const quickActions = [
     { label: 'Deploy App',   desc: 'Push a new workload',     icon: RocketLaunchIcon, href: '/deploy/yaml',         color: '#8b5cf6', bg: isDark ? 'rgba(139,92,246,0.12)' : '#F5F3FF' },
@@ -266,7 +261,7 @@ export default function Dashboard() {
             </div>
             <Sparkline values={cpuHistory} color="#3b82f6" />
           </div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: t.text, letterSpacing: -1, lineHeight: 1, marginBottom: 8 }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: t.text, letterSpacing: -1, lineHeight: 1, marginBottom: 8, ...mono }}>
             {cpuPct ? `${cpuPct.toFixed(0)}%` : '—'}
           </div>
           <ProgressBar pct={cpuPct} color="#3b82f6" />
@@ -290,7 +285,7 @@ export default function Dashboard() {
             </div>
             <Sparkline values={memHistory} color="#8b5cf6" />
           </div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: t.text, letterSpacing: -1, lineHeight: 1, marginBottom: 8 }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: t.text, letterSpacing: -1, lineHeight: 1, marginBottom: 8, ...mono }}>
             {memPct ? `${memPct.toFixed(0)}%` : '—'}
           </div>
           <ProgressBar pct={memPct} color="#8b5cf6" />
@@ -314,7 +309,7 @@ export default function Dashboard() {
             </div>
             <Link to="/kubernetes/nodes" style={{ fontSize: 11, color: t.info, textDecoration: 'none', fontWeight: 500 }}>View →</Link>
           </div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: t.text, letterSpacing: -1, lineHeight: 1, marginBottom: 8 }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: t.text, letterSpacing: -1, lineHeight: 1, marginBottom: 8, ...mono }}>
             {readyNodes}<span style={{ fontSize: 14, fontWeight: 400, color: t.textSub }}>/{nodeCount}</span>
           </div>
           <ProgressBar pct={nodeCount > 0 ? (readyNodes / nodeCount) * 100 : 0} color="#f59e0b" />
@@ -337,7 +332,7 @@ export default function Dashboard() {
             </div>
             <Link to="/kubernetes/workloads" style={{ fontSize: 11, color: t.info, textDecoration: 'none', fontWeight: 500 }}>View →</Link>
           </div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: t.text, letterSpacing: -1, lineHeight: 1, marginBottom: 8 }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: t.text, letterSpacing: -1, lineHeight: 1, marginBottom: 8, ...mono }}>
             {runningPods}<span style={{ fontSize: 14, fontWeight: 400, color: t.textSub }}>/{totalPods}</span>
           </div>
           <ProgressBar pct={totalPods > 0 ? (runningPods / totalPods) * 100 : 0} color="#22c55e" />

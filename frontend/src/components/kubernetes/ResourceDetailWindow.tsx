@@ -2,10 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { XMarkIcon, EyeIcon, EyeSlashIcon, ArrowPathIcon, CheckIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline';
 import { kubernetesApi } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono } from '../../styles/linear-design';
 import type { K8sEvent } from '../../types';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 const DEFAULT_W = 700;
 
 export type RDWTab = 'info' | 'manifest' | 'events' | 'decode' | 'pods' | 'logs' | 'terminal';

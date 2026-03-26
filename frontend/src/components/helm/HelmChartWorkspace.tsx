@@ -4,7 +4,7 @@ import Editor from '@monaco-editor/react';
 import { helmApi } from '../../services/api';
 import { logger } from '../../utils/logger';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono } from '../../styles/linear-design';
 import type { HelmRelease, HelmReleaseHistory } from '../../types';
 import {
   CubeIcon,
@@ -34,7 +34,6 @@ import {
   ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 type TabType = 'values' | 'rendered' | 'diff' | 'history' | 'resources' | 'ai' | 'health';
 

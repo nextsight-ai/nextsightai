@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Skeleton, SkeletonCard } from '../common/Skeleton';
-import { Link } from 'react-router-dom';
-import { ChartBarIcon, BellAlertIcon, ExclamationTriangleIcon, CheckCircleIcon, ClockIcon, ArrowPathIcon, CpuChipIcon, CircleStackIcon, ServerIcon } from '@heroicons/react/24/outline';
+import K8sHeader from '../kubernetes/K8sHeader';
+import { CheckCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { kubernetesApi } from '../../services/api';
 import { prometheusApi } from '../../services/prometheusApi';
 import type { ClusterMetrics, K8sEvent } from '../../types';
 import type { PrometheusStackStatus, Alert as PrometheusAlert } from '../../types/prometheus';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono } from '../../styles/linear-design';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 interface Alert {
   id: string;
@@ -44,7 +43,7 @@ export default function MonitoringDashboard() {
       const [metricsRes, eventsRes, prometheusRes, prometheusAlerts] = await Promise.all([
         kubernetesApi.getClusterMetrics().catch(() => null),
         kubernetesApi.getEvents().catch(() => ({ data: [] })),
-        prometheusApi.getStatus().catch(() => null),
+        prometheusApi.getStackStatus().catch(() => null),
         prometheusApi.getAlerts().catch(() => ({ data: [] })),
       ]);
 
@@ -67,14 +66,14 @@ export default function MonitoringDashboard() {
         }));
 
       // Convert Prometheus alerts
-      const promAlerts: Alert[] = (prometheusAlerts.data || [])
+      const promAlerts: Alert[] = (Array.isArray(prometheusAlerts.data) ? prometheusAlerts.data : [])
         .slice(0, 10)
         .map((a: PrometheusAlert, idx: number) => ({
           id: `prom-${idx}`,
           title: a.labels?.alertname || 'Alert',
           severity: a.labels?.severity === 'critical' ? 'critical' : 'warning',
           source: 'Prometheus',
-          timestamp: a.activeAt || new Date().toISOString(),
+          timestamp: a.active_at || new Date().toISOString(),
           status: a.state === 'firing' ? 'firing' : 'resolved',
           description: a.annotations?.description || a.annotations?.summary || 'No description',
         }));
@@ -103,22 +102,12 @@ export default function MonitoringDashboard() {
 
   const activeAlerts = alerts.filter(a => a.status === 'firing');
   const criticalAlerts = activeAlerts.filter(a => a.severity === 'critical').length;
-  const warningAlerts = activeAlerts.filter(a => a.severity === 'warning').length;
 
   if (loading && !metrics) {
     return (
-      <div style={{ minHeight: '100vh', background: t.mainBg, color: t.text }}>
-        {/* Header skeleton */}
-        <header style={{ padding: '16px 32px', borderBottom: `1px solid ${t.cardBorder}` }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <Skeleton width={200} height={16} style={{ marginBottom: 6 }} />
-              <Skeleton width={260} height={9} />
-            </div>
-            <Skeleton width={60} height={9} />
-          </div>
-        </header>
-        <div style={{ padding: '24px 32px' }}>
+      <div style={{ margin: '-28px -32px', height: 'calc(100vh - 68px)', color: t.text, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <K8sHeader title="Monitoring" subtitle="Cluster metrics, alerts, and system health" />
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px' }}>
           {/* Stat strip */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 16, marginBottom: 28 }}>
             {[...Array(4)].map((_, i) => <SkeletonCard key={i} height={82} />)}
@@ -144,44 +133,20 @@ export default function MonitoringDashboard() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: t.mainBg, color: t.text }}>
-      {/* Header */}
-      <header style={{ padding: '16px 32px', borderBottom: `1px solid ${t.cardBorder}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{ fontSize: 20, fontWeight: 600, margin: 0, letterSpacing: -0.5, marginBottom: 2 }}>
-              Monitoring Dashboard
-            </h1>
-            <p style={{ color: t.textMuted, fontSize: 11, margin: 0 }}>
-              Cluster metrics, alerts, and system health
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <button
-              onClick={fetchData}
-              disabled={loading}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: t.textMuted,
-                cursor: loading ? 'wait' : 'pointer',
-                fontSize: 11,
-                padding: 0,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <ArrowPathIcon style={{ width: 12, height: 12 }} />
-              {loading ? 'Refreshing...' : 'Refresh'}
-            </button>
-          </div>
-        </div>
-      </header>
+    <div style={{ margin: '-28px -32px', height: 'calc(100vh - 68px)', color: t.text, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <K8sHeader
+        title="Monitoring"
+        subtitle="Cluster metrics, alerts, and system health"
+        rightContent={
+          <button onClick={fetchData} disabled={loading} style={{ background: 'none', border: `1px solid ${t.cardBorder}`, borderRadius: 6, padding: '5px 8px', cursor: 'pointer', color: t.textSub, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
+            <ArrowPathIcon style={{ width: 13, height: 13 }} />
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
+        }
+      />
 
       {/* Main Content */}
-      <main style={{ padding: '24px 32px' }}>
+      <main style={{ flex: 1, overflowY: 'auto', padding: '24px 32px' }}>
         {/* Error State */}
         {error && (
           <div style={{
@@ -199,58 +164,55 @@ export default function MonitoringDashboard() {
 
         {/* Cluster Metrics */}
         {metrics && (
-          <section style={{ marginBottom: 32 }}>
-            <h2 style={{ fontSize: 10, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+          <section style={{ marginBottom: 28 }}>
+            <h2 style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
               Cluster Overview
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 24 }}>
-              <div>
-                <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1.5, color: '#3b82f6', ...mono }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+              {/* CPU */}
+              <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '18px 20px' }}>
+                <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: -1.5, color: '#3b82f6', ...mono }}>
                   {metrics.cpu_percent}%
                 </div>
-                <div style={{ fontSize: 10, color: t.textMuted, marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  CPU Usage
-                </div>
-                <div style={{ fontSize: 9, color: t.textMuted, marginTop: 2, ...mono }}>
+                <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>CPU Usage</div>
+                <div style={{ fontSize: 9, color: t.textMuted, marginTop: 3, ...mono }}>
                   {metrics.total_cpu_usage} / {metrics.total_cpu_capacity}
                 </div>
               </div>
-              <div>
-                <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1.5, color: '#8b5cf6', ...mono }}>
+              {/* Memory */}
+              <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '18px 20px' }}>
+                <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: -1.5, color: '#8b5cf6', ...mono }}>
                   {metrics.memory_percent}%
                 </div>
-                <div style={{ fontSize: 10, color: t.textMuted, marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Memory Usage
-                </div>
-                <div style={{ fontSize: 9, color: t.textMuted, marginTop: 2, ...mono }}>
+                <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Memory Usage</div>
+                <div style={{ fontSize: 9, color: t.textMuted, marginTop: 3, ...mono }}>
                   {metrics.total_memory_usage} / {metrics.total_memory_capacity}
                 </div>
               </div>
-              <div>
-                <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1.5, color: '#22c55e', ...mono }}>
+              {/* Nodes */}
+              <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '18px 20px' }}>
+                <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: -1.5, color: '#22c55e', ...mono }}>
                   {metrics.nodes?.length || 0}
                 </div>
-                <div style={{ fontSize: 10, color: t.textMuted, marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Nodes
-                </div>
+                <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Nodes</div>
+                <div style={{ fontSize: 9, color: t.textMuted, marginTop: 3 }}>in cluster</div>
               </div>
-              <div>
-                <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1.5, color: '#eab308', ...mono }}>
+              {/* Alerts */}
+              <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '18px 20px' }}>
+                <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: -1.5, color: '#eab308', ...mono }}>
                   {activeAlerts.length}
                 </div>
-                <div style={{ fontSize: 10, color: t.textMuted, marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Active Alerts
-                </div>
-                <div style={{ fontSize: 9, color: t.textMuted, marginTop: 2, ...mono }}>
-                  {criticalAlerts} critical
-                </div>
+                <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Active Alerts</div>
+                <div style={{ fontSize: 9, color: '#ef4444', marginTop: 3, ...mono }}>{criticalAlerts} critical</div>
               </div>
-              <div>
-                <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1.5, color: prometheusStatus?.prometheus?.status === 'healthy' ? '#22c55e' : '#ef4444', ...mono }}>
-                  {prometheusStatus?.prometheus?.status === 'healthy' ? 'UP' : 'DOWN'}
+              {/* Prometheus */}
+              <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, padding: '18px 20px' }}>
+                <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: -1.5, color: prometheusStatus?.status === 'running' ? '#22c55e' : '#ef4444', ...mono }}>
+                  {prometheusStatus?.status === 'running' ? 'UP' : 'DOWN'}
                 </div>
-                <div style={{ fontSize: 10, color: t.textMuted, marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Prometheus
+                <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Prometheus</div>
+                <div style={{ fontSize: 9, color: t.textMuted, marginTop: 3 }}>
+                  {prometheusStatus?.status || 'unknown'}
                 </div>
               </div>
             </div>
@@ -258,21 +220,21 @@ export default function MonitoringDashboard() {
         )}
 
         {/* Active Alerts */}
-        <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 10, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+        <section style={{ marginBottom: 20 }}>
+          <h2 style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
             Active Alerts · {activeAlerts.length} firing
           </h2>
 
-          <div>
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, overflow: 'hidden' }}>
             {/* Table Header */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: '2fr 1fr 120px 150px 100px',
               gap: 12,
-              paddingBottom: 8,
+              padding: '10px 20px',
               borderBottom: `1px solid ${t.cardBorder}`,
               fontSize: 10,
-              fontWeight: 500,
+              fontWeight: 600,
               color: t.textMuted,
               textTransform: 'uppercase',
               letterSpacing: 0.5,
@@ -286,9 +248,9 @@ export default function MonitoringDashboard() {
 
             {/* Table Rows */}
             {activeAlerts.length === 0 ? (
-              <div style={{ padding: '48px 0', textAlign: 'center', color: t.textMuted, fontSize: 12 }}>
-                <CheckCircleIcon style={{ width: 48, height: 48, margin: '0 auto 12px', color: '#22c55e', opacity: 0.5 }} />
-                <p style={{ margin: 0 }}>No active alerts</p>
+              <div style={{ padding: '40px 24px', textAlign: 'center', color: t.textMuted, fontSize: 12 }}>
+                <CheckCircleIcon style={{ width: 40, height: 40, margin: '0 auto 10px', color: '#22c55e', opacity: 0.5 }} />
+                <p style={{ margin: 0, fontWeight: 500 }}>No active alerts</p>
                 <p style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>All systems running normally</p>
               </div>
             ) : (
@@ -299,37 +261,38 @@ export default function MonitoringDashboard() {
                     display: 'grid',
                     gridTemplateColumns: '2fr 1fr 120px 150px 100px',
                     gap: 12,
-                    padding: '10px 0',
+                    padding: '11px 20px',
                     borderBottom: i < activeAlerts.length - 1 ? `1px solid ${t.cardBorder}` : 'none',
                     fontSize: 11,
                     color: t.text,
                     cursor: 'pointer',
-                    transition: 'opacity 0.2s',
+                    transition: 'background 0.15s',
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
-                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = t.navHoverBg)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {alert.title}
-                  </div>
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {alert.source}
-                  </div>
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: t.textMuted }}>
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{alert.title}</div>
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{alert.source}</div>
+                  <div style={{ fontSize: 10, color: t.textMuted, ...mono }}>
                     {new Date(alert.timestamp).toLocaleTimeString()}
                   </div>
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10 }}>
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, color: t.textSub }}>
                     {alert.description}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div>
                     <span style={{
-                      width: 5,
-                      height: 5,
-                      borderRadius: '50%',
-                      background: getSeverityColor(alert.severity),
-                      boxShadow: alert.severity === 'critical' ? '0 0 6px #ef4444' : 'none',
-                    }} />
-                    <span style={{ color: getSeverityColor(alert.severity) }}>
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      padding: '2px 8px',
+                      borderRadius: 9999,
+                      fontSize: 10,
+                      fontWeight: 500,
+                      background: `${getSeverityColor(alert.severity)}18`,
+                      color: getSeverityColor(alert.severity),
+                      border: `1px solid ${getSeverityColor(alert.severity)}30`,
+                    }}>
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: getSeverityColor(alert.severity), boxShadow: alert.severity === 'critical' ? `0 0 5px ${getSeverityColor(alert.severity)}` : 'none' }} />
                       {alert.severity}
                     </span>
                   </div>
@@ -341,20 +304,20 @@ export default function MonitoringDashboard() {
 
         {/* Recent Events */}
         <section>
-          <h2 style={{ fontSize: 10, fontWeight: 500, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+          <h2 style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
             Recent Events · {events.length} events
           </h2>
 
-          <div>
+          <div style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, overflow: 'hidden' }}>
             {/* Table Header */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: '120px 2fr 1fr 150px 100px',
               gap: 12,
-              paddingBottom: 8,
+              padding: '10px 20px',
               borderBottom: `1px solid ${t.cardBorder}`,
               fontSize: 10,
-              fontWeight: 500,
+              fontWeight: 600,
               color: t.textMuted,
               textTransform: 'uppercase',
               letterSpacing: 0.5,
@@ -367,43 +330,51 @@ export default function MonitoringDashboard() {
             </div>
 
             {/* Table Rows */}
-            {events.slice(0, 20).map((event, i) => (
+            {events.length === 0 ? (
+              <div style={{ padding: '40px 24px', textAlign: 'center', color: t.textMuted, fontSize: 12 }}>
+                No recent events
+              </div>
+            ) : events.slice(0, 20).map((event, i) => (
               <div
                 key={i}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '120px 2fr 1fr 150px 100px',
                   gap: 12,
-                  padding: '10px 0',
+                  padding: '11px 20px',
                   borderBottom: i < Math.min(events.length, 20) - 1 ? `1px solid ${t.cardBorder}` : 'none',
                   fontSize: 11,
                   color: t.text,
                   cursor: 'pointer',
-                  transition: 'opacity 0.2s',
+                  transition: 'background 0.15s',
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                onMouseEnter={(e) => (e.currentTarget.style.background = t.navHoverBg)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
                 <div style={{ fontSize: 10, color: t.textMuted, ...mono }}>
-                  {new Date(event.last_timestamp || event.first_timestamp).toLocaleTimeString()}
+                  {new Date(event.last_timestamp || event.first_timestamp || '').toLocaleTimeString()}
                 </div>
-                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {event.message}
-                </div>
+                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{event.message}</div>
                 <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {event.involved_object?.name || '-'}
                 </div>
-                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: t.textSub }}>
                   {event.namespace}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div>
                   <span style={{
-                    width: 5,
-                    height: 5,
-                    borderRadius: '50%',
-                    background: event.type === 'Warning' ? '#eab308' : '#3b82f6',
-                  }} />
-                  <span style={{ color: event.type === 'Warning' ? '#eab308' : '#3b82f6' }}>
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '2px 8px',
+                    borderRadius: 9999,
+                    fontSize: 10,
+                    fontWeight: 500,
+                    background: event.type === 'Warning' ? 'rgba(234,179,8,0.12)' : 'rgba(59,130,246,0.12)',
+                    color: event.type === 'Warning' ? '#eab308' : '#3b82f6',
+                    border: `1px solid ${event.type === 'Warning' ? 'rgba(234,179,8,0.25)' : 'rgba(59,130,246,0.25)'}`,
+                  }}>
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: event.type === 'Warning' ? '#eab308' : '#3b82f6' }} />
                     {event.type}
                   </span>
                 </div>
@@ -412,10 +383,8 @@ export default function MonitoringDashboard() {
           </div>
 
           {events.length > 20 && (
-            <div style={{ padding: '16px 0', textAlign: 'center' }}>
-              <div style={{ fontSize: 11, color: t.textMuted }}>
-                Showing 20 of {events.length} events
-              </div>
+            <div style={{ padding: '12px 0', textAlign: 'center' }}>
+              <div style={{ fontSize: 11, color: t.textMuted }}>Showing 20 of {events.length} events</div>
             </div>
           )}
         </section>

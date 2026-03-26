@@ -19,9 +19,8 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono, createCard } from '../../styles/linear-design';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 type TabType = 'services' | 'ingresses' | 'topology';
 
@@ -64,7 +63,7 @@ function ServicesTable({
 }) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const card = { background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, boxShadow: isDark ? 'none' : '0 1px 4px rgba(0,0,0,0.05)' };
+  const card = createCard(t, isDark);
 
   if (loading) {
     return (
@@ -107,8 +106,6 @@ function ServicesTable({
             borderBottom: `1px solid ${t.cardBorder}`,
             transition: 'background 0.15s',
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = t.navHoverBg)}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <CubeIcon style={{ width: 14, height: 14, color: t.textSub }} />
@@ -123,7 +120,7 @@ function ServicesTable({
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {svc.ports?.map((port: any, idx: number) => (
               <span key={idx} style={{ padding: '2px 6px', fontSize: 9, background: t.cardBorder, color: t.textSub, borderRadius: 4, ...mono }}>
-                {port.port}/{port.protocol}
+                {port.port}/{port.protocol}{port.nodePort ? `:${port.nodePort}` : ''}
               </span>
             ))}
           </div>
@@ -132,8 +129,6 @@ function ServicesTable({
               onClick={() => onDelete(svc.namespace, svc.name)}
               style={{ padding: 6, background: 'transparent', border: 'none', color: t.textSub, cursor: 'pointer', borderRadius: 4, transition: 'color 0.15s' }}
               title="Delete"
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = t.textSub)}
             >
               <TrashIcon style={{ width: 14, height: 14 }} />
             </button>
@@ -160,7 +155,7 @@ function IngressesTable({
 }) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const card = { background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, boxShadow: isDark ? 'none' : '0 1px 4px rgba(0,0,0,0.05)' };
+  const card = createCard(t, isDark);
 
   if (loading) {
     return (
@@ -203,8 +198,6 @@ function IngressesTable({
             borderBottom: `1px solid ${t.cardBorder}`,
             transition: 'background 0.15s',
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = t.navHoverBg)}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <GlobeAltIcon style={{ width: 14, height: 14, color: t.textSub }} />
@@ -241,8 +234,6 @@ function IngressesTable({
               onClick={() => onDelete(ing.namespace, ing.name)}
               style={{ padding: 6, background: 'transparent', border: 'none', color: t.textSub, cursor: 'pointer', borderRadius: 4, transition: 'color 0.15s' }}
               title="Delete"
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = t.textSub)}
             >
               <TrashIcon style={{ width: 14, height: 14 }} />
             </button>
@@ -422,7 +413,7 @@ export default function NetworkingDashboard() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', color: t.text, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', color: t.text, overflow: 'hidden' }}>
       {/* K8s Header */}
       <K8sHeader
         title="Networking"
@@ -432,20 +423,17 @@ export default function NetworkingDashboard() {
             onClick={loadData}
             disabled={loading}
             style={{
-              background: 'transparent',
-              border: 'none',
-              color: t.textSub,
+              background: 'none',
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 6,
+              padding: '5px 8px',
               cursor: loading ? 'wait' : 'pointer',
-              fontSize: 11,
-              padding: 0,
+              color: t.textSub,
               display: 'flex',
               alignItems: 'center',
               gap: 4,
-              letterSpacing: 0.2,
-              transition: 'color 0.2s',
+              fontSize: 11,
             }}
-            onMouseEnter={(e) => !loading && (e.currentTarget.style.color = t.text)}
-            onMouseLeave={(e) => !loading && (e.currentTarget.style.color = t.textSub)}
           >
             <ArrowPathIcon style={{ width: 12, height: 12 }} />
             {loading ? 'Refreshing...' : 'Refresh'}

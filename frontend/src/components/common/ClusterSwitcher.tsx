@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { useCluster } from '../../contexts/ClusterContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono } from '../../styles/linear-design';
 import { logger } from '../../utils/logger';
 import { ServerStackIcon, CheckIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 function statusColor(status: string) {
   if (status === 'connected') return '#22c55e';

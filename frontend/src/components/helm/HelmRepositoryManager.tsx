@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { helmApi } from '../../services/api';
 import { logger } from '../../utils/logger';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono } from '../../styles/linear-design';
 import {
   XMarkIcon,
   PlusIcon,
@@ -13,7 +13,6 @@ import {
   ServerStackIcon,
 } from '@heroicons/react/24/outline';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 interface HelmRepository {
   name: string;

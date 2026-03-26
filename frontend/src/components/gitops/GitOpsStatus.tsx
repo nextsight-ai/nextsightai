@@ -17,11 +17,10 @@ import {
 import { argocdApi } from '../../services/api';
 import { logger } from '../../utils/logger';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono } from '../../styles/linear-design';
 import K8sHeader from '../kubernetes/K8sHeader';
 import type { ArgoCDApplicationSummary, ArgoCDStatus, ArgoCDSyncStatus, ArgoCDHealthStatus } from '../../types';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 function syncBadge(status: ArgoCDSyncStatus): React.CSSProperties {
   if (status === 'Synced') return { background: 'rgba(16,185,129,0.1)', color: '#10B981', border: '1px solid rgba(16,185,129,0.25)' };

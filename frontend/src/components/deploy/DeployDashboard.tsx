@@ -21,7 +21,7 @@ export default function DeployDashboard() {
   const [active, setActive] = useState<DeployTab>('yaml');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', color: t.text, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', color: t.text, overflow: 'hidden' }}>
 
       {/* ── Header bar ── */}
       <div style={{

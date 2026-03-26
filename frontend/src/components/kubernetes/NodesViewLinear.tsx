@@ -5,9 +5,9 @@ import useNodesData from '../../hooks/useNodesData';
 import K8sHeader from './K8sHeader';
 import ResourceDetailWindow, { type RDWResource } from './ResourceDetailWindow';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono, createCard } from '../../styles/linear-design';
+import LinearStatCard from '../common/LinearStatCard';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 function NodeBar({ pct, color }: { pct: number; color: string }) {
   const barColor = pct > 85 ? '#ef4444' : pct > 65 ? '#f59e0b' : color;
@@ -71,7 +71,9 @@ export default function NodesViewLinear() {
       cpu: nm?.cpu_percent || 0,
       memory: nm?.memory_percent || 0,
       pods: podCountByNode[node.name] || 0,
+      maxPods: node.allocatable?.pods ? parseInt(node.allocatable.pods, 10) : null,
       ip: node.internal_ip,
+      externalIp: node.external_ip,
       version: node.version,
       os: node.os_image,
       runtime: node.container_runtime,
@@ -79,16 +81,11 @@ export default function NodesViewLinear() {
     };
   });
 
-  const card = {
-    background: t.cardBg,
-    border: `1px solid ${t.cardBorder}`,
-    borderRadius: 14,
-    boxShadow: isDark ? 'none' : '0 1px 6px rgba(0,0,0,0.05)',
-  };
+  const card = createCard(t, isDark, 14);
 
   if (isLoading && nodes.length === 0) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', color: t.text, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', color: t.text, overflow: 'hidden' }}>
         <K8sHeader title="Cluster Nodes" subtitle="Infrastructure and resource allocation" />
         <main style={{ flex: 1, overflow: 'auto', padding: '24px 32px' }}>
           {/* Stat strip skeleton */}
@@ -120,7 +117,7 @@ export default function NodesViewLinear() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', color: t.text, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', color: t.text, overflow: 'hidden' }}>
 
       <K8sHeader
         title="Cluster Nodes"
@@ -128,9 +125,7 @@ export default function NodesViewLinear() {
         rightContent={
           <button
             onClick={refresh} disabled={isLoading}
-            style={{ background: 'transparent', border: 'none', color: t.textSub, cursor: isLoading ? 'wait' : 'pointer', fontSize: 11, padding: 0, display: 'flex', alignItems: 'center', gap: 4, letterSpacing: 0.2 }}
-            onMouseEnter={e => !isLoading && (e.currentTarget.style.color = t.text)}
-            onMouseLeave={e => !isLoading && (e.currentTarget.style.color = t.textSub)}
+            style={{ background: 'none', border: `1px solid ${t.cardBorder}`, borderRadius: 6, padding: '5px 8px', cursor: isLoading ? 'wait' : 'pointer', color: t.textSub, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}
           >
             <ArrowPathIcon style={{ width: 12, height: 12 }} />
             {isLoading ? 'Refreshing…' : 'Refresh'}
@@ -155,15 +150,7 @@ export default function NodesViewLinear() {
             { icon: CpuChipIcon,     label: 'Avg CPU',      value: `${avgCpu}%`,        color: '#8b5cf6' },
             { icon: CircleStackIcon, label: 'Avg Memory',   value: `${avgMemory}%`,     color: '#ec4899' },
           ].map((s, i) => (
-            <div key={i} style={{ ...card, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, flexShrink: 0, background: s.color + (isDark ? '22' : '18'), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <s.icon style={{ width: 16, height: 16, color: s.color }} />
-              </div>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: t.text, lineHeight: 1, marginBottom: 2 }}>{s.value}</div>
-                <div style={{ fontSize: 11, color: t.textMuted }}>{s.label}</div>
-              </div>
-            </div>
+            <LinearStatCard key={i} {...s} t={t} isDark={isDark} card={card} />
           ))}
         </div>
 
@@ -196,7 +183,7 @@ export default function NodesViewLinear() {
                 >
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 500, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.name}</div>
-                    {node.ip && <div style={{ fontSize: 10, color: t.textMuted, ...mono }}>{node.ip}</div>}
+                    {node.ip && <div style={{ fontSize: 10, color: t.textMuted, ...mono }}>{node.ip}{node.externalIp ? ` · ${node.externalIp}` : ''}</div>}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: isReady ? '#22c55e' : '#ef4444', boxShadow: `0 0 4px ${isReady ? 'rgba(34,197,94,0.5)' : 'rgba(239,68,68,0.5)'}` }} />
@@ -207,7 +194,9 @@ export default function NodesViewLinear() {
                   </span>
                   <NodeBar pct={node.cpu}    color="#8b5cf6" />
                   <NodeBar pct={node.memory} color="#3b82f6" />
-                  <span style={{ fontSize: 11, textAlign: 'center', color: t.textSub, ...mono }}>{node.pods}</span>
+                  <span style={{ fontSize: 11, textAlign: 'center', color: t.textSub, ...mono }}>
+                    {node.pods}{node.maxPods ? <span style={{ color: t.textMuted }}>/{node.maxPods}</span> : ''}
+                  </span>
                   <span style={{ fontSize: 10, color: t.textMuted, ...mono, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{node.version}</span>
                 </div>
               );

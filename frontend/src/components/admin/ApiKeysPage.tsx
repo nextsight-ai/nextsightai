@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   KeyIcon,
   PlusIcon,
@@ -9,8 +8,10 @@ import {
   EyeSlashIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
-import PageHeader from '../common/PageHeader';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors, mono, createCard } from '../../styles/linear-design';
 
 interface ApiKey {
   id: string;
@@ -23,24 +24,35 @@ interface ApiKey {
   status: 'active' | 'expired' | 'revoked';
 }
 
-// API Keys are not yet implemented in the backend
-// This page will show an empty state until the feature is available
-
 export default function ApiKeysPage() {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+  const isDark = theme === 'dark';
+
   const [apiKeys] = useState<ApiKey[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  const card = createCard(t, isDark);
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '8px 12px',
+    borderRadius: 8,
+    border: `1px solid ${t.cardBorder}`,
+    background: t.mainBg,
+    color: t.text,
+    fontSize: 13,
+    outline: 'none',
+    boxSizing: 'border-box',
+  };
+
   const toggleKeyVisibility = (id: string) => {
-    setVisibleKeys((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
+    setVisibleKeys(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
     });
   };
 
@@ -50,262 +62,186 @@ export default function ApiKeysPage() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const getStatusBadge = (status: ApiKey['status']) => {
-    switch (status) {
-      case 'active':
-        return (
-          <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
-            <CheckCircleIcon className="h-3 w-3" />
-            Active
-          </span>
-        );
-      case 'expired':
-        return (
-          <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
-            <ExclamationTriangleIcon className="h-3 w-3" />
-            Expired
-          </span>
-        );
-      case 'revoked':
-        return (
-          <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
-            <ExclamationTriangleIcon className="h-3 w-3" />
-            Revoked
-          </span>
-        );
-    }
+  const StatusBadge = ({ status }: { status: ApiKey['status'] }) => {
+    const cfg = status === 'active'
+      ? { bg: t.successBg, color: t.success, icon: CheckCircleIcon, label: 'Active' }
+      : status === 'expired'
+      ? { bg: t.warningBg, color: t.warning, icon: ExclamationTriangleIcon, label: 'Expired' }
+      : { bg: t.errorBg, color: t.error, icon: ExclamationTriangleIcon, label: 'Revoked' };
+    const Icon = cfg.icon;
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 9999, fontSize: 11, fontWeight: 500, background: cfg.bg, color: cfg.color }}>
+        <Icon style={{ width: 11, height: 11 }} />
+        {cfg.label}
+      </span>
+    );
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="API Keys"
-        description="Manage API keys for programmatic access to NextSight AI"
-        icon={KeyIcon}
-        iconColor="purple"
-        actions={
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl text-sm font-medium shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 transition-all"
-          >
-            <PlusIcon className="h-4 w-4" />
-            Create API Key
-          </motion.button>
-        }
-      />
+    <div style={{ color: t.text }}>
 
-      {/* Security Notice */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50"
-      >
-        <div className="flex items-start gap-3">
-          <ExclamationTriangleIcon className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <h4 className="font-medium text-amber-800 dark:text-amber-200 mb-1">
-              Security Notice
-            </h4>
-            <p className="text-sm text-amber-700 dark:text-amber-300">
-              API keys provide programmatic access to your NextSight AI account. Keep them secure and never share them publicly.
-              Rotate keys regularly and revoke any that may have been compromised.
-            </p>
+      {/* ── Page header ────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <KeyIcon style={{ width: 20, height: 20, color: t.info }} />
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: t.text, margin: 0 }}>API Keys</h1>
           </div>
+          <div style={{ fontSize: 13, color: t.textSub }}>Manage API keys for programmatic access to NextSight AI</div>
         </div>
-      </motion.div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: t.info, border: 'none', borderRadius: 8, color: '#fff', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
+        >
+          <PlusIcon style={{ width: 13, height: 13 }} />
+          Create API Key
+        </button>
+      </div>
 
-      {/* API Keys List */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+      {/* ── Security Notice ─────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 16px', background: t.warningBg, border: `1px solid ${t.warning}30`, borderRadius: 10, marginBottom: 24 }}>
+        <ShieldCheckIcon style={{ width: 18, height: 18, color: t.warning, flexShrink: 0, marginTop: 1 }} />
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: t.warning, marginBottom: 3 }}>Security Notice</div>
+          <p style={{ margin: 0, fontSize: 12, color: t.textSub, lineHeight: 1.6 }}>
+            API keys provide programmatic access to your NextSight AI account. Keep them secure and never share them publicly. Rotate keys regularly and revoke any that may have been compromised.
+          </p>
+        </div>
+      </div>
+
+      {/* ── API Keys list ────────────────────────────────────────────── */}
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14 }}>
           Your API Keys
-        </h3>
+        </div>
 
         {apiKeys.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="p-8 rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-slate-700/50 text-center"
-          >
-            <div className="p-4 rounded-2xl bg-gray-100 dark:bg-slate-700 w-fit mx-auto mb-4">
-              <KeyIcon className="h-8 w-8 text-gray-400" />
+          <div style={{ ...card, padding: '56px 24px', textAlign: 'center' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: isDark ? 'rgba(255,255,255,0.06)' : t.cardBorder, borderRadius: 14, padding: 18, marginBottom: 16 }}>
+              <KeyIcon style={{ width: 28, height: 28, color: t.textMuted }} />
             </div>
-            <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              No API keys yet
-            </h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Create your first API key to start integrating with NextSight AI
-            </p>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <div style={{ fontSize: 15, fontWeight: 600, color: t.text, marginBottom: 8 }}>No API keys yet</div>
+            <div style={{ fontSize: 13, color: t.textSub, marginBottom: 20 }}>Create your first API key to start integrating with NextSight AI</div>
+            <button
               onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 bg-purple-500 text-white rounded-xl text-sm font-medium"
+              style={{ padding: '8px 20px', background: t.info, border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}
             >
               Create API Key
-            </motion.button>
-          </motion.div>
+            </button>
+          </div>
         ) : (
-          <div className="space-y-3">
-            {apiKeys.map((apiKey) => (
-              <motion.div
-                key={apiKey.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-4 rounded-xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-slate-700/50"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-900/30">
-                      <KeyIcon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {apiKeys.map(apiKey => (
+              <div key={apiKey.id} style={{ ...card, padding: 18 }}>
+
+                {/* Key header */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ background: t.infoBg, borderRadius: 9, padding: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <KeyIcon style={{ width: 16, height: 16, color: t.info }} />
                     </div>
                     <div>
-                      <h4 className="font-medium text-gray-900 dark:text-white">
-                        {apiKey.name}
-                      </h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Created on {apiKey.createdAt}
-                      </p>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 2 }}>{apiKey.name}</div>
+                      <div style={{ fontSize: 11, color: t.textMuted }}>Created {apiKey.createdAt}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(apiKey.status)}
-                  </div>
+                  <StatusBadge status={apiKey.status} />
                 </div>
 
-                {/* Key Display */}
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-gray-100 dark:bg-slate-700/50 mb-3">
-                  <code className="flex-1 text-sm font-mono text-gray-700 dark:text-gray-300">
-                    {visibleKeys.has(apiKey.id) ? apiKey.key : '••••••••••••••••••••••••'}
+                {/* Key value */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', background: t.mainBg, border: `1px solid ${t.cardBorder}`, borderRadius: 8, marginBottom: 14 }}>
+                  <code style={{ flex: 1, fontSize: 12, ...mono, color: t.textSub }}>
+                    {visibleKeys.has(apiKey.id) ? apiKey.key : '••••••••••••••••••••••••••••••'}
                   </code>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => toggleKeyVisibility(apiKey.id)}
-                    className="p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-500"
-                    title={visibleKeys.has(apiKey.id) ? 'Hide key' : 'Show key'}
-                  >
-                    {visibleKeys.has(apiKey.id) ? (
-                      <EyeSlashIcon className="h-4 w-4" />
-                    ) : (
-                      <EyeIcon className="h-4 w-4" />
-                    )}
-                  </motion.button>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => copyToClipboard(apiKey.key, apiKey.id)}
-                    className="p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-500"
-                    title="Copy to clipboard"
-                  >
-                    {copiedKey === apiKey.id ? (
-                      <CheckCircleIcon className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <ClipboardDocumentIcon className="h-4 w-4" />
-                    )}
-                  </motion.button>
+                  <button onClick={() => toggleKeyVisibility(apiKey.id)} title={visibleKeys.has(apiKey.id) ? 'Hide' : 'Show'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: 4, display: 'flex', alignItems: 'center' }}>
+                    {visibleKeys.has(apiKey.id) ? <EyeSlashIcon style={{ width: 14, height: 14 }} /> : <EyeIcon style={{ width: 14, height: 14 }} />}
+                  </button>
+                  <button onClick={() => copyToClipboard(apiKey.key, apiKey.id)} title="Copy" style={{ background: 'none', border: 'none', cursor: 'pointer', color: copiedKey === apiKey.id ? t.success : t.textMuted, padding: 4, display: 'flex', alignItems: 'center' }}>
+                    {copiedKey === apiKey.id ? <CheckCircleIcon style={{ width: 14, height: 14 }} /> : <ClipboardDocumentIcon style={{ width: 14, height: 14 }} />}
+                  </button>
                 </div>
 
-                {/* Permissions and Meta */}
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-wrap gap-1.5">
-                    {apiKey.permissions.map((perm) => (
-                      <span
-                        key={perm}
-                        className="px-2 py-0.5 text-xs font-medium rounded-md bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-400"
-                      >
+                {/* Permissions + meta */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {apiKey.permissions.map(perm => (
+                      <span key={perm} style={{ padding: '2px 8px', fontSize: 11, fontWeight: 500, borderRadius: 4, background: t.mainBg, border: `1px solid ${t.cardBorder}`, color: t.textSub }}>
                         {perm}
                       </span>
                     ))}
                   </div>
-                  <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 11, color: t.textMuted }}>
                     {apiKey.lastUsed && <span>Last used: {apiKey.lastUsed}</span>}
                     {apiKey.expiresAt && <span>Expires: {apiKey.expiresAt}</span>}
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-500 hover:text-red-500"
-                      title="Revoke key"
+                    <button title="Revoke key" style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textMuted, padding: 4, display: 'flex', alignItems: 'center' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = t.error)}
+                      onMouseLeave={e => (e.currentTarget.style.color = t.textMuted)}
                     >
-                      <TrashIcon className="h-4 w-4" />
-                    </motion.button>
+                      <TrashIcon style={{ width: 14, height: 14 }} />
+                    </button>
                   </div>
                 </div>
-              </motion.div>
+
+              </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Create Modal Placeholder */}
-      <AnimatePresence>
-        {showCreateModal && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
-              onClick={() => setShowCreateModal(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
-              onClick={(e) => e.stopPropagation()}
+      {/* ── Create modal ─────────────────────────────────────────────── */}
+      {showCreateModal && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }} onClick={() => setShowCreateModal(false)} />
+          <div style={{ position: 'fixed', inset: 0, zIndex: 51, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, pointerEvents: 'none' }}>
+            <div
+              style={{ width: '100%', maxWidth: 440, background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 14, padding: 24, boxShadow: '0 24px 64px rgba(0,0,0,0.4)', pointerEvents: 'auto' }}
+              onClick={e => e.stopPropagation()}
             >
-              <div className="w-full max-w-md p-6 rounded-2xl bg-white dark:bg-slate-800 shadow-2xl">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  Create New API Key
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Key Name
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g., Production API Key"
-                      className="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Expiration
-                    </label>
-                    <select className="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                      <option>Never</option>
-                      <option>30 days</option>
-                      <option>90 days</option>
-                      <option>1 year</option>
-                    </select>
-                  </div>
-                  <div className="flex gap-3 pt-4">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => setShowCreateModal(false)}
-                      className="flex-1 px-4 py-2 rounded-xl border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-300 font-medium"
-                    >
-                      Cancel
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => setShowCreateModal(false)}
-                      className="flex-1 px-4 py-2 rounded-xl bg-purple-500 text-white font-medium"
-                    >
-                      Create Key
-                    </motion.button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                <div style={{ background: t.infoBg, borderRadius: 9, padding: 8, display: 'flex' }}>
+                  <KeyIcon style={{ width: 16, height: 16, color: t.info }} />
+                </div>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: t.text }}>Create New API Key</h3>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSub, marginBottom: 6 }}>Key Name</label>
+                  <input type="text" placeholder="e.g., Production API Key" style={inputStyle} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSub, marginBottom: 6 }}>Permissions</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 14px', background: t.mainBg, border: `1px solid ${t.cardBorder}`, borderRadius: 8 }}>
+                    {['Read', 'Write', 'Delete', 'Admin'].map(perm => (
+                      <label key={perm} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: t.textSub }}>
+                        <input type="checkbox" style={{ cursor: 'pointer', accentColor: t.info }} />
+                        {perm}
+                      </label>
+                    ))}
                   </div>
                 </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: t.textSub, marginBottom: 6 }}>Expiration</label>
+                  <select style={{ ...inputStyle, cursor: 'pointer' }}>
+                    <option>Never</option>
+                    <option>30 days</option>
+                    <option>90 days</option>
+                    <option>1 year</option>
+                  </select>
+                </div>
+                <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
+                  <button onClick={() => setShowCreateModal(false)} style={{ flex: 1, padding: '9px 16px', borderRadius: 8, border: `1px solid ${t.cardBorder}`, background: 'transparent', color: t.textSub, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+                    Cancel
+                  </button>
+                  <button onClick={() => setShowCreateModal(false)} style={{ flex: 1, padding: '9px 16px', borderRadius: 8, border: 'none', background: t.info, color: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+                    Create Key
+                  </button>
+                </div>
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

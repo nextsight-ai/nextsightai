@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { helmApi } from '../../services/api';
 import { logger } from '../../utils/logger';
-import type { HelmChartSearchResult } from '../../types';
 import HelmRepositoryManager from './HelmRepositoryManager';
 import {
   CubeIcon,
@@ -14,13 +13,11 @@ import {
   XMarkIcon,
   ServerStackIcon,
   ClockIcon,
-  CheckIcon,
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../../contexts/ThemeContext';
-import { getThemeColors } from '../../styles/linear-design';
+import { getThemeColors, mono } from '../../styles/linear-design';
 import K8sHeader from '../kubernetes/K8sHeader';
 
-const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 const mockPopularCharts = [
   { name: 'nginx',       repo: 'bitnami',               description: 'NGINX Open Source web server and reverse proxy',           version: '15.1.0', downloads: '10M+', rating: 4.8 },
