@@ -1,10 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import * as yaml from 'js-yaml';
 import { kubernetesApi, aiApi } from '../../services/api';
 import { logger } from '../../utils/logger';
-import type { Namespace } from '../../types';
 import {
   PlayIcon,
   CheckCircleIcon,
@@ -12,69 +10,49 @@ import {
   SparklesIcon,
   EyeIcon,
   ExclamationTriangleIcon,
-  ShieldCheckIcon,
-  ClockIcon,
   ArrowPathIcon,
   BeakerIcon,
   DocumentArrowUpIcon,
   ArrowDownTrayIcon,
   ClipboardDocumentIcon,
-  TrashIcon,
   XMarkIcon,
-  RocketLaunchIcon,
-  CubeIcon,
-  ArrowRightIcon,
+  CheckIcon,
 } from '@heroicons/react/24/outline';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors } from '../../styles/linear-design';
+import { useNamespace } from '../../contexts/NamespaceContext';
+import { useCluster } from '../../contexts/ClusterContext';
+import K8sHeader from '../kubernetes/K8sHeader';
 
-type TabType = 'editor' | 'rendered' | 'diff' | 'ai-review';
+const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
+
+type EditorTab = 'editor' | 'preview' | 'diff' | 'ai-review';
 
 interface LogEntry {
   type: 'info' | 'success' | 'error' | 'warning';
   message: string;
-  timestamp: Date;
+  ts: Date;
 }
 
-interface DiffLine {
-  type: 'added' | 'removed' | 'unchanged';
-  content: string;
-  lineNumber?: number;
-}
-
-interface AIReviewResult {
+interface AIReview {
   score: number;
-  issues: Array<{
-    severity: 'critical' | 'high' | 'medium' | 'low';
-    type: string;
-    message: string;
-    suggestion?: string;
-  }>;
-  suggestions: string[];
   securityScore: number;
   bestPracticeScore: number;
+  issues: Array<{ severity: 'critical' | 'high' | 'medium' | 'low'; type: string; message: string; suggestion?: string }>;
+  suggestions: string[];
 }
 
 interface DeploySummary {
   success: boolean;
-  resources: Array<{
-    kind: string;
-    name: string;
-    namespace?: string;
-    status: 'created' | 'updated' | 'unchanged';
-  }>;
   duration: number;
-  timestamp: Date;
-  zeroDowntime: boolean;
-  podsUpdated: number;
-  podsRestarted: number;
+  resources: Array<{ kind: string; name: string; namespace?: string; status: 'created' | 'updated' | 'unchanged' }>;
 }
 
-const SAMPLE_YAML = `# Sample Kubernetes Deployment
-apiVersion: apps/v1
+const SAMPLE_YAML = `apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-deployment
-  labels:
-    app: nginx
+  namespace: default
 spec:
   replicas: 3
   selector:
@@ -92,1553 +70,604 @@ spec:
         - containerPort: 80
         resources:
           requests:
-            memory: "64Mi"
-            cpu: "100m"
+            cpu: 100m
+            memory: 128Mi
           limits:
-            memory: "128Mi"
-            cpu: "200m"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: nginx-service
-spec:
-  selector:
-    app: nginx
-  ports:
-  - port: 80
-    targetPort: 80
-  type: ClusterIP
-`;
+            cpu: 500m
+            memory: 256Mi`;
 
-// localStorage keys
-const STORAGE_KEYS = {
-  YAML_CONTENT: 'nextsight_yaml_content',
-  NAMESPACE: 'nextsight_yaml_namespace',
-};
-
-// Simple line-by-line diff computation
-function computeDiff(oldText: string, newText: string): { left: DiffLine[]; right: DiffLine[] } {
-  const oldLines = oldText.split('\n');
-  const newLines = newText.split('\n');
-
-  const left: DiffLine[] = [];
-  const right: DiffLine[] = [];
-
-  let oldIndex = 0;
-  let newIndex = 0;
-
-  while (oldIndex < oldLines.length || newIndex < newLines.length) {
-    if (oldIndex < oldLines.length && newIndex < newLines.length) {
-      if (oldLines[oldIndex] === newLines[newIndex]) {
-        // Unchanged line
-        left.push({ type: 'unchanged', content: oldLines[oldIndex], lineNumber: oldIndex + 1 });
-        right.push({ type: 'unchanged', content: newLines[newIndex], lineNumber: newIndex + 1 });
-        oldIndex++;
-        newIndex++;
-      } else {
-        // Changed line - show as removed and added
-        left.push({ type: 'removed', content: oldLines[oldIndex], lineNumber: oldIndex + 1 });
-        right.push({ type: 'added', content: newLines[newIndex], lineNumber: newIndex + 1 });
-        oldIndex++;
-        newIndex++;
-      }
-    } else if (oldIndex < oldLines.length) {
-      // Removed line
-      left.push({ type: 'removed', content: oldLines[oldIndex], lineNumber: oldIndex + 1 });
-      right.push({ type: 'unchanged', content: '', lineNumber: undefined });
-      oldIndex++;
-    } else {
-      // Added line
-      left.push({ type: 'unchanged', content: '', lineNumber: undefined });
-      right.push({ type: 'added', content: newLines[newIndex], lineNumber: newIndex + 1 });
-      newIndex++;
-    }
-  }
-
-  return { left, right };
-}
-
-// DiffView Component
-function DiffView({ oldText, newText }: { oldText: string; newText: string }) {
-  const { left, right } = computeDiff(oldText, newText);
-
-  const getLineStyle = (type: DiffLine['type']) => {
-    switch (type) {
-      case 'added':
-        return 'bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500';
-      case 'removed':
-        return 'bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500';
-      default:
-        return 'bg-white dark:bg-slate-800';
-    }
-  };
-
-  const getTextStyle = (type: DiffLine['type']) => {
-    switch (type) {
-      case 'added':
-        return 'text-green-800 dark:text-green-300';
-      case 'removed':
-        return 'text-red-800 dark:text-red-300';
-      default:
-        return 'text-gray-700 dark:text-gray-300';
-    }
-  };
-
-  return (
-    <div className="grid grid-cols-2 gap-0 h-full overflow-auto font-mono text-xs">
-      {/* Left Side - Deployed */}
-      <div className="border-r border-gray-200 dark:border-slate-700">
-        <div className="sticky top-0 bg-gray-100 dark:bg-slate-800 px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-slate-700 z-10">
-          Deployed (Current)
-        </div>
-        <div>
-          {left.map((line, idx) => (
-            <div
-              key={idx}
-              className={`flex px-2 py-1 ${getLineStyle(line.type)}`}
-            >
-              <span className="w-12 flex-shrink-0 text-gray-400 dark:text-gray-600 select-none text-right pr-3">
-                {line.lineNumber || ''}
-              </span>
-              <span className={`flex-1 whitespace-pre ${getTextStyle(line.type)}`}>
-                {line.content || '\u00A0'}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Right Side - Local */}
-      <div>
-        <div className="sticky top-0 bg-gray-100 dark:bg-slate-800 px-4 py-2 font-semibold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-slate-700 z-10">
-          Local (Your Changes)
-        </div>
-        <div>
-          {right.map((line, idx) => (
-            <div
-              key={idx}
-              className={`flex px-2 py-1 ${getLineStyle(line.type)}`}
-            >
-              <span className="w-12 flex-shrink-0 text-gray-400 dark:text-gray-600 select-none text-right pr-3">
-                {line.lineNumber || ''}
-              </span>
-              <span className={`flex-1 whitespace-pre ${getTextStyle(line.type)}`}>
-                {line.content || '\u00A0'}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
+const SK = { content: 'nextsight_yaml_content' };
 
 export default function YAMLDeployEnhanced() {
-  const [activeTab, setActiveTab] = useState<TabType>('editor');
-  const [yamlContent, setYamlContent] = useState(() => {
-    // Load from localStorage on initial render
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(STORAGE_KEYS.YAML_CONTENT) || '';
-    }
-    return '';
-  });
-  const [selectedNamespace, setSelectedNamespace] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem(STORAGE_KEYS.NAMESPACE) || '';
-    }
-    return '';
-  });
-  const [namespaces, setNamespaces] = useState<Namespace[]>([]);
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+  const isDark = theme === 'dark';
+  const { selectedNamespace } = useNamespace();
+  const { activeCluster } = useCluster();
+
+  const [editorTab, setEditorTab] = useState<EditorTab>('editor');
+  const [yaml_content, setYamlContent] = useState(() => localStorage.getItem(SK.content) || '');
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [parsedYAML, setParsedYAML] = useState<any>(null);
-  const [aiReview, setAiReview] = useState<AIReviewResult | null>(null);
+  const [parsed, setParsed] = useState<any[] | null>(null);
+  const [aiReview, setAiReview] = useState<AIReview | null>(null);
   const [reviewing, setReviewing] = useState(false);
-  const [deploySummary, setDeploySummary] = useState<DeploySummary | null>(null);
-  const [showSummaryModal, setShowSummaryModal] = useState(false);
-  const [deployedYAML, setDeployedYAML] = useState<string>('');
-  const [fetchingDeployed, setFetchingDeployed] = useState(false);
-  const [selectedIssues, setSelectedIssues] = useState<Set<number>>(new Set());
-  const [resourceStatuses, setResourceStatuses] = useState<Map<string, any>>(new Map());
-  const [trackingResources, setTrackingResources] = useState(false);
-  const statusIntervalRef = useRef<number | null>(null);
-  const logsEndRef = useRef<HTMLDivElement>(null);
+  const [deployedYAML, setDeployedYAML] = useState('');
+  const [fetchingDiff, setFetchingDiff] = useState(false);
+  const [summary, setSummary] = useState<DeploySummary | null>(null);
+  const logsRef = useRef<HTMLDivElement>(null);
 
-  // Save YAML content to localStorage when it changes
+  useEffect(() => { localStorage.setItem(SK.content, yaml_content); }, [yaml_content]);
+  useEffect(() => { logsRef.current?.scrollTo({ top: logsRef.current.scrollHeight }); }, [logs]);
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.YAML_CONTENT, yamlContent);
-  }, [yamlContent]);
+    if (!yaml_content.trim()) { setParsed(null); return; }
+    try { setParsed(yaml.loadAll(yaml_content) as any[]); } catch { setParsed(null); }
+  }, [yaml_content]);
 
-  // Save namespace to localStorage when it changes
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.NAMESPACE, selectedNamespace);
-  }, [selectedNamespace]);
+  const addLog = (type: LogEntry['type'], message: string) =>
+    setLogs(p => [...p, { type, message, ts: new Date() }]);
 
-  useEffect(() => {
-    loadNamespaces();
-  }, []);
-
-  useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
-
-  useEffect(() => {
-    if (yamlContent) {
-      try {
-        const parsed = yaml.loadAll(yamlContent);
-        setParsedYAML(parsed);
-      } catch (err: any) {
-        setParsedYAML(null);
-      }
-    } else {
-      setParsedYAML(null);
-    }
-  }, [yamlContent]);
-
-  const addLog = (type: LogEntry['type'], message: string) => {
-    setLogs(prev => [...prev, { type, message, timestamp: new Date() }]);
-  };
-
-  const loadNamespaces = async () => {
-    try {
-      const response = await kubernetesApi.getNamespaces();
-      setNamespaces(response.data);
-    } catch (err) {
-      logger.error('Failed to load namespaces', err);
-    }
-  };
-
-  const startResourceTracking = (resources: any[]) => {
-    // Clear any existing tracking
-    if (statusIntervalRef.current) {
-      clearInterval(statusIntervalRef.current);
-    }
-
-    setTrackingResources(true);
-    setResourceStatuses(new Map());
-    addLog('info', '📊 Tracking resource status...');
-
-    // Initial status check
-    checkResourceStatuses(resources);
-
-    // Poll every 3 seconds
-    statusIntervalRef.current = window.setInterval(() => {
-      checkResourceStatuses(resources);
-    }, 3000);
-
-    // Stop tracking after 60 seconds
-    setTimeout(() => {
-      stopResourceTracking();
-    }, 60000);
-  };
-
-  const checkResourceStatuses = async (resources: any[]) => {
-    const newStatuses = new Map();
-
-    for (const resource of resources) {
-      try {
-        const response = await kubernetesApi.getResourceStatus(
-          resource.kind,
-          resource.name,
-          resource.namespace
-        );
-
-        if (response.data.success && response.data.resource) {
-          const key = `${resource.kind}/${resource.name}`;
-          newStatuses.set(key, response.data.resource);
-        }
-      } catch (err) {
-        logger.error(`Failed to get status for ${resource.kind}/${resource.name}`, err);
-      }
-    }
-
-    setResourceStatuses(newStatuses);
-
-    // Check if all resources are ready
-    let allReady = true;
-    for (const [, status] of newStatuses) {
-      if (status.status !== 'Ready') {
-        allReady = false;
-        break;
-      }
-    }
-
-    if (allReady && newStatuses.size > 0) {
-      addLog('success', '✓ All resources are ready');
-      stopResourceTracking();
-    }
-  };
-
-  const stopResourceTracking = () => {
-    if (statusIntervalRef.current) {
-      clearInterval(statusIntervalRef.current);
-      statusIntervalRef.current = null;
-    }
-    setTrackingResources(false);
-  };
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopResourceTracking();
-    };
-  }, []);
-
-  const handleApply = async (dryRun: boolean) => {
-    if (!yamlContent.trim()) {
-      addLog('error', 'No YAML content provided');
-      return;
-    }
-
+  async function handleApply(dryRun: boolean) {
+    if (!yaml_content.trim()) { addLog('error', 'No YAML content'); return; }
     setLoading(true);
-    const startTime = Date.now();
-    addLog('info', dryRun ? '🔍 Validating...' : '🚀 Deploying...');
-
+    const t0 = Date.now();
+    addLog('info', dryRun ? 'Validating manifest…' : `Deploying to ${selectedNamespace || 'default'}…`);
     try {
-      const response = await kubernetesApi.applyYAML({
-        yaml_content: yamlContent,
+      const res = await kubernetesApi.applyYAML({
+        yaml_content,
         namespace: selectedNamespace || 'default',
         dry_run: dryRun,
       });
-
-      const duration = Date.now() - startTime;
-
-      if (response.data.success) {
-        addLog('success', dryRun ? '✓ Validation successful' : '✓ Deployed successfully');
-        if (response.data.resources.length > 0) {
-          response.data.resources.forEach(r => {
-            addLog('success', `  → ${r.kind}/${r.name}`);
-          });
-        }
-
-        // Show deployment summary modal (not for dry runs)
-        if (!dryRun) {
-          // Calculate deployment metrics
-          const podsUpdated = response.data.resources.filter(r =>
-            (r.kind === 'Deployment' || r.kind === 'StatefulSet' || r.kind === 'DaemonSet') &&
-            r.action === 'updated'
-          ).length;
-          const podsRestarted = response.data.resources.filter(r =>
-            r.kind === 'Pod' && r.action === 'updated'
-          ).length;
-
-          // Assume zero downtime if duration < 5s and no errors
-          const zeroDowntime = duration < 5000;
-
-          setDeploySummary({
+      const dur = Date.now() - t0;
+      if (res.data.success) {
+        addLog('success', dryRun ? 'Validation passed ✓' : `Deployed in ${(dur / 1000).toFixed(2)}s`);
+        res.data.resources?.forEach((r: any) => addLog('success', `  ${r.kind}/${r.name} — ${r.action}`));
+        if (!dryRun && res.data.resources) {
+          setSummary({
             success: true,
-            resources: response.data.resources.map(r => ({
-              kind: r.kind,
-              name: r.name,
-              namespace: r.namespace,
-              status: r.action as 'created' | 'updated' | 'unchanged',
+            duration: dur,
+            resources: res.data.resources.map((r: any) => ({
+              kind: r.kind, name: r.name, namespace: r.namespace, status: r.action,
             })),
-            duration,
-            timestamp: new Date(),
-            zeroDowntime,
-            podsUpdated,
-            podsRestarted,
           });
-          setShowSummaryModal(true);
-
-          // Start tracking resource status
-          startResourceTracking(response.data.resources);
         }
       } else {
-        addLog('error', '✗ ' + response.data.message);
-        // Log individual errors
-        if (response.data.errors && response.data.errors.length > 0) {
-          response.data.errors.forEach(err => {
-            addLog('error', `  → ${err}`);
-          });
-        }
+        addLog('error', res.data.message || 'Deploy failed');
+        res.data.errors?.forEach((e: string) => addLog('error', `  ${e}`));
       }
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed';
-      addLog('error', '✗ ' + errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
+    } catch (e: any) {
+      addLog('error', e?.message || 'Request failed');
+    } finally { setLoading(false); }
+  }
 
-  const handleAIReview = async () => {
-    if (!yamlContent.trim()) {
-      addLog('warning', 'No YAML to review');
-      return;
-    }
-
+  async function handleAIReview() {
+    if (!yaml_content.trim()) return;
     setReviewing(true);
-    addLog('info', '🤖 AI analyzing YAML...');
-
+    setEditorTab('ai-review');
+    addLog('info', 'AI analyzing YAML…');
     try {
-      const response = await aiApi.yamlReview({
-        yaml_content: yamlContent,
-        namespace: selectedNamespace || undefined,
-      });
-
-      if (response.data.success) {
+      const res = await aiApi.yamlReview({ yaml_content, namespace: selectedNamespace || undefined });
+      if (res.data.success) {
         setAiReview({
-          score: response.data.score,
-          issues: response.data.issues.map(issue => ({
-            severity: issue.severity,
-            type: issue.type,
-            message: issue.message,
-            suggestion: issue.suggestion,
-          })),
-          suggestions: response.data.suggestions,
-          securityScore: response.data.security_score,
-          bestPracticeScore: response.data.best_practice_score,
+          score: res.data.score,
+          securityScore: res.data.security_score,
+          bestPracticeScore: res.data.best_practice_score,
+          issues: res.data.issues,
+          suggestions: res.data.suggestions,
         });
+        addLog('success', `AI review complete — score ${res.data.score}/100`);
+      } else { addLog('error', 'AI review failed'); }
+    } catch (e: any) { addLog('error', `AI review unavailable: ${e?.message}`); }
+    finally { setReviewing(false); }
+  }
 
-        // Select all issues by default
-        setSelectedIssues(new Set(response.data.issues.map((_, idx) => idx)));
-
-        addLog('success', `✓ AI review completed - Score: ${response.data.score}/100`);
-        setActiveTab('ai-review');
-      } else {
-        addLog('error', '✗ AI review failed');
-      }
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'AI service unavailable';
-      addLog('error', `✗ AI review failed: ${errorMessage}`);
-      logger.error('AI review error', err);
-    } finally {
-      setReviewing(false);
-    }
-  };
-
-  const toggleIssue = (idx: number) => {
-    setSelectedIssues(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(idx)) {
-        newSet.delete(idx);
-      } else {
-        newSet.add(idx);
-      }
-      return newSet;
-    });
-  };
-
-  const selectAllIssues = () => {
-    if (aiReview) {
-      setSelectedIssues(new Set(aiReview.issues.map((_, idx) => idx)));
-    }
-  };
-
-  const deselectAllIssues = () => {
-    setSelectedIssues(new Set());
-  };
-
-  const handleAutoFix = async () => {
-    if (!aiReview || aiReview.issues.length === 0) {
-      addLog('warning', 'No issues to fix');
-      return;
-    }
-
-    if (selectedIssues.size === 0) {
-      addLog('warning', 'No issues selected for fixing');
-      return;
-    }
-
-    if (!yamlContent.trim()) {
-      addLog('warning', 'No YAML content to fix');
-      return;
-    }
-
-    setLoading(true);
-    const selectedIssuesList = aiReview.issues.filter((_, idx) => selectedIssues.has(idx));
-    addLog('info', `🤖 AI applying fixes for ${selectedIssuesList.length} selected issue(s)...`);
-
+  async function handleFetchDiff() {
+    if (!parsed?.length) return;
+    setFetchingDiff(true);
+    setEditorTab('diff');
+    addLog('info', 'Fetching live cluster state…');
     try {
-      const response = await aiApi.yamlAutoFix({
-        yaml_content: yamlContent,
-        issues: selectedIssuesList,
-        namespace: selectedNamespace || undefined,
-      });
-
-      if (response.data.success) {
-        setYamlContent(response.data.fixed_yaml);
-        addLog('success', `✓ ${response.data.changes_summary}`);
-        // Clear AI review since issues are fixed
-        setAiReview(null);
-        setSelectedIssues(new Set());
-        setActiveTab('editor');
-      } else {
-        addLog('error', '✗ Auto-fix failed');
-      }
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Auto-fix service unavailable';
-      addLog('error', `✗ Auto-fix failed: ${errorMessage}`);
-      logger.error('Auto-fix error', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadSample = () => {
-    setYamlContent(SAMPLE_YAML);
-    setAiReview(null);
-    addLog('info', 'Sample YAML loaded');
-  };
-
-  const exportToFile = () => {
-    if (!yamlContent.trim()) {
-      addLog('warning', 'No YAML content to export');
-      return;
-    }
-
-    const blob = new Blob([yamlContent], { type: 'text/yaml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `deployment-${Date.now()}.yaml`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    addLog('success', `✓ Exported to ${a.download}`);
-  };
-
-  const copyToClipboard = async () => {
-    if (!yamlContent.trim()) {
-      addLog('warning', 'No YAML content to copy');
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(yamlContent);
-      addLog('success', '✓ Copied to clipboard');
-    } catch (error) {
-      addLog('error', '✗ Failed to copy to clipboard');
-    }
-  };
-
-  const fetchDeployedYAML = async () => {
-    if (!parsedYAML || parsedYAML.length === 0) {
-      addLog('warning', 'No resources parsed from current YAML');
-      return;
-    }
-
-    setFetchingDeployed(true);
-    addLog('info', 'Fetching deployed resources...');
-
-    try {
-      const deployedResources: string[] = [];
-
-      for (const resource of parsedYAML) {
-        if (!resource || !resource.kind || !resource.metadata?.name) continue;
-
+      const parts: string[] = [];
+      for (const doc of parsed) {
+        if (!doc?.kind || !doc?.metadata?.name) continue;
         try {
-          const response = await kubernetesApi.getResourceYAML({
-            kind: resource.kind,
-            name: resource.metadata.name,
-            namespace: resource.metadata.namespace || selectedNamespace || undefined,
+          const r = await kubernetesApi.getResourceYAML({
+            kind: doc.kind, name: doc.metadata.name,
+            namespace: doc.metadata.namespace || selectedNamespace || undefined,
           });
-
-          if (response.data.yaml_content) {
-            deployedResources.push(response.data.yaml_content);
-          }
-        } catch (err: any) {
-          // Resource might not exist yet
-          if (err.response?.status === 404) {
-            deployedResources.push(`# Resource not found: ${resource.kind}/${resource.metadata.name}`);
-          } else {
-            logger.error('Failed to fetch resource', err);
-          }
+          if (r.data.yaml_content) parts.push(r.data.yaml_content);
+        } catch {
+          parts.push(`# Not found: ${doc.kind}/${doc.metadata.name}`);
         }
       }
+      setDeployedYAML(parts.join('\n---\n'));
+      addLog('success', `Fetched ${parts.length} resource(s)`);
+    } catch (e) {
+      logger.error('Fetch diff failed', e);
+      addLog('error', 'Failed to fetch live state');
+    } finally { setFetchingDiff(false); }
+  }
 
-      const deployedYAMLContent = deployedResources.join('\n---\n');
-      setDeployedYAML(deployedYAMLContent);
-      addLog('success', `Fetched ${deployedResources.length} deployed resources`);
-      setActiveTab('diff');
-    } catch (err) {
-      logger.error('Failed to fetch deployed YAML', err);
-      addLog('error', 'Failed to fetch deployed resources');
-    } finally {
-      setFetchingDeployed(false);
-    }
-  };
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      setYamlContent(ev.target?.result as string);
+      addLog('info', `Loaded: ${file.name}`);
+    };
+    reader.readAsText(file);
+  }
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const content = e.target?.result as string;
-        setYamlContent(content);
-        addLog('info', `File loaded: ${file.name}`);
-      };
-      reader.readAsText(file);
-    }
-  };
+  function exportYAML() {
+    if (!yaml_content.trim()) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([yaml_content], { type: 'text/yaml' }));
+    a.download = `manifest-${Date.now()}.yaml`;
+    a.click();
+    addLog('success', `Exported ${a.download}`);
+  }
 
-  const tabs = [
-    { id: 'editor' as TabType, name: 'Editor', icon: CodeBracketIcon },
-    { id: 'rendered' as TabType, name: 'Rendered Output', icon: EyeIcon },
-    { id: 'diff' as TabType, name: 'Diff', icon: ArrowPathIcon },
-    { id: 'ai-review' as TabType, name: 'AI Review', icon: SparklesIcon },
-  ];
+  // ── styles ──────────────────────────────────────────────────────────────────
+
+  const btn = (active = false, danger = false): React.CSSProperties => ({
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+    padding: '6px 12px', borderRadius: 6,
+    border: danger ? '1px solid rgba(239,68,68,0.4)' : active ? 'none' : `1px solid ${isDark ? t.cardBorder : '#D1D5DB'}`,
+    background: active ? '#3b82f6' : danger ? (isDark ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.05)') : (isDark ? t.navHoverBg : '#F9FAFB'),
+    color: active ? '#fff' : danger ? '#ef4444' : (isDark ? t.text : '#1F2937'),
+    fontSize: 11, fontWeight: 500, cursor: 'pointer', width: '100%',
+    transition: 'all 0.1s',
+  });
+
+  const severityColor = (s: string) =>
+    s === 'critical' ? '#ef4444' : s === 'high' ? '#f97316' : s === 'medium' ? '#eab308' : '#22c55e';
+
+  const logColor = (type: LogEntry['type']) =>
+    type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : type === 'warning' ? '#eab308' : '#60a5fa';
+
+  const lineCount = yaml_content.split('\n').length;
+
+  // ── render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-[calc(100vh-10rem)] min-h-0 overflow-hidden">
-      {/* Main Content Area - Editor and Right Panel */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
-        {/* Center - Editor with Tabs */}
-        <div className="flex-1 flex flex-col min-h-0 min-w-0 border-r border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-            {/* Tabs Bar with Status */}
-            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-slate-700 bg-gradient-to-r from-gray-50 to-white dark:from-slate-900 dark:to-slate-800">
-              <div className="flex items-center gap-2">
-                {tabs.map((tab) => {
-                  const isActive = activeTab === tab.id;
-                  return (
-                    <motion.button
-                      key={tab.id}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-                        isActive
-                          ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md'
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-gray-200'
-                      }`}
-                    >
-                      <tab.icon className="h-4 w-4" />
-                      <span>{tab.name}</span>
-                    </motion.button>
-                  );
-                })}
-              </div>
+    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 68px)', overflow: 'hidden', color: t.text }}>
 
-              {/* Editor Status Indicators */}
-              <div className="flex items-center gap-3">
-                {parsedYAML && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20"
-                  >
-                    <CheckCircleIcon className="h-3.5 w-3.5" />
-                    <span className="text-xs font-semibold">Valid</span>
-                  </motion.div>
-                )}
-                {yamlContent && (
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300">
-                    <CodeBracketIcon className="h-3.5 w-3.5" />
-                    <span className="text-xs font-semibold font-mono">
-                      {yamlContent.split('\n').length} lines
-                    </span>
-                  </div>
-                )}
-              </div>
+      <K8sHeader
+        title="YAML Deploy"
+        subtitle="Deploy Kubernetes manifests · AI-powered review"
+        rightContent={
+          parsed ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 6 }}>
+              <CheckCircleIcon style={{ width: 11, height: 11, color: '#22c55e' }} />
+              <span style={{ fontSize: 10, color: '#22c55e', fontWeight: 500 }}>{parsed.length} resource{parsed.length !== 1 ? 's' : ''} parsed</span>
             </div>
+          ) : yaml_content.trim() ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 6 }}>
+              <ExclamationTriangleIcon style={{ width: 11, height: 11, color: '#ef4444' }} />
+              <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 500 }}>Invalid YAML</span>
+            </div>
+          ) : undefined
+        }
+      />
 
-            {/* Editor Content with Toolbar */}
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-              {/* Editor Toolbar */}
-              {activeTab === 'editor' && (
-                <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-slate-800 dark:to-slate-700 border-b border-gray-200 dark:border-slate-600">
-                  <div className="flex items-center gap-2">
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => {
-                        try {
-                          const formatted = yaml.dump(yaml.load(yamlContent), { indent: 2 });
-                          setYamlContent(formatted);
-                          addLog('success', '✓ YAML formatted');
-                        } catch (err) {
-                          addLog('error', '✗ Invalid YAML format');
-                        }
-                      }}
-                      disabled={!yamlContent.trim()}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 hover:bg-primary-50 dark:hover:bg-slate-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm border border-gray-200 dark:border-slate-500"
-                      title="Format YAML"
-                    >
-                      <CodeBracketIcon className="h-4 w-4" />
-                      <span className="text-xs font-medium">Format</span>
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => {
-                        setYamlContent('');
-                        setAiReview(null);
-                        addLog('info', 'Editor cleared');
-                      }}
-                      disabled={!yamlContent.trim()}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm border border-gray-200 dark:border-slate-500"
-                      title="Clear Editor"
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                      <span className="text-xs font-medium">Clear</span>
-                    </motion.button>
-                  </div>
-                  <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white dark:bg-slate-600 border border-gray-200 dark:border-slate-500">
-                    <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                    <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">Monaco Editor</span>
-                  </div>
-                </div>
+      {/* ── 3-column body ── */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+
+        {/* ── Editor area ── */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, borderRight: `1px solid ${t.cardBorder}` }}>
+
+          {/* Tab bar */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 2, padding: '0 14px',
+            height: 38, borderBottom: `1px solid ${t.cardBorder}`, flexShrink: 0,
+            background: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)',
+          }}>
+            {([
+              { id: 'editor',    label: 'Editor',    Icon: CodeBracketIcon },
+              { id: 'preview',   label: 'Preview',   Icon: EyeIcon },
+              { id: 'diff',      label: 'Diff',      Icon: ArrowPathIcon },
+              { id: 'ai-review', label: 'AI Review', Icon: SparklesIcon },
+            ] as { id: EditorTab; label: string; Icon: any }[]).map(({ id, label, Icon }) => {
+              const active = editorTab === id;
+              return (
+                <button key={id} onClick={() => setEditorTab(id)} style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '3px 10px', borderRadius: 5, border: 'none', cursor: 'pointer',
+                  background: active ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)') : 'transparent',
+                  color: active ? t.text : t.textMuted, fontSize: 11, fontWeight: active ? 500 : 400,
+                }}>
+                  <Icon style={{ width: 12, height: 12 }} />
+                  {label}
+                </button>
+              );
+            })}
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+              {yaml_content.trim() && (
+                <span style={{ fontSize: 10, color: t.textMuted, ...mono }}>{lineCount} lines</span>
               )}
+              {/* Inline AI review trigger on the AI Review tab */}
+              {editorTab === 'ai-review' && !aiReview && (
+                <button onClick={handleAIReview} disabled={reviewing || !yaml_content.trim()} style={{
+                  display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 5,
+                  border: '1px solid rgba(139,92,246,0.3)', background: 'rgba(139,92,246,0.1)',
+                  color: '#a78bfa', fontSize: 10, fontWeight: 500, cursor: 'pointer',
+                  opacity: reviewing || !yaml_content.trim() ? 0.4 : 1,
+                }}>
+                  <SparklesIcon style={{ width: 11, height: 11 }} />
+                  {reviewing ? 'Analyzing…' : 'Run Review'}
+                </button>
+              )}
+              {/* Fetch diff trigger on Diff tab */}
+              {editorTab === 'diff' && !deployedYAML && (
+                <button onClick={handleFetchDiff} disabled={fetchingDiff || !parsed} style={{
+                  display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 5,
+                  border: `1px solid ${t.cardBorder}`, background: 'transparent',
+                  color: t.textSub, fontSize: 10, fontWeight: 500, cursor: 'pointer',
+                  opacity: !parsed ? 0.4 : 1,
+                }}>
+                  <ArrowPathIcon style={{ width: 11, height: 11 }} />
+                  {fetchingDiff ? 'Fetching…' : 'Fetch live state'}
+                </button>
+              )}
+            </div>
+          </div>
 
-              <div className="flex-1 min-h-0 overflow-hidden relative">
-                <AnimatePresence mode="wait">
-                  {activeTab === 'editor' && (
-                    <motion.div
-                      key="editor"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="h-full relative bg-[#1e1e1e]"
-                    >
-                      <Editor
-                        height="100%"
-                        defaultLanguage="yaml"
-                        value={yamlContent}
-                        onChange={(value) => setYamlContent(value || '')}
-                        theme="vs-dark"
-                        options={{
-                          minimap: { enabled: true },
-                          fontSize: 13,
-                          lineNumbers: 'on',
-                          scrollBeyondLastLine: false,
-                          automaticLayout: true,
-                          tabSize: 2,
-                          wordWrap: 'on',
-                          fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
-                          fontLigatures: true,
-                          smoothScrolling: true,
-                          cursorBlinking: 'smooth',
-                          cursorSmoothCaretAnimation: 'on',
-                          renderLineHighlight: 'all',
-                          roundedSelection: true,
-                          padding: { top: 8, bottom: 8 },
-                        }}
-                      />
-                    </motion.div>
-                  )}
+          {/* Tab content */}
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
-                  {activeTab === 'rendered' && (
-                    <motion.div
-                      key="rendered"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="h-full overflow-auto p-4 bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900"
-                    >
-                      {parsedYAML && parsedYAML.length > 0 ? (
-                        <div className="space-y-3">
-                          {parsedYAML.map((doc: any, idx: number) => (
-                            <motion.div
-                              key={idx}
-                              initial={{ opacity: 0, y: 10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: idx * 0.1 }}
-                              className="group p-4 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
-                            >
-                              <div className="mb-3 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-1.5 h-5 bg-gradient-to-b from-primary-500 to-purple-600 rounded-full shadow-sm" />
-                                  <span className="text-sm font-bold text-gray-800 dark:text-gray-200">
-                                    Document {idx + 1}
-                                  </span>
-                                </div>
-                                {doc?.kind && (
-                                  <div className="flex items-center gap-2">
-                                    <span className="px-3 py-1 text-xs font-bold rounded-lg bg-gradient-to-r from-primary-500 to-purple-600 text-white shadow-md">
-                                      {doc.kind}
-                                    </span>
-                                    {doc?.metadata?.name && (
-                                      <span className="text-xs text-gray-600 dark:text-gray-400 font-mono font-semibold">
-                                        {doc.metadata.name}
-                                      </span>
-                                    )}
-                                  </div>
-                                )}
+            {editorTab === 'editor' && (
+              <Editor
+                height="100%"
+                defaultLanguage="yaml"
+                value={yaml_content}
+                onChange={v => setYamlContent(v || '')}
+                theme={isDark ? 'vs-dark' : 'light'}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 12.5,
+                  lineNumbers: 'on',
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  tabSize: 2,
+                  wordWrap: 'on',
+                  fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
+                  lineHeight: 1.75,
+                  padding: { top: 12 },
+                  renderLineHighlight: 'gutter',
+                }}
+              />
+            )}
+
+            {editorTab === 'preview' && (
+              <div style={{ height: '100%', overflow: 'auto', padding: 16 }}>
+                {parsed && parsed.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {parsed.map((doc, idx) => doc && (
+                      <div key={idx} style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderBottom: `1px solid ${t.cardBorder}` }}>
+                          <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#1d4ed8', color: '#bfdbfe', fontWeight: 700 }}>{doc?.kind}</span>
+                          {doc?.metadata?.name && <span style={{ fontSize: 12, fontWeight: 500, color: t.text, ...mono }}>{doc.metadata.name}</span>}
+                          {doc?.metadata?.namespace && <span style={{ fontSize: 11, color: t.textMuted }}>{doc.metadata.namespace}</span>}
+                          {doc?.spec?.replicas !== undefined && (
+                            <span style={{ marginLeft: 'auto', fontSize: 10, color: t.textMuted }}>
+                              replicas: <span style={{ color: '#3b82f6', fontWeight: 600 }}>{doc.spec.replicas}</span>
+                            </span>
+                          )}
+                        </div>
+                        <pre style={{ margin: 0, padding: '12px 14px', fontSize: 11, color: t.textSub, ...mono, whiteSpace: 'pre-wrap', wordBreak: 'break-all', lineHeight: 1.6 }}>
+                          {JSON.stringify(doc, null, 2)}
+                        </pre>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    <EyeIcon style={{ width: 32, height: 32, color: t.textMuted }} />
+                    <span style={{ fontSize: 12, color: t.textMuted }}>Enter valid YAML to preview resources</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {editorTab === 'diff' && (
+              <div style={{ height: '100%', overflow: 'auto', padding: 16 }}>
+                {deployedYAML ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, height: '100%' }}>
+                    {[
+                      { label: 'Live (cluster)', content: deployedYAML, color: '#22c55e' },
+                      { label: 'Local (editor)',  content: yaml_content,  color: '#3b82f6' },
+                    ].map(({ label, content, color }) => (
+                      <div key={label} style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, color, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>{label}</div>
+                        <div style={{ flex: 1, background: isDark ? '#080a0e' : '#f8f9fb', border: `1px solid ${t.cardBorder}`, borderRadius: 8, overflow: 'auto', padding: '10px 12px' }}>
+                          <pre style={{ margin: 0, fontSize: 11, color: t.text, ...mono, whiteSpace: 'pre-wrap', wordBreak: 'break-all', lineHeight: 1.65 }}>{content}</pre>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                    <ArrowPathIcon style={{ width: 28, height: 28, color: t.textMuted }} />
+                    <span style={{ fontSize: 13, fontWeight: 500, color: t.text }}>Compare with live cluster</span>
+                    <span style={{ fontSize: 11, color: t.textMuted }}>Use "Fetch live state" in the tab bar above</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {editorTab === 'ai-review' && (
+              <div style={{ height: '100%', overflow: 'auto', padding: 16 }}>
+                {!aiReview ? (
+                  <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    <SparklesIcon style={{ width: 32, height: 32, color: '#8b5cf6' }} />
+                    <span style={{ fontSize: 13, fontWeight: 500, color: t.text }}>AI-Powered YAML Review</span>
+                    <span style={{ fontSize: 11, color: t.textMuted, textAlign: 'center', maxWidth: 340 }}>
+                      {reviewing
+                        ? 'Analyzing your manifest for security issues and best practices…'
+                        : 'Click "Run Review" in the tab bar to analyze your manifest'}
+                    </span>
+                    {reviewing && (
+                      <ArrowPathIcon style={{ width: 18, height: 18, color: '#8b5cf6', animation: 'spin 1s linear infinite', marginTop: 4 }} />
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {/* Score row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+                      {[
+                        { label: 'Overall',       value: aiReview.score,              color: '#3b82f6' },
+                        { label: 'Security',       value: aiReview.securityScore,      color: '#ef4444' },
+                        { label: 'Best Practices', value: aiReview.bestPracticeScore,  color: '#22c55e' },
+                      ].map(({ label, value, color }) => (
+                        <div key={label} style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 10, padding: '12px 14px' }}>
+                          <div style={{ fontSize: 10, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>{label}</div>
+                          <div style={{ fontSize: 28, fontWeight: 700, color, ...mono, lineHeight: 1 }}>{value}</div>
+                          <div style={{ fontSize: 9, color: t.textMuted, marginTop: 1 }}>/100</div>
+                          <div style={{ marginTop: 6, height: 3, background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${value}%`, background: color, borderRadius: 2, transition: 'width 0.6s' }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Issues */}
+                    {aiReview.issues.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: t.text, marginBottom: 6 }}>
+                          Issues <span style={{ color: t.textMuted, fontWeight: 400 }}>({aiReview.issues.length})</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          {aiReview.issues.map((issue, i) => (
+                            <div key={i} style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 8, padding: '10px 12px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: `${severityColor(issue.severity)}18`, color: severityColor(issue.severity), textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                  {issue.severity}
+                                </span>
+                                <span style={{ fontSize: 10, color: t.textMuted }}>{issue.type}</span>
                               </div>
-                              <pre className="text-xs text-gray-900 dark:text-gray-100 font-mono whitespace-pre-wrap overflow-x-auto bg-slate-50 dark:bg-slate-900/80 p-3 rounded-lg border border-gray-200 dark:border-slate-700">
-                                {JSON.stringify(doc, null, 2)}
-                              </pre>
-                            </motion.div>
+                              <p style={{ fontSize: 11, color: t.text, margin: 0, lineHeight: 1.5 }}>{issue.message}</p>
+                              {issue.suggestion && (
+                                <p style={{ fontSize: 10, color: t.textMuted, margin: '4px 0 0 0', lineHeight: 1.5 }}>→ {issue.suggestion}</p>
+                              )}
+                            </div>
                           ))}
                         </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-full">
-                          <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 mb-6 border-2 border-dashed border-blue-300 dark:border-blue-500/30">
-                            <EyeIcon className="h-16 w-16 text-blue-600 dark:text-blue-400" />
-                          </div>
-                          <p className="text-base font-bold text-gray-800 dark:text-gray-200">Enter YAML to preview</p>
-                          <p className="text-sm mt-2 text-gray-600 dark:text-gray-400">The rendered view will show parsed documents</p>
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-
-                  {activeTab === 'diff' && (
-                    <motion.div
-                      key="diff"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="h-full overflow-hidden flex flex-col"
-                    >
-                      {deployedYAML ? (
-                        <DiffView oldText={deployedYAML} newText={yamlContent} />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-full p-8">
-                          <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/20 dark:to-purple-900/20 mb-6 border border-blue-200 dark:border-blue-500/20">
-                            <ArrowPathIcon className="h-16 w-16 text-blue-600 dark:text-blue-400" />
-                          </div>
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                            Compare with Deployed Resources
-                          </h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 text-center max-w-md mb-6">
-                            Fetch the current deployed YAML from the cluster to see side-by-side differences
-                          </p>
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={fetchDeployedYAML}
-                            disabled={fetchingDeployed || !yamlContent.trim() || !parsedYAML}
-                            className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 text-white font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
-                          >
-                            {fetchingDeployed ? (
-                              <>
-                                <ArrowPathIcon className="h-5 w-5 animate-spin" />
-                                Fetching...
-                              </>
-                            ) : (
-                              <>
-                                <ArrowPathIcon className="h-5 w-5" />
-                                Fetch Deployed YAML
-                              </>
-                            )}
-                          </motion.button>
-                          {(!yamlContent.trim() || !parsedYAML) && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
-                              Enter valid YAML in the editor first
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-
-                {activeTab === 'ai-review' && (
-                  <motion.div
-                    key="ai-review"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="h-full overflow-auto p-3 bg-slate-50 dark:bg-slate-900"
-                  >
-                    {!aiReview ? (
-                      <div className="flex flex-col items-center justify-center h-full">
-                        <div className="p-2 rounded-xl bg-primary-100 dark:bg-primary-500/10 mb-3">
-                          <SparklesIcon className="h-12 w-12 text-primary-600 dark:text-primary-400" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                          AI-Powered Analysis
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-6 max-w-md">
-                          Get intelligent insights, security checks, and best practice recommendations
-                        </p>
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={handleAIReview}
-                          disabled={reviewing || !yamlContent.trim()}
-                          className="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                        >
-                          {reviewing ? (
-                            <>
-                              <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                              Analyzing...
-                            </>
-                          ) : (
-                            <>
-                              <SparklesIcon className="h-4 w-4" />
-                              Start AI Review
-                            </>
-                          )}
-                        </motion.button>
-                      </div>
-                    ) : (
-                      <div className="space-y-3 max-w-4xl mx-auto">
-                        {/* Score Cards */}
-                        <div className="grid grid-cols-3 gap-3">
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: 0.1 }}
-                            className="p-3 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-200 dark:border-blue-500/20 shadow-sm"
-                          >
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <ShieldCheckIcon className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                              <p className="text-[11px] font-medium text-gray-600 dark:text-gray-400">Overall</p>
-                            </div>
-                            <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{aiReview.score}</p>
-                            <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">/ 100</p>
-                          </motion.div>
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: 0.2 }}
-                            className="p-3 rounded-xl bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border border-red-200 dark:border-red-500/20 shadow-sm"
-                          >
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <ShieldCheckIcon className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
-                              <p className="text-[11px] font-medium text-gray-600 dark:text-gray-400">Security</p>
-                            </div>
-                            <p className="text-2xl font-bold text-red-900 dark:text-red-100">{aiReview.securityScore}</p>
-                            <p className="text-[10px] text-red-600 dark:text-red-400 font-medium">/ 100</p>
-                          </motion.div>
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: 0.3 }}
-                            className="p-3 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-500/20 shadow-sm"
-                          >
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <CheckCircleIcon className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-                              <p className="text-[11px] font-medium text-gray-600 dark:text-gray-400">Best Practices</p>
-                            </div>
-                            <p className="text-2xl font-bold text-green-900 dark:text-green-100">{aiReview.bestPracticeScore}</p>
-                            <p className="text-[10px] text-green-600 dark:text-green-400 font-medium">/ 100</p>
-                          </motion.div>
-                        </div>
-
-                        {/* Issues */}
-                        {aiReview.issues.length > 0 && (
-                          <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className="text-xs font-semibold text-gray-900 dark:text-white">
-                                Issues Detected ({selectedIssues.size} / {aiReview.issues.length} selected)
-                              </h3>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={selectAllIssues}
-                                  className="text-[10px] font-medium text-primary-600 dark:text-primary-400 hover:underline"
-                                >
-                                  Select All
-                                </button>
-                                <span className="text-gray-400">|</span>
-                                <button
-                                  onClick={deselectAllIssues}
-                                  className="text-[10px] font-medium text-primary-600 dark:text-primary-400 hover:underline"
-                                >
-                                  Deselect All
-                                </button>
-                              </div>
-                            </div>
-                            <div className="space-y-1.5">
-                              {aiReview.issues.map((issue, idx) => (
-                                <div
-                                  key={idx}
-                                  className={`p-2 rounded-lg bg-white dark:bg-slate-800 border ${
-                                    selectedIssues.has(idx)
-                                      ? 'border-primary-300 dark:border-primary-500/40 ring-1 ring-primary-200 dark:ring-primary-500/20'
-                                      : 'border-gray-200 dark:border-slate-700'
-                                  } transition-all cursor-pointer`}
-                                  onClick={() => toggleIssue(idx)}
-                                >
-                                  <div className="flex items-start gap-3">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedIssues.has(idx)}
-                                      onChange={() => toggleIssue(idx)}
-                                      className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                    <ExclamationTriangleIcon className={`h-4 w-4 flex-shrink-0 mt-0.5 ${
-                                      issue.severity === 'critical' ? 'text-red-600' :
-                                      issue.severity === 'high' ? 'text-orange-600' :
-                                      issue.severity === 'medium' ? 'text-amber-600' : 'text-blue-600'
-                                    }`} />
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <span className="px-2 py-0.5 text-[10px] font-medium rounded uppercase bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-gray-400">
-                                          {issue.severity}
-                                        </span>
-                                        <span className="text-xs text-gray-500 dark:text-gray-400">{issue.type}</span>
-                                      </div>
-                                      <p className="text-sm text-gray-900 dark:text-white">{issue.message}</p>
-                                      {issue.suggestion && (
-                                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">→ {issue.suggestion}</p>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Suggestions */}
-                        {aiReview.suggestions.length > 0 && (
-                          <div>
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Recommendations</h3>
-                            <div className="space-y-2">
-                              {aiReview.suggestions.map((suggestion, idx) => (
-                                <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700">
-                                  <CheckCircleIcon className="h-4 w-4 text-primary-600 dark:text-primary-400 flex-shrink-0 mt-0.5" />
-                                  <p className="text-sm text-gray-900 dark:text-white flex-1">{suggestion}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              </div>
-            </div>
-          </div>
 
-        {/* Right Panel - Controls */}
-        <div className="w-72 flex flex-col bg-white dark:bg-slate-800">
-            <div className="px-3 py-2 border-b border-gray-200 dark:border-slate-700">
-              <h3 className="text-xs font-semibold text-gray-900 dark:text-white">Controls</h3>
-            </div>
-            <div className="flex-1 overflow-auto p-2 space-y-2">
-              {/* Namespace */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Namespace
-                </label>
-                <select
-                  value={selectedNamespace}
-                  onChange={(e) => setSelectedNamespace(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                >
-                  <option value="">Default</option>
-                  {namespaces.map((ns) => (
-                    <option key={ns.name} value={ns.name}>
-                      {ns.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* File Operations */}
-              <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">File Operations</p>
-
-                {/* Import YAML */}
-                <input
-                  type="file"
-                  id="file-upload"
-                  accept=".yaml,.yml"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                <motion.label
-                  htmlFor="file-upload"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="cursor-pointer w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
-                >
-                  <DocumentArrowUpIcon className="h-4 w-4" />
-                  Import YAML
-                </motion.label>
-
-                {/* Export YAML */}
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={exportToFile}
-                  disabled={!yamlContent.trim()}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ArrowDownTrayIcon className="h-4 w-4" />
-                  Export YAML
-                </motion.button>
-
-                {/* Copy to Clipboard */}
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={copyToClipboard}
-                  disabled={!yamlContent.trim()}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ClipboardDocumentIcon className="h-4 w-4" />
-                  Copy to Clipboard
-                </motion.button>
-
-                {/* Load Sample */}
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={loadSample}
-                  className="w-full px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
-                >
-                  Load Sample
-                </motion.button>
-              </div>
-
-              {/* AI Risk Summary */}
-              {aiReview && (
-                <div className="p-2 rounded-lg bg-gradient-to-br from-primary-50 to-purple-50 dark:from-primary-900/20 dark:to-purple-900/20 border border-primary-200 dark:border-primary-500/20">
-                  <h4 className="text-[11px] font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-1.5">
-                    <SparklesIcon className="h-3 w-3" />
-                    AI Risk Summary
-                  </h4>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-600 dark:text-gray-400">Overall Score</span>
-                      <span className="text-lg font-bold text-primary-600 dark:text-primary-400">
-                        {aiReview.score}/100
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-600 dark:text-gray-400">Issues Found</span>
-                      <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">
-                        {aiReview.issues.length}
-                      </span>
-                    </div>
-                    <div className="pt-2 border-t border-primary-200 dark:border-primary-500/20">
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setActiveTab('ai-review')}
-                        className="w-full px-3 py-2 text-xs font-medium text-primary-600 dark:text-primary-400 bg-white dark:bg-slate-800 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-500/10 transition-colors"
-                      >
-                        View Details
-                      </motion.button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* AI & Diff Actions */}
-              <div className="space-y-2">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleAIReview}
-                  disabled={!yamlContent.trim() || reviewing}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-gradient-to-r from-purple-500 to-blue-600 text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  {reviewing ? (
-                    <>
-                      <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <SparklesIcon className="h-4 w-4" />
-                      AI Review
-                    </>
-                  )}
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={fetchDeployedYAML}
-                  disabled={!yamlContent.trim() || !parsedYAML || fetchingDeployed}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  {fetchingDeployed ? (
-                    <>
-                      <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                      Fetching...
-                    </>
-                  ) : (
-                    <>
-                      <ArrowPathIcon className="h-4 w-4" />
-                      Compare with Deployed
-                    </>
-                  )}
-                </motion.button>
-
-                {aiReview && aiReview.issues.length > 0 && (
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleAutoFix}
-                    disabled={loading || selectedIssues.size === 0}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loading ? (
-                      <>
-                        <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                        Applying Fixes...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircleIcon className="h-4 w-4" />
-                        AI Auto-Fix ({selectedIssues.size} selected)
-                      </>
+                    {/* Suggestions */}
+                    {aiReview.suggestions.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: t.text, marginBottom: 6 }}>Recommendations</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          {aiReview.suggestions.map((s, i) => (
+                            <div key={i} style={{ display: 'flex', gap: 10, padding: '8px 12px', background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 8, alignItems: 'flex-start' }}>
+                              <CheckCircleIcon style={{ width: 12, height: 12, color: '#22c55e', flexShrink: 0, marginTop: 2 }} />
+                              <p style={{ margin: 0, fontSize: 11, color: t.text, lineHeight: 1.5 }}>{s}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
-                  </motion.button>
-                )}
-              </div>
 
-              {/* Clear Button */}
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => { setYamlContent(''); setAiReview(null); setSelectedIssues(new Set()); addLog('info', 'Cleared'); }}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
-              >
-                <TrashIcon className="h-4 w-4" />
-                Clear All
-              </motion.button>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="p-2 border-t border-gray-200 dark:border-slate-700 space-y-1.5">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleApply(true)}
-                disabled={loading || !yamlContent.trim()}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <BeakerIcon className="h-4 w-4" />
-                Validate
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleApply(false)}
-                disabled={loading || !yamlContent.trim()}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                {loading ? (
-                  <>
-                    <ArrowPathIcon className="h-4 w-4 animate-spin" />
-                    Deploying...
-                  </>
-                ) : (
-                  <>
-                    <PlayIcon className="h-4 w-4" />
-                    Deploy
-                  </>
-                )}
-              </motion.button>
-            </div>
-        </div>
-      </div>
-
-      {/* Resource Status Tracker */}
-      {trackingResources && resourceStatuses.size > 0 && (
-        <div className="border-t border-gray-200 dark:border-slate-700 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900">
-          <div className="px-4 py-2 border-b border-gray-200 dark:border-slate-700">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5">
-                  <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                  <h3 className="text-xs font-semibold text-gray-900 dark:text-white">Resource Status</h3>
-                </div>
-                <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                  Tracking {resourceStatuses.size} resource(s)
-                </span>
-              </div>
-              <button
-                onClick={stopResourceTracking}
-                className="text-[10px] font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-              >
-                Stop Tracking
-              </button>
-            </div>
-          </div>
-          <div className="px-4 py-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
-            {Array.from(resourceStatuses.entries()).map(([key, status]) => (
-              <motion.div
-                key={key}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    <div className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${
-                      status.status === 'Ready' ? 'bg-green-500' :
-                      status.status === 'Pending' ? 'bg-yellow-500 animate-pulse' :
-                      status.status === 'Failed' ? 'bg-red-500' :
-                      status.status === 'Degraded' ? 'bg-orange-500' :
-                      'bg-gray-400'
-                    }`} />
-                    <span className="text-[10px] font-medium text-gray-900 dark:text-white truncate">
-                      {key}
-                    </span>
-                  </div>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
-                    status.status === 'Ready' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                    status.status === 'Pending' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                    status.status === 'Failed' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                    status.status === 'Degraded' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
-                    'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
-                  }`}>
-                    {status.status}
-                  </span>
-                </div>
-                {status.ready && (
-                  <div className="text-[10px] text-gray-600 dark:text-gray-400 mb-0.5">
-                    Ready: {status.ready}
+                    <button onClick={() => setAiReview(null)} style={{ ...btn(), width: 'auto', alignSelf: 'flex-start', padding: '4px 12px', fontSize: 10 }}>
+                      Run again
+                    </button>
                   </div>
                 )}
-                {status.message && (
-                  <div className={`text-[10px] ${
-                    status.status === 'Failed' || status.status === 'Degraded'
-                      ? 'text-red-600 dark:text-red-400'
-                      : 'text-gray-600 dark:text-gray-400'
-                  } line-clamp-2`}>
-                    {status.message}
-                  </div>
-                )}
-                {status.age && (
-                  <div className="text-[9px] text-gray-500 dark:text-gray-500 mt-1">
-                    Age: {status.age}
-                  </div>
-                )}
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Bottom Panel - Logs Console */}
-      <div className="h-48 border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex flex-col">
-          <div className="flex items-center justify-between px-2 py-1.5 border-b border-gray-200 dark:border-slate-700">
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-xs font-semibold text-gray-900 dark:text-white">Console</h3>
-              <span className="text-[10px] text-gray-500 dark:text-gray-400">({logs.length})</span>
-            </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setLogs([])}
-              className="px-1.5 py-0.5 text-[10px] font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded transition-colors"
-            >
-              Clear
-            </motion.button>
-          </div>
-          <div className="flex-1 overflow-auto p-2 font-mono text-[11px] bg-slate-950 text-gray-300">
-            {logs.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                <div className="text-center">
-                  <ClockIcon className="h-8 w-8 mx-auto mb-2" />
-                  <p>Console ready</p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {logs.map((log, idx) => (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="flex items-start gap-2"
-                  >
-                    <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${
-                      log.type === 'success' ? 'bg-green-500/20 text-green-400' :
-                      log.type === 'error' ? 'bg-red-500/20 text-red-400' :
-                      log.type === 'warning' ? 'bg-amber-500/20 text-amber-400' :
-                      'bg-blue-500/20 text-blue-400'
-                    }`}>
-                      {log.type.toUpperCase()}
-                    </span>
-                    <span className="text-gray-500">{log.timestamp.toLocaleTimeString()}</span>
-                    <span className="flex-1">{log.message}</span>
-                  </motion.div>
-                ))}
-                <div ref={logsEndRef} />
               </div>
             )}
           </div>
-      </div>
+        </div>
 
-      {/* Deployment Summary Modal */}
-      <AnimatePresence>
-        {showSummaryModal && deploySummary && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowSummaryModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-2xl mx-4 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-slate-700 overflow-hidden"
-            >
-              {/* Header */}
-              <div className="relative px-6 py-5 bg-gradient-to-r from-emerald-500 to-green-600 border-b border-emerald-600">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-white/20 backdrop-blur-sm">
-                      <RocketLaunchIcon className="h-8 w-8 text-white" />
+        {/* ── Controls sidebar ── */}
+        <div style={{ width: 220, display: 'flex', flexDirection: 'column', borderRight: `1px solid ${t.cardBorder}`, flexShrink: 0, overflow: 'hidden' }}>
+
+          {/* Section header */}
+          <div style={{ padding: '0 14px', height: 38, display: 'flex', alignItems: 'center', borderBottom: `1px solid ${t.cardBorder}`, flexShrink: 0, background: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: t.text }}>Actions</span>
+            {parsed && (
+              <span style={{ marginLeft: 'auto', fontSize: 9, color: t.textMuted, ...mono }}>{parsed.length} doc{parsed.length !== 1 ? 's' : ''}</span>
+            )}
+          </div>
+
+          {/* Scrollable middle section */}
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+
+            {/* File ops */}
+            <div style={{ padding: '10px 12px', borderBottom: `1px solid ${t.cardBorder}` }}>
+              <div style={{ fontSize: 9, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 7 }}>File</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <input id="yaml-upload" type="file" accept=".yaml,.yml" onChange={handleFileUpload} style={{ display: 'none' }} />
+                <label htmlFor="yaml-upload" style={{ ...btn(), cursor: 'pointer', justifyContent: 'flex-start' }}>
+                  <DocumentArrowUpIcon style={{ width: 12, height: 12 }} /> Import
+                </label>
+                <button onClick={exportYAML} disabled={!yaml_content.trim()} style={{ ...btn(), justifyContent: 'flex-start', opacity: !yaml_content.trim() ? 0.4 : 1 }}>
+                  <ArrowDownTrayIcon style={{ width: 12, height: 12 }} /> Export
+                </button>
+                <button onClick={() => { navigator.clipboard.writeText(yaml_content); addLog('success', 'Copied to clipboard'); }} disabled={!yaml_content.trim()} style={{ ...btn(), justifyContent: 'flex-start', opacity: !yaml_content.trim() ? 0.4 : 1 }}>
+                  <ClipboardDocumentIcon style={{ width: 12, height: 12 }} /> Copy
+                </button>
+                <button onClick={() => { setYamlContent(SAMPLE_YAML); addLog('info', 'Sample YAML loaded'); }} style={{ ...btn(), justifyContent: 'flex-start' }}>
+                  <CodeBracketIcon style={{ width: 12, height: 12 }} /> Load sample
+                </button>
+                {yaml_content.trim() && (
+                  <button onClick={() => { setYamlContent(''); setAiReview(null); setDeployedYAML(''); addLog('info', 'Editor cleared'); }} style={{ ...btn(false, true), justifyContent: 'flex-start' }}>
+                    <XMarkIcon style={{ width: 12, height: 12 }} /> Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Analysis shortcuts */}
+            <div style={{ padding: '10px 12px' }}>
+              <div style={{ fontSize: 9, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 7 }}>Analysis</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <button onClick={handleAIReview} disabled={reviewing || !yaml_content.trim()} style={{ ...btn(), justifyContent: 'flex-start', background: isDark ? 'rgba(139,92,246,0.08)' : 'rgba(139,92,246,0.07)', border: `1px solid ${isDark ? 'rgba(139,92,246,0.25)' : 'rgba(139,92,246,0.3)'}`, color: isDark ? '#a78bfa' : '#7c3aed', opacity: reviewing || !yaml_content.trim() ? 0.4 : 1 }}>
+                  <SparklesIcon style={{ width: 12, height: 12 }} />
+                  {reviewing ? 'Analyzing…' : 'AI Review'}
+                </button>
+                <button onClick={handleFetchDiff} disabled={fetchingDiff || !parsed} style={{ ...btn(), justifyContent: 'flex-start', opacity: !parsed ? 0.4 : 1 }}>
+                  <ArrowPathIcon style={{ width: 12, height: 12 }} />
+                  {fetchingDiff ? 'Fetching…' : 'Diff vs cluster'}
+                </button>
+              </div>
+            </div>
+
+          </div>{/* end scrollable */}
+
+          {/* Deploy — always visible at bottom */}
+          <div style={{ padding: '8px 12px 12px', borderTop: `1px solid ${t.cardBorder}`, flexShrink: 0 }}>
+            {/* Target indicator */}
+            <div style={{ marginBottom: 8, padding: '7px 10px', background: isDark ? 'rgba(255,255,255,0.03)' : '#F3F4F6', borderRadius: 7, border: `1px solid ${isDark ? t.cardBorder : '#D1D5DB'}`, display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 9, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>Cluster</span>
+                <span style={{ fontSize: 10, color: '#16a34a', ...mono, fontWeight: 600, maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeCluster?.name || 'default'}</span>
+              </div>
+              <div style={{ height: 1, background: isDark ? 'rgba(255,255,255,0.05)' : '#E5E7EB' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 9, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>Namespace</span>
+                <span style={{ fontSize: 10, color: isDark ? '#60a5fa' : '#2563eb', ...mono, fontWeight: 600 }}>{selectedNamespace || 'default'}</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <button onClick={() => handleApply(true)} disabled={loading || !yaml_content.trim()}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  padding: '6px 12px', borderRadius: 6, width: '100%', cursor: 'pointer',
+                  border: `1px solid ${isDark ? t.cardBorder : '#D1D5DB'}`,
+                  background: isDark ? t.navHoverBg : '#F9FAFB',
+                  color: isDark ? t.textSub : '#374151',
+                  fontSize: 11, fontWeight: 500, transition: 'all 0.1s',
+                  opacity: loading || !yaml_content.trim() ? 0.45 : 1,
+                }}>
+                <BeakerIcon style={{ width: 12, height: 12 }} /> Validate
+              </button>
+              <button onClick={() => handleApply(false)} disabled={loading || !yaml_content.trim()}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                  padding: '9px 12px', borderRadius: 7, width: '100%', cursor: 'pointer',
+                  border: 'none',
+                  background: loading || !yaml_content.trim() ? (isDark ? 'rgba(59,130,246,0.4)' : '#93C5FD') : '#3b82f6',
+                  color: '#fff',
+                  fontSize: 12, fontWeight: 600, transition: 'all 0.15s',
+                  boxShadow: loading || !yaml_content.trim() ? 'none' : '0 2px 8px rgba(59,130,246,0.35)',
+                }}>
+                {loading
+                  ? <><ArrowPathIcon style={{ width: 13, height: 13, animation: 'spin 1s linear infinite' }} /> Deploying…</>
+                  : <><PlayIcon style={{ width: 13, height: 13 }} /> Deploy</>}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Console ── */}
+        <div style={{ width: 280, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', height: 38, borderBottom: `1px solid ${t.cardBorder}`, flexShrink: 0, background: isDark ? 'rgba(255,255,255,0.01)' : 'rgba(0,0,0,0.01)' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: t.text }}>Console</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {logs.length > 0 && <span style={{ fontSize: 9, color: t.textMuted }}>{logs.length} entries</span>}
+              <button onClick={() => setLogs([])} style={{ fontSize: 10, color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: 4 }}>Clear</button>
+            </div>
+          </div>
+          <div ref={logsRef} style={{ flex: 1, overflow: 'auto', padding: '10px 12px', background: isDark ? '#070810' : '#f1f5f9', ...mono, fontSize: 10.5, lineHeight: 1.65 }}>
+            {logs.length === 0 ? (
+              <div style={{ color: t.textMuted, paddingTop: 8, fontSize: 11 }}>Ready — waiting for input.</div>
+            ) : logs.map((log, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 4, alignItems: 'flex-start' }}>
+                <span style={{ color: t.textMuted, flexShrink: 0, fontSize: 9.5 }}>
+                  {log.ts.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </span>
+                <span style={{ color: logColor(log.type), flexShrink: 0, fontSize: 9.5, fontWeight: 700, minWidth: 42 }}>
+                  {log.type.toUpperCase()}
+                </span>
+                <span style={{ color: t.text, wordBreak: 'break-word' }}>{log.message}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+      </div>{/* end 3-column body */}
+
+      {/* ── Deploy success modal ── */}
+      {summary && (
+        <>
+          <div onClick={() => setSummary(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 60 }} />
+          <div style={{
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+            width: 500, background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 14,
+            boxShadow: '0 24px 80px rgba(0,0,0,0.25)', zIndex: 70, overflow: 'hidden',
+          }}>
+            <div style={{ padding: '14px 20px', borderBottom: `1px solid ${t.cardBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 22, height: 22, borderRadius: 6, background: 'rgba(34,197,94,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CheckIcon style={{ width: 13, height: 13, color: '#22c55e' }} />
+                </div>
+                <span style={{ fontSize: 14, fontWeight: 600, color: t.text }}>Deployment Successful</span>
+              </div>
+              <button onClick={() => setSummary(null)} style={{ background: 'none', border: 'none', color: t.textMuted, cursor: 'pointer', display: 'flex', padding: 4 }}>
+                <XMarkIcon style={{ width: 15, height: 15 }} />
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, padding: '14px 20px', borderBottom: `1px solid ${t.cardBorder}` }}>
+              {[
+                { label: 'Duration',  value: `${(summary.duration / 1000).toFixed(2)}s`, color: '#3b82f6' },
+                { label: 'Resources', value: String(summary.resources.length),            color: '#22c55e' },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ background: t.mainBg, borderRadius: 8, padding: '10px 14px', border: `1px solid ${t.cardBorder}` }}>
+                  <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 3 }}>{label}</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, color, ...mono }}>{value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ padding: '12px 20px', maxHeight: 240, overflow: 'auto' }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Deployed Resources</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {summary.resources.map((r, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: t.mainBg, border: `1px solid ${t.cardBorder}`, borderRadius: 7 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ ...mono, fontSize: 12, color: t.text }}>{r.kind}/{r.name}</span>
+                      {r.namespace && <span style={{ fontSize: 10, color: t.textMuted }}>{r.namespace}</span>}
                     </div>
-                    <div>
-                      <h2 className="text-2xl font-bold text-white">Deployment Successful!</h2>
-                      <p className="text-sm text-emerald-50">Your resources have been deployed</p>
-                    </div>
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: 0.3, background: r.status === 'created' ? 'rgba(34,197,94,0.12)' : 'rgba(59,130,246,0.12)', color: r.status === 'created' ? '#22c55e' : '#3b82f6' }}>
+                      {r.status}
+                    </span>
                   </div>
-                  <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => setShowSummaryModal(false)}
-                    className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-                  >
-                    <XMarkIcon className="h-6 w-6 text-white" />
-                  </motion.button>
-                </div>
+                ))}
               </div>
+            </div>
 
-              {/* Content */}
-              <div className="p-6 space-y-4">
-                {/* Metrics Grid */}
-                <div className="grid grid-cols-4 gap-3">
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="p-3 rounded-xl bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-blue-200 dark:border-blue-500/20"
-                  >
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Duration</p>
-                    <p className="text-xl font-bold text-blue-900 dark:text-blue-100">
-                      {(deploySummary.duration / 1000).toFixed(2)}s
-                    </p>
-                  </motion.div>
-
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="p-3 rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-500/20"
-                  >
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Resources</p>
-                    <p className="text-xl font-bold text-purple-900 dark:text-purple-100">
-                      {deploySummary.resources.length}
-                    </p>
-                  </motion.div>
-
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="p-3 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-500/20"
-                  >
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Pods Updated</p>
-                    <p className="text-xl font-bold text-amber-900 dark:text-amber-100">
-                      {deploySummary.podsUpdated}
-                    </p>
-                  </motion.div>
-
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border border-emerald-200 dark:border-emerald-500/20"
-                  >
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Zero Downtime</p>
-                    <p className="text-xl font-bold text-emerald-900 dark:text-emerald-100">
-                      {deploySummary.zeroDowntime ? '✓' : '✗'}
-                    </p>
-                  </motion.div>
-                </div>
-
-                {/* Resources List */}
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                    <CubeIcon className="h-4 w-4" />
-                    Deployed Resources
-                  </h3>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {deploySummary.resources.map((resource, idx) => (
-                      <motion.div
-                        key={idx}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.1 + idx * 0.05 }}
-                        className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-gradient-to-br from-primary-500 to-purple-600">
-                            <CubeIcon className="h-4 w-4 text-white" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">
-                              {resource.kind}/{resource.name}
-                            </p>
-                            {resource.namespace && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                namespace: {resource.namespace}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          resource.status === 'created' ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400' :
-                          resource.status === 'updated' ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' :
-                          'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-400'
-                        }`}>
-                          {resource.status}
-                        </span>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Next Steps */}
-                <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-500/20">
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                    <ArrowRightIcon className="h-4 w-4" />
-                    Next Steps
-                  </h4>
-                  <ul className="space-y-1.5 text-sm text-gray-700 dark:text-gray-300">
-                    <li className="flex items-start gap-2">
-                      <span className="text-primary-600 dark:text-primary-400">•</span>
-                      <span>Monitor pod status in the <a href="/kubernetes" className="text-primary-600 dark:text-primary-400 hover:underline font-medium">Workloads page</a></span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-primary-600 dark:text-primary-400">•</span>
-                      <span>Check application logs for any errors</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-primary-600 dark:text-primary-400">•</span>
-                      <span>Verify service connectivity and ingress rules</span>
-                    </li>
-                    {!deploySummary.zeroDowntime && (
-                      <li className="flex items-start gap-2">
-                        <span className="text-amber-600 dark:text-amber-400">⚠</span>
-                        <span className="text-amber-700 dark:text-amber-400">
-                          Deployment took {'>'}{(deploySummary.duration / 1000).toFixed(1)}s - consider adding readiness probes for zero-downtime deployments
-                        </span>
-                      </li>
-                    )}
-                  </ul>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="px-6 py-4 bg-gray-50 dark:bg-slate-700/50 border-t border-gray-200 dark:border-slate-600 flex items-center justify-between">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Deployed at {deploySummary.timestamp.toLocaleTimeString()}
-                </p>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setShowSummaryModal(false)}
-                  className="px-4 py-2 text-sm font-medium rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 transition-all"
-                >
-                  Close
-                </motion.button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <div style={{ padding: '10px 20px', borderTop: `1px solid ${t.cardBorder}`, display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => setSummary(null)} style={{ background: '#3b82f6', border: 'none', borderRadius: 7, padding: '7px 20px', fontSize: 12, color: '#fff', cursor: 'pointer', fontWeight: 500 }}>
+                Done
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { helmApi } from '../../services/api';
 import { logger } from '../../utils/logger';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors } from '../../styles/linear-design';
 import {
   XMarkIcon,
   PlusIcon,
@@ -11,6 +12,8 @@ import {
   ExclamationCircleIcon,
   ServerStackIcon,
 } from '@heroicons/react/24/outline';
+
+const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
 interface HelmRepository {
   name: string;
@@ -24,6 +27,10 @@ interface HelmRepositoryManagerProps {
 }
 
 export default function HelmRepositoryManager({ isOpen, onClose, onRepositoriesUpdated }: HelmRepositoryManagerProps) {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+  const isDark = theme === 'dark';
+
   const [repositories, setRepositories] = useState<HelmRepository[]>([
     { name: 'bitnami', url: 'https://charts.bitnami.com/bitnami' },
     { name: 'stable', url: 'https://charts.helm.sh/stable' },
@@ -36,7 +43,6 @@ export default function HelmRepositoryManager({ isOpen, onClose, onRepositoriesU
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Fetch repositories
   const fetchRepositories = async () => {
     setLoading(true);
     setError(null);
@@ -47,36 +53,22 @@ export default function HelmRepositoryManager({ isOpen, onClose, onRepositoriesU
       }
     } catch (err) {
       logger.error('Failed to fetch repositories', err);
-      // Use mock data on error
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (isOpen) {
-      fetchRepositories();
-    }
+    if (isOpen) fetchRepositories();
   }, [isOpen]);
 
   const handleAddRepository = async () => {
-    if (!newRepoName.trim() || !newRepoUrl.trim()) {
-      setError('Repository name and URL are required');
-      return;
-    }
-
-    // Validate URL format
-    try {
-      new URL(newRepoUrl);
-    } catch {
-      setError('Invalid URL format');
-      return;
-    }
+    if (!newRepoName.trim() || !newRepoUrl.trim()) { setError('Repository name and URL are required'); return; }
+    try { new URL(newRepoUrl); } catch { setError('Invalid URL format'); return; }
 
     setLoading(true);
     setError(null);
     setSuccess(null);
-
     try {
       await helmApi.addRepository(newRepoName.trim(), newRepoUrl.trim());
       setSuccess(`Repository "${newRepoName}" added successfully`);
@@ -84,8 +76,6 @@ export default function HelmRepositoryManager({ isOpen, onClose, onRepositoriesU
       setNewRepoUrl('');
       fetchRepositories();
       onRepositoriesUpdated?.();
-
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       logger.error('Failed to add repository', err);
@@ -97,18 +87,14 @@ export default function HelmRepositoryManager({ isOpen, onClose, onRepositoriesU
 
   const handleRemoveRepository = async (name: string) => {
     if (!confirm(`Are you sure you want to remove repository "${name}"?`)) return;
-
     setLoading(true);
     setError(null);
     setSuccess(null);
-
     try {
       await helmApi.removeRepository(name);
       setSuccess(`Repository "${name}" removed successfully`);
       fetchRepositories();
       onRepositoriesUpdated?.();
-
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       logger.error('Failed to remove repository', err);
@@ -122,14 +108,11 @@ export default function HelmRepositoryManager({ isOpen, onClose, onRepositoriesU
     setLoading(true);
     setError(null);
     setSuccess(null);
-
     try {
       await helmApi.updateRepositories();
       setSuccess('All repositories updated successfully');
       fetchRepositories();
       onRepositoriesUpdated?.();
-
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       logger.error('Failed to update repositories', err);
@@ -141,201 +124,203 @@ export default function HelmRepositoryManager({ isOpen, onClose, onRepositoriesU
 
   if (!isOpen) return null;
 
+  const border = `1px solid ${t.cardBorder}`;
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '7px 10px', fontSize: 12,
+    border, borderRadius: 7,
+    background: isDark ? 'rgba(0,0,0,0.2)' : '#fff',
+    color: t.text, outline: 'none', boxSizing: 'border-box',
+  };
+
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.2 }}
-          className="w-full max-w-2xl bg-white dark:bg-slate-800 rounded-xl shadow-2xl overflow-hidden"
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-slate-700">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600">
-                <ServerStackIcon className="h-5 w-5 text-white" />
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,0.5)' }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ width: '100%', maxWidth: 600, background: t.cardBg, borderRadius: 14, boxShadow: isDark ? '0 20px 60px rgba(0,0,0,0.5)' : '0 20px 60px rgba(0,0,0,0.15)', border, overflow: 'hidden' }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: border }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg,#3b82f6,#2563EB)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ServerStackIcon style={{ width: 17, height: 17, color: '#fff' }} />
+            </div>
+            <div>
+              <h2 style={{ fontSize: 14, fontWeight: 700, color: t.text }}>Helm Repositories</h2>
+              <p style={{ fontSize: 11, color: t.textMuted }}>Manage chart repositories</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 7, background: 'transparent', border: `1px solid ${t.cardBorder}`, cursor: 'pointer', color: t.textMuted }}
+            onMouseEnter={e => { e.currentTarget.style.background = t.navHoverBg; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            <XMarkIcon style={{ width: 15, height: 15 }} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{ padding: 20, maxHeight: '65vh', overflowY: 'auto' }}>
+
+          {/* Status messages */}
+          {error && (
+            <div style={{ marginBottom: 12, padding: '9px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <ExclamationCircleIcon style={{ width: 15, height: 15, color: '#EF4444', flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 12, color: '#EF4444' }}>{error}</p>
+            </div>
+          )}
+          {success && (
+            <div style={{ marginBottom: 12, padding: '9px 12px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 8, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <CheckCircleIcon style={{ width: 15, height: 15, color: '#10B981', flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 12, color: '#10B981' }}>{success}</p>
+            </div>
+          )}
+
+          {/* Add Repository */}
+          <div style={{ marginBottom: 20, padding: 14, background: isDark ? 'rgba(0,0,0,0.15)' : '#F9FAFB', borderRadius: 10, border }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 12 }}>Add New Repository</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: isDark ? '#D1D5DB' : '#374151', marginBottom: 5 }}>Repository Name</label>
+                <input
+                  type="text"
+                  value={newRepoName}
+                  onChange={(e) => setNewRepoName(e.target.value)}
+                  placeholder="e.g., bitnami"
+                  style={inputStyle}
+                  onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = t.cardBorder; }}
+                />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Helm Repositories</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Manage chart repositories</p>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 500, color: isDark ? '#D1D5DB' : '#374151', marginBottom: 5 }}>Repository URL</label>
+                <input
+                  type="text"
+                  value={newRepoUrl}
+                  onChange={(e) => setNewRepoUrl(e.target.value)}
+                  placeholder="https://charts.bitnami.com/bitnami"
+                  style={inputStyle}
+                  onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = t.cardBorder; }}
+                />
               </div>
             </div>
             <button
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+              onClick={handleAddRepository}
+              disabled={loading || !newRepoName.trim() || !newRepoUrl.trim()}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                padding: '8px 0', borderRadius: 8, border: 'none',
+                background: '#3b82f6', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                opacity: (loading || !newRepoName.trim() || !newRepoUrl.trim()) ? 0.5 : 1,
+                boxShadow: '0 2px 8px rgba(59,130,246,0.3)',
+              }}
             >
-              <XMarkIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+              <PlusIcon style={{ width: 15, height: 15 }} />
+              Add Repository
             </button>
           </div>
 
-          {/* Content */}
-          <div className="p-6 max-h-[70vh] overflow-y-auto">
-            {/* Status Messages */}
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-start gap-2"
-              >
-                <ExclamationCircleIcon className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-              </motion.div>
-            )}
-
-            {success && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-start gap-2"
-              >
-                <CheckCircleIcon className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-green-600 dark:text-green-400">{success}</p>
-              </motion.div>
-            )}
-
-            {/* Add Repository Form */}
-            <div className="mb-6 p-4 bg-gray-50 dark:bg-slate-900/50 rounded-lg border border-gray-200 dark:border-slate-700">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Add New Repository</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                    Repository Name
-                  </label>
-                  <input
-                    type="text"
-                    value={newRepoName}
-                    onChange={(e) => setNewRepoName(e.target.value)}
-                    placeholder="e.g., bitnami"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                    Repository URL
-                  </label>
-                  <input
-                    type="text"
-                    value={newRepoUrl}
-                    onChange={(e) => setNewRepoUrl(e.target.value)}
-                    placeholder="https://charts.bitnami.com/bitnami"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
-                  />
-                </div>
-              </div>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleAddRepository}
-                disabled={loading || !newRepoName.trim() || !newRepoUrl.trim()}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                <PlusIcon className="h-4 w-4" />
-                Add Repository
-              </motion.button>
-            </div>
-
-            {/* Repository List Header */}
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                Installed Repositories ({repositories.length})
-              </h3>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleUpdateRepositories}
-                disabled={loading}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-cyan-600 dark:text-cyan-400 bg-cyan-50 dark:bg-cyan-500/10 rounded-lg hover:bg-cyan-100 dark:hover:bg-cyan-500/20 disabled:opacity-50 transition-colors"
-              >
-                <ArrowPathIcon className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-                Update All
-              </motion.button>
-            </div>
-
-            {/* Repository List */}
-            {loading && repositories.length === 0 ? (
-              <div className="flex items-center justify-center py-8">
-                <ArrowPathIcon className="h-8 w-8 text-gray-400 animate-spin" />
-              </div>
-            ) : repositories.length === 0 ? (
-              <div className="text-center py-8">
-                <ServerStackIcon className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                <p className="text-sm text-gray-500 dark:text-gray-400">No repositories configured</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {repositories.map((repo, index) => (
-                  <motion.div
-                    key={repo.name}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg hover:border-cyan-300 dark:hover:border-cyan-700 transition-colors group"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{repo.name}</h4>
-                        <span className="px-2 py-0.5 text-xs font-medium bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 rounded">
-                          Active
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{repo.url}</p>
-                    </div>
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      onClick={() => handleRemoveRepository(repo.name)}
-                      disabled={loading}
-                      className="ml-3 p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100 disabled:opacity-50 transition-all"
-                      title="Remove repository"
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </motion.button>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            {/* Popular Repositories */}
-            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-              <h4 className="text-xs font-semibold text-blue-900 dark:text-blue-300 mb-2">Popular Repositories</h4>
-              <div className="space-y-2 text-xs text-blue-800 dark:text-blue-400">
-                <div className="flex justify-between">
-                  <span className="font-medium">Bitnami:</span>
-                  <code className="text-xs bg-blue-100 dark:bg-blue-800/50 px-2 py-0.5 rounded">
-                    https://charts.bitnami.com/bitnami
-                  </code>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">Jetstack:</span>
-                  <code className="text-xs bg-blue-100 dark:bg-blue-800/50 px-2 py-0.5 rounded">
-                    https://charts.jetstack.io
-                  </code>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">Prometheus:</span>
-                  <code className="text-xs bg-blue-100 dark:bg-blue-800/50 px-2 py-0.5 rounded">
-                    https://prometheus-community.github.io/helm-charts
-                  </code>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-slate-700">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-slate-700 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
+          {/* Repository List Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
+              Installed Repositories ({repositories.length})
+            </h3>
+            <button
+              onClick={handleUpdateRepositories}
+              disabled={loading}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 7,
+                fontSize: 11, fontWeight: 500, cursor: 'pointer',
+                background: isDark ? 'rgba(59,130,246,0.1)' : '#EFF6FF',
+                color: '#3b82f6', border: '1px solid rgba(59,130,246,0.25)',
+                opacity: loading ? 0.5 : 1,
+              }}
             >
-              Close
-            </motion.button>
+              <ArrowPathIcon style={{ width: 13, height: 13 }} />
+              Update All
+            </button>
           </div>
-        </motion.div>
+
+          {/* Repository List */}
+          {loading && repositories.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
+              <ArrowPathIcon style={{ width: 28, height: 28, color: t.textMuted }} />
+            </div>
+          ) : repositories.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '32px 0' }}>
+              <ServerStackIcon style={{ width: 40, height: 40, color: t.textMuted, margin: '0 auto 10px' }} />
+              <p style={{ fontSize: 13, color: t.textMuted }}>No repositories configured</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {repositories.map((repo) => (
+                <div
+                  key={repo.name}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: t.cardBg, border, borderRadius: 9 }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#3b82f6'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = t.cardBorder; }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{repo.name}</span>
+                      <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 9999, background: 'rgba(16,185,129,0.1)', color: '#10B981', fontWeight: 500 }}>Active</span>
+                    </div>
+                    <p style={{ fontSize: 11, color: t.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...mono }}>{repo.url}</p>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveRepository(repo.name)}
+                    disabled={loading}
+                    title="Remove repository"
+                    style={{ marginLeft: 10, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 7, background: 'transparent', border: '1px solid transparent', cursor: 'pointer', color: '#EF4444', opacity: loading ? 0.4 : 1 }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.25)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; }}
+                  >
+                    <TrashIcon style={{ width: 14, height: 14 }} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Popular Repositories Reference */}
+          <div style={{ marginTop: 20, padding: 14, background: isDark ? 'rgba(59,130,246,0.06)' : '#EFF6FF', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 10 }}>
+            <h4 style={{ fontSize: 11, fontWeight: 600, color: isDark ? '#93C5FD' : '#1D4ED8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Popular Repositories</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {[
+                ['Bitnami', 'https://charts.bitnami.com/bitnami'],
+                ['Jetstack', 'https://charts.jetstack.io'],
+                ['Prometheus', 'https://prometheus-community.github.io/helm-charts'],
+              ].map(([name, url]) => (
+                <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: isDark ? '#BFDBFE' : '#1E40AF', flexShrink: 0 }}>{name}:</span>
+                  <code style={{ fontSize: 10, padding: '2px 8px', borderRadius: 5, background: isDark ? 'rgba(59,130,246,0.12)' : 'rgba(59,130,246,0.08)', color: isDark ? '#93C5FD' : '#2563EB', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...mono }}>{url}</code>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '12px 20px', borderTop: border }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '7px 18px', borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: 'pointer',
+              background: isDark ? t.navHoverBg : '#F3F4F6',
+              color: isDark ? '#E5E7EB' : '#374151',
+              border,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.08)' : '#E5E7EB'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = isDark ? t.navHoverBg : '#F3F4F6'; }}
+          >
+            Close
+          </button>
+        </div>
       </div>
-    </AnimatePresence>
+    </div>
   );
 }

@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
-import { ArrowPathIcon, CloudIcon } from '@heroicons/react/24/outline';
+import { Skeleton, SkeletonRow } from '../common/Skeleton';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { kubernetesApi } from '../../services/api';
 import type { ClusterMetrics as ClusterMetricsType, PodMetrics, Namespace } from '../../types';
-import { MetricCard, DataTable, SectionHeader } from '../shared';
+import { useNamespace } from '../../contexts/NamespaceContext';
+import K8sHeader from './K8sHeader';
+import { useTheme } from '../../contexts/ThemeContext';
+import { getThemeColors } from '../../styles/linear-design';
 
 const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
@@ -21,10 +25,12 @@ function parseCpuToMillicores(cpu: string): number {
 }
 
 export default function ClusterMetrics() {
+  const { theme } = useTheme();
+  const t = getThemeColors(theme);
+  const { selectedNamespace } = useNamespace();
   const [clusterMetrics, setClusterMetrics] = useState<ClusterMetricsType | null>(null);
   const [podMetrics, setPodMetrics] = useState<PodMetrics[]>([]);
   const [namespaces, setNamespaces] = useState<Namespace[]>([]);
-  const [selectedNamespace, setSelectedNamespace] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,76 +82,79 @@ export default function ClusterMetrics() {
 
   if (loading && !clusterMetrics) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0a', padding: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: '#525252', fontSize: 14 }}>Loading cluster metrics...</div>
+      <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', background: t.mainBg, overflow: 'hidden' }}>
+        {/* Header skeleton */}
+        <div style={{ padding: '16px 32px', borderBottom: `1px solid ${t.cardBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <Skeleton width={160} height={14} style={{ marginBottom: 6 }} />
+            <Skeleton width={240} height={9} />
+          </div>
+          <Skeleton width={60} height={9} />
+        </div>
+        <main style={{ flex: 1, overflow: 'auto', padding: '24px 32px' }}>
+          {/* 4 stat cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 16, marginBottom: 32 }}>
+            {[...Array(4)].map((_, i) => (
+              <div key={i} style={{ padding: '16px 20px', background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+                  <Skeleton width={70} height={9} />
+                  <Skeleton width={48} height={22} />
+                </div>
+                <Skeleton width="100%" height={3} style={{ marginBottom: 6 }} />
+                <Skeleton width={100} height={8} />
+              </div>
+            ))}
+          </div>
+          {/* Two table sections */}
+          {[...Array(2)].map((_, s) => (
+            <div key={s} style={{ background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 12, marginBottom: 24, overflow: 'hidden' }}>
+              <div style={{ padding: '14px 20px', borderBottom: `1px solid ${t.cardBorder}` }}>
+                <Skeleton width={140} height={12} />
+              </div>
+              {[...Array(5)].map((_, r) => (
+                <SkeletonRow key={r} cols={['30%', '15%', '15%', '15%', '15%']} />
+              ))}
+            </div>
+          ))}
+        </main>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fafafa' }}>
-      {/* Header */}
-      <header style={{ padding: '16px 32px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{ fontSize: 20, fontWeight: 600, margin: 0, letterSpacing: -0.5, marginBottom: 2 }}>
-              Cluster Metrics
-            </h1>
-            <p style={{ color: '#525252', fontSize: 11, margin: 0 }}>
-              Resource usage and performance monitoring
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <CloudIcon style={{ width: 14, height: 14, color: '#525252' }} />
-              <select
-                value={selectedNamespace}
-                onChange={(e) => setSelectedNamespace(e.target.value)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  borderBottom: '1px solid rgba(255,255,255,0.1)',
-                  padding: '2px 0',
-                  fontSize: 12,
-                  color: '#fafafa',
-                  outline: 'none',
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="" style={{ background: '#0a0a0a' }}>All namespaces</option>
-                {namespaces.map((ns) => (
-                  <option key={ns.name} value={ns.name} style={{ background: '#0a0a0a' }}>
-                    {ns.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              onClick={fetchData}
-              disabled={loading}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#525252',
-                cursor: loading ? 'wait' : 'pointer',
-                fontSize: 11,
-                padding: 0,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <ArrowPathIcon style={{ width: 12, height: 12 }} />
-              {loading ? 'Refreshing...' : 'Refresh'}
-            </button>
-          </div>
-        </div>
-      </header>
+    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', color: t.text, overflow: 'hidden' }}>
+      {/* K8s Header */}
+      <K8sHeader
+        title="Cluster Metrics"
+        subtitle="Resource usage and performance monitoring"
+        rightContent={
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: t.textSub,
+              cursor: loading ? 'wait' : 'pointer',
+              fontSize: 11,
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              letterSpacing: 0.2,
+              transition: 'color 0.2s',
+            }}
+            onMouseEnter={(e) => !loading && (e.currentTarget.style.color = t.text)}
+            onMouseLeave={(e) => !loading && (e.currentTarget.style.color = t.textSub)}
+          >
+            <ArrowPathIcon style={{ width: 12, height: 12 }} />
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
+        }
+      />
 
       {/* Main Content */}
-      <main style={{ padding: '24px 32px' }}>
+      <main style={{ flex: 1, overflow: 'auto', padding: '24px 32px' }}>
         {/* Error State */}
         {error && (
           <div style={{
@@ -164,50 +173,62 @@ export default function ClusterMetrics() {
         {/* Cluster Overview Metrics */}
         {clusterMetrics && (
           <section style={{ marginBottom: 32 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
-              <MetricCard
-                value={`${clusterMetrics.cpu_percent}%`}
-                label="CPU Usage"
-                color="#3b82f6"
-                subtitle={`${clusterMetrics.total_cpu_usage} / ${clusterMetrics.total_cpu_capacity}`}
-              />
-              <MetricCard
-                value={`${clusterMetrics.memory_percent}%`}
-                label="Memory Usage"
-                color="#8b5cf6"
-                subtitle={`${clusterMetrics.total_memory_usage} / ${clusterMetrics.total_memory_capacity}`}
-              />
-              <MetricCard
-                value={clusterMetrics.nodes?.length || 0}
-                label="Nodes"
-                color="#22c55e"
-              />
-              <MetricCard
-                value={podMetrics.length}
-                label="Pods"
-                color="#eab308"
-              />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 16 }}>
+              {/* CPU */}
+              <div style={{ padding: '16px 20px', background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <span style={{ fontSize: 10, color: t.textSub, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 500 }}>CPU Usage</span>
+                  <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: -1, color: '#3b82f6', ...mono }}>{clusterMetrics.cpu_percent}%</span>
+                </div>
+                <div style={{ height: 3, background: t.cardBorder, borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.min(clusterMetrics.cpu_percent, 100)}%`, background: clusterMetrics.cpu_percent > 80 ? '#ef4444' : clusterMetrics.cpu_percent > 60 ? '#eab308' : '#3b82f6', borderRadius: 2, transition: 'width 0.6s ease' }} />
+                </div>
+                <div style={{ fontSize: 9, color: t.textMuted, marginTop: 6, ...mono }}>{clusterMetrics.total_cpu_usage} / {clusterMetrics.total_cpu_capacity}</div>
+              </div>
+              {/* Memory */}
+              <div style={{ padding: '16px 20px', background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <span style={{ fontSize: 10, color: t.textSub, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 500 }}>Memory</span>
+                  <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: -1, color: '#8b5cf6', ...mono }}>{clusterMetrics.memory_percent}%</span>
+                </div>
+                <div style={{ height: 3, background: t.cardBorder, borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.min(clusterMetrics.memory_percent, 100)}%`, background: clusterMetrics.memory_percent > 80 ? '#ef4444' : clusterMetrics.memory_percent > 60 ? '#eab308' : '#8b5cf6', borderRadius: 2, transition: 'width 0.6s ease' }} />
+                </div>
+                <div style={{ fontSize: 9, color: t.textMuted, marginTop: 6, ...mono }}>{clusterMetrics.total_memory_usage} / {clusterMetrics.total_memory_capacity}</div>
+              </div>
+              {/* Nodes */}
+              <div style={{ padding: '16px 20px', background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 10 }}>
+                <div style={{ fontSize: 10, color: t.textSub, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 500, marginBottom: 6 }}>Nodes</div>
+                <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1.5, color: '#22c55e', ...mono }}>{clusterMetrics.nodes?.length || 0}</div>
+              </div>
+              {/* Pods */}
+              <div style={{ padding: '16px 20px', background: t.cardBg, border: `1px solid ${t.cardBorder}`, borderRadius: 10 }}>
+                <div style={{ fontSize: 10, color: t.textSub, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 500, marginBottom: 6 }}>Active Pods</div>
+                <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: -1.5, color: '#eab308', ...mono }}>{podMetrics.length}</div>
+              </div>
             </div>
           </section>
         )}
 
         {/* Top Consumers */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, marginBottom: 32 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 32, marginBottom: 32 }}>
           {/* CPU */}
           <section>
-            <SectionHeader title="Top CPU Consumers" size="sm" />
+            <h2 style={{ fontSize: 10, fontWeight: 500, color: t.textSub, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+              Top CPU Consumers
+            </h2>
             <div>
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 80px 60px',
                 gap: 12,
                 paddingBottom: 8,
-                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                borderBottom: `1px solid ${t.cardBorder}`,
                 fontSize: 10,
                 fontWeight: 500,
-                color: '#525252',
+                color: t.textSub,
                 textTransform: 'uppercase',
-                letterSpacing: 0.5,
+                letterSpacing: 1,
               }}>
                 <div>Pod</div>
                 <div style={{ textAlign: 'right' }}>CPU</div>
@@ -215,7 +236,7 @@ export default function ClusterMetrics() {
               </div>
 
               {topPodsByCpu.length === 0 ? (
-                <div style={{ padding: '24px 0', textAlign: 'center', color: '#404040', fontSize: 12 }}>
+                <div style={{ padding: '24px 0', textAlign: 'center', color: t.textMuted, fontSize: 12 }}>
                   No data available
                 </div>
               ) : (
@@ -230,16 +251,17 @@ export default function ClusterMetrics() {
                         gridTemplateColumns: '1fr 80px 60px',
                         gap: 12,
                         padding: '8px 0',
-                        borderBottom: i < topPodsByCpu.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                        borderBottom: i < topPodsByCpu.length - 1 ? `1px solid ${t.cardBorder}` : 'none',
                         fontSize: 11,
-                        color: '#fafafa',
+                        color: t.text,
+                        letterSpacing: 0.2,
                       }}
                     >
                       <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {pod.name}
                       </div>
                       <div style={{ textAlign: 'right', ...mono }}>{cpu}m</div>
-                      <div style={{ textAlign: 'right', color: '#525252', ...mono }}>{percent}%</div>
+                      <div style={{ textAlign: 'right', color: t.textSub, ...mono }}>{percent}%</div>
                     </div>
                   );
                 })
@@ -249,19 +271,21 @@ export default function ClusterMetrics() {
 
           {/* Memory */}
           <section>
-            <SectionHeader title="Top Memory Consumers" size="sm" />
+            <h2 style={{ fontSize: 10, fontWeight: 500, color: t.textSub, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+              Top Memory Consumers
+            </h2>
             <div>
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 80px 60px',
                 gap: 12,
                 paddingBottom: 8,
-                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                borderBottom: `1px solid ${t.cardBorder}`,
                 fontSize: 10,
                 fontWeight: 500,
-                color: '#525252',
+                color: t.textSub,
                 textTransform: 'uppercase',
-                letterSpacing: 0.5,
+                letterSpacing: 1,
               }}>
                 <div>Pod</div>
                 <div style={{ textAlign: 'right' }}>Memory</div>
@@ -269,7 +293,7 @@ export default function ClusterMetrics() {
               </div>
 
               {topPodsByMemory.length === 0 ? (
-                <div style={{ padding: '24px 0', textAlign: 'center', color: '#404040', fontSize: 12 }}>
+                <div style={{ padding: '24px 0', textAlign: 'center', color: t.textMuted, fontSize: 12 }}>
                   No data available
                 </div>
               ) : (
@@ -284,16 +308,17 @@ export default function ClusterMetrics() {
                         gridTemplateColumns: '1fr 80px 60px',
                         gap: 12,
                         padding: '8px 0',
-                        borderBottom: i < topPodsByMemory.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                        borderBottom: i < topPodsByMemory.length - 1 ? `1px solid ${t.cardBorder}` : 'none',
                         fontSize: 11,
-                        color: '#fafafa',
+                        color: t.text,
+                        letterSpacing: 0.2,
                       }}
                     >
                       <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {pod.name}
                       </div>
                       <div style={{ textAlign: 'right', ...mono }}>{Math.round(mem)} Mi</div>
-                      <div style={{ textAlign: 'right', color: '#525252', ...mono }}>{percent}%</div>
+                      <div style={{ textAlign: 'right', color: t.textSub, ...mono }}>{percent}%</div>
                     </div>
                   );
                 })
@@ -305,23 +330,69 @@ export default function ClusterMetrics() {
         {/* Namespace Breakdown */}
         {namespaceStats.length > 0 && (
           <section>
-            <SectionHeader title="Resource Usage by Namespace" size="sm" />
-            <DataTable
-              columns={[
-                { label: 'Namespace', key: 'name', width: '2fr' },
-                { label: 'CPU', key: 'cpu', align: 'right', render: (row) => `${row.cpu}m` },
-                { label: 'Memory', key: 'memory', align: 'right', render: (row) => `${Math.round(row.memory)} Mi` },
-                { label: 'Pods', key: 'pods', align: 'right' },
-              ]}
-              data={namespaceStats.map(([name, stats]) => ({ name, ...stats }))}
-              hoverable
-            />
+            <h2 style={{ fontSize: 10, fontWeight: 500, color: t.textSub, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+              Resource Usage by Namespace
+            </h2>
+            <div>
+              {/* Table Header */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 1fr 1fr 1fr',
+                gap: 12,
+                paddingBottom: 8,
+                borderBottom: `1px solid ${t.cardBorder}`,
+                fontSize: 10,
+                fontWeight: 500,
+                color: t.textSub,
+                textTransform: 'uppercase',
+                letterSpacing: 1,
+              }}>
+                <div>Namespace</div>
+                <div style={{ textAlign: 'right' }}>CPU</div>
+                <div style={{ textAlign: 'right' }}>Memory</div>
+                <div style={{ textAlign: 'right' }}>Pods</div>
+              </div>
+
+              {/* Table Rows */}
+              {namespaceStats.map(([name, stats], i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '2fr 1fr 1fr 1fr',
+                    gap: 12,
+                    padding: '10px 0',
+                    borderBottom: i < namespaceStats.length - 1 ? `1px solid ${t.cardBorder}` : 'none',
+                    fontSize: 11,
+                    color: t.text,
+                    cursor: 'pointer',
+                    transition: 'opacity 0.2s',
+                    letterSpacing: 0.2,
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.opacity = '0.7'}
+                  onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                >
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {name}
+                  </div>
+                  <div style={{ textAlign: 'right', ...mono }}>
+                    {stats.cpu}m
+                  </div>
+                  <div style={{ textAlign: 'right', ...mono }}>
+                    {Math.round(stats.memory)} Mi
+                  </div>
+                  <div style={{ textAlign: 'right', ...mono }}>
+                    {stats.pods}
+                  </div>
+                </div>
+              ))}
+            </div>
           </section>
         )}
 
         {/* Empty State */}
         {!loading && !clusterMetrics && podMetrics.length === 0 && !error && (
-          <div style={{ padding: '48px 0', textAlign: 'center', color: '#404040', fontSize: 12 }}>
+          <div style={{ padding: '48px 0', textAlign: 'center', color: t.textMuted, fontSize: 12 }}>
             No metrics available. Install metrics-server.
           </div>
         )}

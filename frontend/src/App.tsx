@@ -16,9 +16,10 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 // Lazy load heavy components
 const Dashboard = lazy(() => import('./components/dashboard/Dashboard'));
 const ComponentShowcase = lazy(() => import('./pages/ComponentShowcase'));
-const NodesView = lazy(() => import('./components/kubernetes/NodesView'));
+const NodesViewLinear = lazy(() => import('./components/kubernetes/NodesViewLinear'));
 const ClusterMetrics = lazy(() => import('./components/kubernetes/ClusterMetrics'));
-const KubernetesResourcesView = lazy(() => import('./components/kubernetes/KubernetesResourcesView'));
+const KubernetesResourcesView = lazy(() => import('./components/kubernetes/KubernetesResourcesViewLinear'));
+const WorkloadsPageLinear = lazy(() => import('./components/kubernetes/WorkloadsPageLinear'));
 const KubectlTerminal = lazy(() => import('./components/kubernetes/KubectlTerminal'));
 const YAMLDeployEnhanced = lazy(() => import('./components/deploy/YAMLDeployEnhanced'));
 const HelmDeploy = lazy(() => import('./components/deploy/HelmDeploy'));
@@ -37,10 +38,10 @@ const ApiKeysPage = lazy(() => import('./components/admin/ApiKeysPage'));
 const ProfileSettings = lazy(() => import('./components/auth/ProfileSettings'));
 const IntegrationPage = lazy(() => import('./components/integrations/IntegrationPage'));
 const AboutPage = lazy(() => import('./components/about/AboutPage'));
-const ClusterOverview = lazy(() => import('./components/cluster/ClusterOverview'));
+const ClusterOverview = lazy(() => import('./components/cluster/ClusterOverviewLinear'));
 const NamespacesPage = lazy(() => import('./components/namespaces/NamespacesPage'));
 const AIOptimizationHub = lazy(() => import('./components/optimization/AIOptimizationHub'));
-const StoragePage = lazy(() => import('./components/storage/StoragePage'));
+const StoragePage = lazy(() => import('./components/kubernetes/StoragePage'));
 const ConfigurationPage = lazy(() => import('./components/kubernetes/ConfigurationPage'));
 const SettingsIntegrationsPage = lazy(() => import('./components/settings/IntegrationsPage'));
 const SettingsPage = lazy(() => import('./components/settings/SettingsPage'));
@@ -177,11 +178,12 @@ function AppContent() {
                       {/* UI Component Showcase (v2.0) */}
                       <Route path="/components" element={<ComponentShowcase />} />
 
-                      {/* KUBERNETES MODULE */}
+                      {/* KUBERNETES MODULE - All Linear Design */}
                       <Route path="/cluster-overview" element={<ClusterOverview />} />
-                      <Route path="/kubernetes/nodes" element={<NodesView />} />
+                      <Route path="/kubernetes/nodes" element={<NodesViewLinear />} />
                       <Route path="/namespaces" element={<NamespacesPage />} />
-                      <Route path="/kubernetes/workloads" element={<KubernetesResourcesView />} />
+                      <Route path="/kubernetes/workloads" element={<WorkloadsPageLinear />} />
+                      <Route path="/kubernetes/resources" element={<KubernetesResourcesView />} />
                       <Route path="/kubernetes/networking" element={<NetworkingDashboard />} />
                       <Route path="/kubernetes/storage" element={<StoragePage />} />
                       <Route path="/kubernetes/configuration" element={<ConfigurationPage />} />

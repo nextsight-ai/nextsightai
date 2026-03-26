@@ -9,6 +9,7 @@ import {
   XCircleIcon,
   ServerIcon,
 } from '@heroicons/react/24/outline';
+import K8sHeader from './K8sHeader';
 
 type TerminalMode = 'kubectl' | 'shell';
 
@@ -282,216 +283,282 @@ Note: Some dangerous commands are blocked for security.`;
   };
 
   const quickCommands = mode === 'kubectl' ? KUBECTL_QUICK_COMMANDS : SHELL_QUICK_COMMANDS;
+  const mono = { fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace" };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Terminal</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {mode === 'kubectl'
-              ? 'Execute kubectl commands against your cluster'
-              : 'Execute shell commands on the backend server'}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* Mode Toggle */}
-          <div className="bg-gray-100 dark:bg-slate-700 rounded-lg p-1 flex">
-            <button
-              onClick={() => toggleMode('kubectl')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                mode === 'kubectl'
-                  ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
-                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                <ServerIcon className="h-4 w-4" />
+    <div style={{ display: 'flex', flexDirection: 'column', margin: '-28px -32px', height: 'calc(100vh - 52px)', background: '#0a0a0a', color: '#ffffff', overflow: 'hidden' }}>
+      {/* K8s Header */}
+      <K8sHeader
+        title="Terminal"
+        subtitle={mode === 'kubectl' ? 'Execute kubectl commands against your cluster' : 'Execute shell commands on the backend server'}
+        rightContent={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {/* Mode Toggle */}
+            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: 6, padding: 2 }}>
+              <button
+                onClick={() => toggleMode('kubectl')}
+                style={{
+                  background: mode === 'kubectl' ? 'rgba(96,165,250,0.15)' : 'transparent',
+                  border: 'none',
+                  borderRadius: 4,
+                  padding: '6px 12px',
+                  color: mode === 'kubectl' ? '#60a5fa' : '#9ca3af',
+                  fontSize: 11,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  transition: 'all 0.2s',
+                  letterSpacing: 0.2,
+                }}
+              >
+                <ServerIcon style={{ width: 14, height: 14 }} />
                 Kubectl
-              </div>
-            </button>
-            <button
-              onClick={() => toggleMode('shell')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                mode === 'shell'
-                  ? 'bg-white dark:bg-slate-600 text-primary-600 dark:text-primary-400 shadow-sm'
-                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                <CommandLineIcon className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => toggleMode('shell')}
+                style={{
+                  background: mode === 'shell' ? 'rgba(96,165,250,0.15)' : 'transparent',
+                  border: 'none',
+                  borderRadius: 4,
+                  padding: '6px 12px',
+                  color: mode === 'shell' ? '#60a5fa' : '#9ca3af',
+                  fontSize: 11,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  transition: 'all 0.2s',
+                  letterSpacing: 0.2,
+                }}
+              >
+                <CommandLineIcon style={{ width: 14, height: 14 }} />
                 Shell
-              </div>
-            </button>
-          </div>
-          <button
-            onClick={handleClearTerminal}
-            className="inline-flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-          >
-            <TrashIcon className="h-4 w-4" />
-            Clear
-          </button>
-        </div>
-      </div>
-
-      {/* Quick Commands */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-gray-100 dark:border-slate-700 p-4">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-          Quick Commands ({mode === 'kubectl' ? 'Kubectl' : 'Shell'})
-        </h3>
-        <div className="flex flex-wrap gap-2">
-          {quickCommands.map((qc) => (
-            <button
-              key={qc.command}
-              onClick={() => runQuickCommand(qc.command)}
-              disabled={executing}
-              className="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {qc.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Terminal */}
-      <div className="bg-gray-900 rounded-xl shadow-lg overflow-hidden">
-        {/* Terminal Header */}
-        <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
-          <div className="flex items-center gap-2">
-            <CommandLineIcon className="h-4 w-4 text-gray-400" />
-            <span className="text-sm text-gray-300 font-mono">
-              {mode === 'kubectl' ? 'kubectl' : 'bash'}
-            </span>
-            {mode === 'shell' && (
-              <span className="text-xs text-gray-500 font-mono ml-2">
-                ({workingDirectory})
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`text-xs px-2 py-0.5 rounded ${
-              mode === 'kubectl'
-                ? 'bg-blue-500/20 text-blue-400'
-                : 'bg-green-500/20 text-green-400'
-            }`}>
-              {mode === 'kubectl' ? 'K8s Mode' : 'Shell Mode'}
-            </span>
-            {executing && (
-              <span className="text-xs text-yellow-400 flex items-center gap-1">
-                <div className="animate-spin h-3 w-3 border border-yellow-400 border-t-transparent rounded-full"></div>
-                Executing...
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Terminal Content */}
-        <div
-          ref={terminalRef}
-          className="h-[500px] overflow-y-auto p-4 font-mono text-sm"
-          onClick={() => {
-            // Only focus input if user is not selecting text
-            const selection = window.getSelection();
-            if (!selection || selection.toString().length === 0) {
-              inputRef.current?.focus();
-            }
-          }}
-        >
-          {history.map((entry, index) => (
-            <div key={index} className="mb-2">
-              {entry.type === 'input' && (
-                <div className="flex items-start gap-2">
-                  <span className="text-green-400 select-none">&gt;</span>
-                  <span className="text-white">{entry.content}</span>
-                </div>
-              )}
-              {entry.type === 'output' && (
-                <div className="pl-4">
-                  <pre className="text-gray-300 whitespace-pre-wrap break-all">{entry.content}</pre>
-                  {entry.executionTime !== undefined && (
-                    <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
-                      <ClockIcon className="h-3 w-3" />
-                      {entry.executionTime}s
-                      <CheckCircleIcon className="h-3 w-3 text-green-500 ml-2" />
-                    </div>
-                  )}
-                </div>
-              )}
-              {entry.type === 'error' && (
-                <div className="pl-4">
-                  <pre className="text-red-400 whitespace-pre-wrap break-all">{entry.content}</pre>
-                  {entry.executionTime !== undefined && (
-                    <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
-                      <ClockIcon className="h-3 w-3" />
-                      {entry.executionTime}s
-                      <XCircleIcon className="h-3 w-3 text-red-500 ml-2" />
-                    </div>
-                  )}
-                </div>
-              )}
-              {entry.type === 'info' && (
-                <div className="pl-4">
-                  <pre className="text-blue-400 whitespace-pre-wrap">{entry.content}</pre>
-                </div>
-              )}
+              </button>
             </div>
-          ))}
-
-          {/* Input Line */}
-          <div className="flex items-center gap-2">
-            <span className="text-green-400 select-none">&gt;</span>
-            {mode === 'kubectl' && <span className="text-gray-500">kubectl</span>}
-            {mode === 'shell' && <span className="text-gray-500">{workingDirectory}$</span>}
-            <input
-              ref={inputRef}
-              type="text"
-              value={command}
-              onChange={(e) => setCommand(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={executing}
-              className="flex-1 bg-transparent text-white outline-none font-mono"
-              placeholder={executing ? 'Executing...' : 'Enter command...'}
-              autoComplete="off"
-              spellCheck="false"
-            />
+            <button
+              onClick={handleClearTerminal}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#9ca3af',
+                cursor: 'pointer',
+                fontSize: 11,
+                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                letterSpacing: 0.2,
+                transition: 'color 0.2s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#e5e5e5')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = '#9ca3af')}
+            >
+              <TrashIcon style={{ width: 12, height: 12 }} />
+              Clear
+            </button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Help Section */}
-      <div className={`border rounded-xl p-4 ${
-        mode === 'kubectl'
-          ? 'bg-warning-50 dark:bg-warning-500/10 border-warning-200 dark:border-warning-500/30'
-          : 'bg-primary-50 dark:bg-primary-500/10 border-primary-200 dark:border-primary-500/30'
-      }`}>
-        <h3 className={`text-sm font-medium mb-2 ${
-          mode === 'kubectl' ? 'text-warning-800 dark:text-warning-300' : 'text-primary-800 dark:text-primary-300'
-        }`}>
-          Tips & Shortcuts
-        </h3>
-        <ul className={`text-sm space-y-1 ${
-          mode === 'kubectl' ? 'text-warning-700 dark:text-warning-400' : 'text-primary-700 dark:text-primary-400'
-        }`}>
-          <li>- Press <kbd className={`px-1.5 py-0.5 rounded text-xs font-mono ${
-            mode === 'kubectl' ? 'bg-warning-100 dark:bg-warning-500/20' : 'bg-primary-100 dark:bg-primary-500/20'
-          }`}>Enter</kbd> to execute command</li>
-          <li>- Press <kbd className={`px-1.5 py-0.5 rounded text-xs font-mono ${
-            mode === 'kubectl' ? 'bg-warning-100 dark:bg-warning-500/20' : 'bg-primary-100 dark:bg-primary-500/20'
-          }`}>Up/Down</kbd> arrows to navigate command history</li>
-          <li>- Press <kbd className={`px-1.5 py-0.5 rounded text-xs font-mono ${
-            mode === 'kubectl' ? 'bg-warning-100 dark:bg-warning-500/20' : 'bg-primary-100 dark:bg-primary-500/20'
-          }`}>Ctrl+L</kbd> to clear terminal</li>
-          <li>- Type <code className={`px-1.5 py-0.5 rounded text-xs font-mono ${
-            mode === 'kubectl' ? 'bg-warning-100 dark:bg-warning-500/20' : 'bg-primary-100 dark:bg-primary-500/20'
-          }`}>help</code> for available commands</li>
-          {mode === 'kubectl' ? (
-            <li>- Commands like delete --all, drain, etc. are blocked for safety</li>
-          ) : (
-            <li>- Dangerous commands like rm -rf /, sudo su, etc. are blocked for safety</li>
-          )}
-        </ul>
-      </div>
+      {/* Main Content */}
+      <main style={{ flex: 1, overflow: 'hidden', padding: '16px 32px', display: 'flex', flexDirection: 'column', minHeight: 0, gap: 12 }}>
+        {/* Quick Commands */}
+        <section style={{ flexShrink: 0 }}>
+          <h3 style={{ fontSize: 10, fontWeight: 500, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+            Quick Commands ({mode === 'kubectl' ? 'Kubectl' : 'Shell'})
+          </h3>
+          <div style={{ display: 'flex', overflowX: 'auto', overflowY: 'hidden', gap: 6, paddingBottom: 4 }}>
+            {quickCommands.map((qc) => (
+              <button
+                key={qc.command}
+                onClick={() => runQuickCommand(qc.command)}
+                disabled={executing}
+                style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  border: 'none',
+                  borderRadius: 4,
+                  padding: '5px 10px',
+                  color: executing ? '#737373' : '#ffffff',
+                  fontSize: 10,
+                  fontWeight: 500,
+                  cursor: executing ? 'not-allowed' : 'pointer',
+                  transition: 'background 0.2s',
+                  letterSpacing: 0.2,
+                  opacity: executing ? 0.5 : 1,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+                onMouseEnter={(e) => !executing && (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+                onMouseLeave={(e) => !executing && (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+              >
+                {qc.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Terminal */}
+        <section style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#0f0f0f', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden', minHeight: 0 }}>
+            {/* Terminal Header */}
+            <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <CommandLineIcon style={{ width: 14, height: 14, color: '#9ca3af' }} />
+                <span style={{ ...mono, fontSize: 11, color: '#e5e5e5', letterSpacing: 0.2 }}>
+                  {mode === 'kubectl' ? 'kubectl' : 'bash'}
+                </span>
+                {mode === 'shell' && (
+                  <span style={{ ...mono, fontSize: 10, color: '#737373', letterSpacing: 0.2 }}>
+                    ({workingDirectory})
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{
+                  fontSize: 10,
+                  padding: '2px 8px',
+                  borderRadius: 4,
+                  background: mode === 'kubectl' ? 'rgba(96,165,250,0.15)' : 'rgba(34,197,94,0.15)',
+                  color: mode === 'kubectl' ? '#60a5fa' : '#22c55e',
+                  letterSpacing: 0.2,
+                }}>
+                  {mode === 'kubectl' ? 'K8s Mode' : 'Shell Mode'}
+                </span>
+                {executing && (
+                  <span style={{ fontSize: 10, color: '#eab308', display: 'flex', alignItems: 'center', gap: 4, letterSpacing: 0.2 }}>
+                    <div style={{ width: 10, height: 10, border: '2px solid #eab308', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                    Executing...
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Terminal Content */}
+            <div
+              ref={terminalRef}
+              style={{ flex: 1, overflow: 'auto', padding: 16, ...mono, fontSize: 11, minHeight: 0 }}
+              onClick={() => {
+                const selection = window.getSelection();
+                if (!selection || selection.toString().length === 0) {
+                  inputRef.current?.focus();
+                }
+              }}
+            >
+              {history.map((entry, index) => (
+                <div key={index} style={{ marginBottom: 8 }}>
+                  {entry.type === 'input' && (
+                    <div style={{ display: 'flex', alignItems: 'start', gap: 8 }}>
+                      <span style={{ color: '#22c55e', userSelect: 'none' }}>&gt;</span>
+                      <span style={{ color: '#ffffff', letterSpacing: 0.2 }}>{entry.content}</span>
+                    </div>
+                  )}
+                  {entry.type === 'output' && (
+                    <div style={{ paddingLeft: 20 }}>
+                      <pre style={{ color: '#e5e5e5', whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0, letterSpacing: 0.2 }}>{entry.content}</pre>
+                      {entry.executionTime !== undefined && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, fontSize: 10, color: '#737373' }}>
+                          <ClockIcon style={{ width: 12, height: 12 }} />
+                          {entry.executionTime}s
+                          <CheckCircleIcon style={{ width: 12, height: 12, color: '#22c55e', marginLeft: 8 }} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {entry.type === 'error' && (
+                    <div style={{ paddingLeft: 20 }}>
+                      <pre style={{ color: '#ef4444', whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0, letterSpacing: 0.2 }}>{entry.content}</pre>
+                      {entry.executionTime !== undefined && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, fontSize: 10, color: '#737373' }}>
+                          <ClockIcon style={{ width: 12, height: 12 }} />
+                          {entry.executionTime}s
+                          <XCircleIcon style={{ width: 12, height: 12, color: '#ef4444', marginLeft: 8 }} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {entry.type === 'info' && (
+                    <div style={{ paddingLeft: 20 }}>
+                      <pre style={{ color: '#60a5fa', whiteSpace: 'pre-wrap', margin: 0, letterSpacing: 0.2 }}>{entry.content}</pre>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Input Line */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: '#22c55e', userSelect: 'none' }}>&gt;</span>
+                {mode === 'kubectl' && <span style={{ color: '#737373', letterSpacing: 0.2 }}>kubectl</span>}
+                {mode === 'shell' && <span style={{ color: '#737373', letterSpacing: 0.2 }}>{workingDirectory}$</span>}
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={command}
+                  onChange={(e) => setCommand(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={executing}
+                  style={{
+                    flex: 1,
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    color: '#ffffff',
+                    ...mono,
+                    fontSize: 11,
+                    letterSpacing: 0.2,
+                  }}
+                  placeholder={executing ? 'Executing...' : 'Enter command...'}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Help Section */}
+        <section style={{
+          flexShrink: 0,
+          padding: 8,
+          borderRadius: 4,
+          background: mode === 'kubectl' ? 'rgba(234,179,8,0.05)' : 'rgba(96,165,250,0.05)',
+          border: `1px solid ${mode === 'kubectl' ? 'rgba(234,179,8,0.2)' : 'rgba(96,165,250,0.2)'}`,
+        }}>
+          <div style={{ fontSize: 9, color: '#9ca3af', letterSpacing: 0.2 }}>
+            <kbd style={{
+              padding: '1px 3px',
+              borderRadius: 2,
+              fontSize: 8,
+              ...mono,
+              background: mode === 'kubectl' ? 'rgba(234,179,8,0.15)' : 'rgba(96,165,250,0.15)',
+              color: mode === 'kubectl' ? '#eab308' : '#60a5fa',
+            }}>Enter</kbd> execute • <kbd style={{
+              padding: '1px 3px',
+              borderRadius: 2,
+              fontSize: 8,
+              ...mono,
+              background: mode === 'kubectl' ? 'rgba(234,179,8,0.15)' : 'rgba(96,165,250,0.15)',
+              color: mode === 'kubectl' ? '#eab308' : '#60a5fa',
+            }}>↑↓</kbd> history • <kbd style={{
+              padding: '1px 3px',
+              borderRadius: 2,
+              fontSize: 8,
+              ...mono,
+              background: mode === 'kubectl' ? 'rgba(234,179,8,0.15)' : 'rgba(96,165,250,0.15)',
+              color: mode === 'kubectl' ? '#eab308' : '#60a5fa',
+            }}>Ctrl+L</kbd> clear • <code style={{
+              padding: '1px 3px',
+              borderRadius: 2,
+              fontSize: 8,
+              ...mono,
+              background: mode === 'kubectl' ? 'rgba(234,179,8,0.15)' : 'rgba(96,165,250,0.15)',
+              color: mode === 'kubectl' ? '#eab308' : '#60a5fa',
+            }}>help</code> for more
+          </div>
+        </section>
+      </main>
     </div>
   );
 }
