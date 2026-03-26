@@ -44,16 +44,16 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* Light Mode — Techerly-inspired clean palette */
-  --bg-primary: #F8F9FA;
+  /* Light Mode — high contrast clean palette */
+  --bg-primary: #F1F3F5;
   --bg-secondary: #FFFFFF;
-  --bg-sidebar: #FFFFFF;
+  --bg-sidebar: #F9FAFB;
   --bg-card: #FFFFFF;
-  --bg-hover: #F3F4F6;
-  --text-primary: #111827;
-  --text-secondary: #6B7280;
-  --text-muted: #9CA3AF;
-  --border-color: #E5E7EB;
+  --bg-hover: #EAECF0;
+  --text-primary: #0F172A;
+  --text-secondary: #374151;
+  --text-muted: #6B7280;
+  --border-color: #D1D5DB;
   --nav-active-bg: #F1F5F9;
   --accent-primary: #3B82F6;
   --accent-success: #16A34A;
@@ -68,16 +68,16 @@
 }
 
 .dark {
-  /* Dark Mode — clean dark with subtle depth */
-  --bg-primary: #0a0a0a;
-  --bg-secondary: #111111;
-  --bg-sidebar: #111111;
-  --bg-card: #111111;
-  --bg-hover: rgba(255,255,255,0.04);
+  /* Dark Mode — deep dark with card depth */
+  --bg-primary: #080808;
+  --bg-secondary: #141414;
+  --bg-sidebar: #0D0D0D;
+  --bg-card: #141414;
+  --bg-hover: rgba(255,255,255,0.05);
   --text-primary: #F9FAFB;
   --text-secondary: #9CA3AF;
   --text-muted: #6B7280;
-  --border-color: rgba(255,255,255,0.06);
+  --border-color: rgba(255,255,255,0.10);
   --nav-active-bg: rgba(255,255,255,0.08);
   --accent-primary: #60A5FA;
   --accent-success: #4ADE80;
@@ -264,7 +264,7 @@ body {
 
 /* Focus Ring */
 *:focus-visible {
-  @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-900;
+  outline: none;
 }
 
 /* Selection */
